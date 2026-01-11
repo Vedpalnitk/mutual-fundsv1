@@ -16,48 +16,82 @@ interface HoldingsTableProps {
   rows: FundRow[];
 }
 
+const getRiskColor = (risk: string) => {
+  switch (risk.toLowerCase()) {
+    case 'low':
+      return 'badge-green';
+    case 'moderate':
+      return 'badge-blue';
+    case 'high':
+      return 'badge-red';
+    default:
+      return 'badge';
+  }
+};
+
 const HoldingsTable = ({ rows }: HoldingsTableProps) => {
   return (
-    <div className="card p-6 overflow-x-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-sparrow-navy">Recommended funds</h3>
-        <div className="flex items-center gap-2 text-xs text-sparrow-navy/70">
-          <span className="badge bg-sparrow-grayLight text-sparrow-navy/80">Direct plans</span>
-          <span className="badge bg-sparrow-grayLight text-sparrow-navy/80">Goal aligned</span>
+    <div className="glass-card p-6 overflow-hidden reveal reveal-delay-2">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="title-3 text-primary">Recommended Funds</h3>
+        <div className="flex items-center gap-2">
+          <span className="chip-blue">Direct Plans</span>
+          <span className="chip">Goal Aligned</span>
         </div>
       </div>
-      <table className="min-w-full text-sm">
-        <thead className="text-left text-sparrow-navy/60">
-          <tr>
-            <th className="py-2">Fund</th>
-            <th className="py-2">Category</th>
-            <th className="py-2">3Y</th>
-            <th className="py-2">5Y</th>
-            <th className="py-2">Allocation</th>
-            <th className="py-2">Min SIP</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-t border-sparrow-gray/50">
-              <td className="py-3">
-                <div>
-                  <p className="font-semibold text-sparrow-navy">{row.name}</p>
-                  <p className="text-xs text-sparrow-navy/60">Risk: {row.risk}</p>
-                </div>
-              </td>
-              <td className="py-3">
-                <p className="text-sm text-sparrow-navy">{row.category}</p>
-                <p className="text-xs text-sparrow-navy/60">{row.subCategory}</p>
-              </td>
-              <td className="py-3 text-sparrow-success font-semibold">{formatPercent(row.returns3y)}</td>
-              <td className="py-3 text-sparrow-success font-semibold">{formatPercent(row.returns5y)}</td>
-              <td className="py-3 font-semibold text-sparrow-navy">{formatPercent(row.allocation)}</td>
-              <td className="py-3">{formatCurrency(row.minSip)}</td>
+
+      {/* Table */}
+      <div className="overflow-x-auto -mx-6 px-6">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="border-b border-separator/30">
+              <th className="py-3 text-left text-xs font-semibold text-secondary uppercase tracking-wide">Fund</th>
+              <th className="py-3 text-left text-xs font-semibold text-secondary uppercase tracking-wide">Category</th>
+              <th className="py-3 text-right text-xs font-semibold text-secondary uppercase tracking-wide">3Y Return</th>
+              <th className="py-3 text-right text-xs font-semibold text-secondary uppercase tracking-wide">5Y Return</th>
+              <th className="py-3 text-right text-xs font-semibold text-secondary uppercase tracking-wide">Allocation</th>
+              <th className="py-3 text-right text-xs font-semibold text-secondary uppercase tracking-wide">Min SIP</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-separator/20">
+            {rows.map((row) => (
+              <tr key={row.id} className="group hover:bg-blue-light/30 transition-colors">
+                <td className="py-4">
+                  <div>
+                    <p className="font-semibold text-primary group-hover:text-blue transition-colors">{row.name}</p>
+                    <span className={`${getRiskColor(row.risk)} mt-1 inline-block`}>{row.risk} Risk</span>
+                  </div>
+                </td>
+                <td className="py-4">
+                  <p className="text-sm text-primary">{row.category}</p>
+                  <p className="text-xs text-secondary">{row.subCategory}</p>
+                </td>
+                <td className="py-4 text-right">
+                  <span className="font-semibold text-green">{formatPercent(row.returns3y)}</span>
+                </td>
+                <td className="py-4 text-right">
+                  <span className="font-semibold text-green">{formatPercent(row.returns5y)}</span>
+                </td>
+                <td className="py-4 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <div className="w-16 h-1.5 rounded-full bg-fill-tertiary overflow-hidden">
+                      <div
+                        className="h-full rounded-full gradient-blue"
+                        style={{ width: `${Math.min(row.allocation * 3, 100)}%` }}
+                      />
+                    </div>
+                    <span className="font-bold text-primary w-10">{row.allocation}%</span>
+                  </div>
+                </td>
+                <td className="py-4 text-right text-secondary">
+                  {formatCurrency(row.minSip)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

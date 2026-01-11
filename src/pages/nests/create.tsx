@@ -13,17 +13,18 @@ const CreateNest = () => {
   }, [router.query.mode]);
 
   return (
-    <div className="page-shell">
+    <div className="page-shell min-h-screen">
       <Navbar mode={mode} />
-      <main className="max-w-7xl mx-auto px-6 py-10 space-y-8">
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         <PageHeader
-          title={mode === 'admin' ? 'Investor profile studio' : 'Investor profile'}
+          title={mode === 'admin' ? 'Investor Profile Studio' : 'Investor Profile'}
           subtitle={
             mode === 'admin'
               ? 'Audit investor profiles, persona matches, and profile completeness.'
               : 'Build a detailed investor profile to unlock AI-powered personas and portfolio mixes.'
           }
-          actions={<button className="btn-primary">{mode === 'admin' ? 'Export profiles' : 'Save profile'}</button>}
+          badge={mode === 'admin' ? 'Admin' : undefined}
+          actions={<button className="btn-primary">{mode === 'admin' ? 'Export Profiles' : 'Save Profile'}</button>}
         />
         <CreateNestPage mode={mode} />
       </main>
