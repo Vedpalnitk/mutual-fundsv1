@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  ml-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ml-service
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - HOST=0.0.0.0
+      - PORT=8000
+      - REDIS_URL=redis://redis:6379
+      - MINIO_URL=minio:9000
+    volumes:
+      - ./app:/app/app
+      - ./models_store:/app/models_store
+    depends_on:
+      - redis
+    networks:
+      - ml-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: ml-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ml-network
+    restart: unless-stopped
+
+networks:
+  ml-network:
+    driver: bridge
+
+volumes:
+  redis-data:

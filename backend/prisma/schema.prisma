@@ -1,0 +1,430 @@
+// Prisma schema for Mutual Funds Investment Advisory Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// PERSONA MANAGEMENT
+// =============================================
+
+model Persona {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  slug            String   @unique
+  description     String?
+  riskBand        String   // 'Capital Preservation', 'Balanced Growth', 'Accelerated Growth'
+  iconName        String?
+  colorPrimary    String?
+  colorSecondary  String?
+  displayOrder    Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  rules           PersonaRule[]
+  insights        PersonaInsight[]
+  mlMappings      PersonaMlMapping[]
+  allocations     AllocationStrategy[]
+  userProfiles    UserProfile[]
+
+  @@map("personas")
+}
+
+model PersonaRule {
+  id        String   @id @default(uuid())
+  personaId String
+  ruleType  String   // 'horizon', 'liquidity', 'risk_tolerance', 'volatility'
+  operator  String   // 'eq', 'lte', 'gte', 'lt', 'gt', 'in'
+  value     Json     // Value or array of values
+  priority  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  persona Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+
+  @@map("persona_rules")
+}
+
+model PersonaInsight {
+  id           String   @id @default(uuid())
+  personaId    String
+  insightText  String
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  persona Persona @relation(fields: [personaId], references: [id], onDelete: Cascade)
+
+  @@map("persona_insights")
+}
+
+model PersonaMlMapping {
+  id           String   @id @default(uuid())
+  personaId    String
+  modelId      String?
+  modelPurpose String   // 'classification', 'optimization', 'recommendation'
+  weight       Float    @default(1.0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  persona Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  model   MlModel? @relation(fields: [modelId], references: [id], onDelete: SetNull)
+
+  @@map("persona_ml_mappings")
+}
+
+// =============================================
+// ALLOCATION STRATEGIES
+// =============================================
+
+model AllocationStrategy {
+  id             String    @id @default(uuid())
+  personaId      String
+  name           String
+  description    String?
+  version        Int       @default(1)
+  isActive       Boolean   @default(true)
+  effectiveFrom  DateTime?
+  effectiveUntil DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  persona     Persona                 @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  components  AllocationComponent[]
+  constraints RiskConstraint[]
+
+  @@map("allocation_strategies")
+}
+
+model AllocationComponent {
+  id                 String   @id @default(uuid())
+  strategyId         String
+  label              String   // 'Equity funds', 'Debt funds', etc.
+  allocationPercent  Float
+  note               String?
+  fundCategoryFilter Json?    // Filter criteria for funds
+  riskLevel          String?  // 'Low', 'Moderate', 'High', 'Very High'
+  displayOrder       Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  strategy AllocationStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@map("allocation_components")
+}
+
+model RiskConstraint {
+  id              String   @id @default(uuid())
+  strategyId      String
+  constraintType  String   // 'max_equity', 'min_debt', 'max_single_fund', etc.
+  constraintValue Float
+  description     String?
+  createdAt       DateTime @default(now())
+
+  strategy AllocationStrategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+
+  @@map("risk_constraints")
+}
+
+// =============================================
+// ML MODEL MANAGEMENT
+// =============================================
+
+model MlModel {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  modelType   String   // 'persona_classifier', 'portfolio_optimizer', 'fund_recommender', 'risk_assessor'
+  description String?
+  framework   String?  // 'scikit-learn', 'xgboost', 'pytorch', etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  versions       ModelVersion[]
+  personaMappings PersonaMlMapping[]
+  abTests        AbTest[]
+  inferenceLogs  MlInferenceLog[]
+
+  @@map("ml_models")
+}
+
+model ModelVersion {
+  id            String    @id @default(uuid())
+  modelId       String
+  version       String    // Semantic versioning: '1.0.0'
+  storagePath   String    // S3/MinIO path
+  fileSizeBytes BigInt?
+  metadata      Json?     // Model hyperparameters, training info
+  metrics       Json?     // Accuracy, precision, recall, etc.
+  status        String    @default("staged") // 'staged', 'active', 'deprecated', 'archived'
+  isProduction  Boolean   @default(false)
+  trainedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  model              MlModel        @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  controlAbTests     AbTest[]       @relation("ControlVersion")
+  treatmentAbTests   AbTest[]       @relation("TreatmentVersion")
+  abTestResults      AbTestResult[]
+  inferenceLogs      MlInferenceLog[]
+
+  @@unique([modelId, version])
+  @@map("model_versions")
+}
+
+model AbTest {
+  id                  String    @id @default(uuid())
+  name                String
+  description         String?
+  modelId             String
+  controlVersionId    String
+  treatmentVersionId  String
+  trafficSplit        Float     @default(0.5) // % to treatment
+  status              String    @default("draft") // 'draft', 'running', 'completed', 'cancelled'
+  startDate           DateTime?
+  endDate             DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  model            MlModel        @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  controlVersion   ModelVersion   @relation("ControlVersion", fields: [controlVersionId], references: [id])
+  treatmentVersion ModelVersion   @relation("TreatmentVersion", fields: [treatmentVersionId], references: [id])
+  results          AbTestResult[]
+
+  @@map("ab_tests")
+}
+
+model AbTestResult {
+  id              String   @id @default(uuid())
+  abTestId        String
+  userId          String?
+  versionId       String
+  requestPayload  Json?
+  responsePayload Json?
+  latencyMs       Int?
+  createdAt       DateTime @default(now())
+
+  abTest  AbTest       @relation(fields: [abTestId], references: [id], onDelete: Cascade)
+  version ModelVersion @relation(fields: [versionId], references: [id])
+
+  @@map("ab_test_results")
+}
+
+// =============================================
+// FUND DATA
+// =============================================
+
+model FundCategory {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  parentCategory String?
+  riskLevel      String?
+  description    String?
+  createdAt      DateTime @default(now())
+
+  funds Fund[]
+
+  @@map("fund_categories")
+}
+
+model Fund {
+  id                   String    @id @default(uuid())
+  schemeCode           Int       @unique
+  schemeName           String
+  fundHouse            String?
+  categoryId           String?
+  schemeType           String?
+  isinGrowth           String?
+  isinDivReinvestment  String?
+  isActive             Boolean   @default(true)
+  lastSyncedAt         DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  category    FundCategory?    @relation(fields: [categoryId], references: [id])
+  navHistory  FundNavHistory[]
+  metrics     FundMetrics?
+  watchlists  UserWatchlist[]
+
+  @@map("funds")
+}
+
+model FundNavHistory {
+  id        String   @id @default(uuid())
+  fundId    String
+  navDate   DateTime @db.Date
+  navValue  Float
+  createdAt DateTime @default(now())
+
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@unique([fundId, navDate])
+  @@map("fund_nav_history")
+}
+
+model FundMetrics {
+  id           String    @id @default(uuid())
+  fundId       String    @unique
+  return1d     Float?
+  return1w     Float?
+  return1m     Float?
+  return3m     Float?
+  return6m     Float?
+  return1y     Float?
+  return3y     Float?
+  return5y     Float?
+  volatility1y Float?
+  sharpeRatio  Float?
+  sortinoRatio Float?
+  maxDrawdown  Float?
+  computedAt   DateTime  @default(now())
+
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@map("fund_metrics")
+}
+
+// =============================================
+// USER MANAGEMENT
+// =============================================
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  phone        String?
+  passwordHash String
+  isActive     Boolean   @default(true)
+  isVerified   Boolean   @default(false)
+  role         String    @default("user") // 'user', 'admin', 'super_admin'
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  profile            UserProfile?
+  portfolioSnapshots UserPortfolioSnapshot[]
+  watchlist          UserWatchlist[]
+  apiLogs            ApiLog[]
+  inferenceLogs      MlInferenceLog[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id               String    @id @default(uuid())
+  userId           String    @unique
+  name             String
+  age              Int?
+  city             String?
+  goal             String?
+  targetAmount     Float?
+  targetYear       Int?
+  monthlySip       Float?
+  lumpSum          Float?
+  liquidity        String?   // 'Low', 'Medium', 'High'
+  riskTolerance    String?   // 'Conservative', 'Moderate', 'Aggressive'
+  knowledge        String?   // 'Beginner', 'Intermediate', 'Advanced'
+  volatility       String?   // 'Low', 'Medium', 'High'
+  horizonYears     Int?
+
+  // Primary persona (highest weight in distribution)
+  assignedPersonaId String?
+  personaAssignedAt DateTime?
+  personaMethod    String?   // 'rules', 'ml', 'hybrid'
+
+  // Blended persona approach - stores full distribution
+  personaDistribution Json?   // {"capital-guardian": 0.3, "balanced-voyager": 0.45, "growth-seeker": 0.25}
+  blendedAllocation   Json?   // {"equity": 0.385, "debt": 0.415, "hybrid": 0.15, "gold": 0.05}
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  persona Persona? @relation(fields: [assignedPersonaId], references: [id])
+
+  @@map("user_profiles")
+}
+
+model UserPortfolioSnapshot {
+  id                 String   @id @default(uuid())
+  userId             String
+  snapshotDate       DateTime @db.Date
+  totalValue         Float?
+  allocationSnapshot Json?
+  fundsSnapshot      Json?
+  createdAt          DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_portfolio_snapshots")
+}
+
+model UserWatchlist {
+  id      String   @id @default(uuid())
+  userId  String
+  fundId  String
+  addedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fundId])
+  @@map("user_watchlists")
+}
+
+// =============================================
+// ANALYTICS & AUDIT
+// =============================================
+
+model ApiLog {
+  id              String   @id @default(uuid())
+  userId          String?
+  endpoint        String?
+  method          String?
+  requestPayload  Json?
+  responseStatus  Int?
+  latencyMs       Int?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@map("api_logs")
+}
+
+model PersonaAnalytics {
+  id              String   @id @default(uuid())
+  date            DateTime @db.Date
+  personaId       String?
+  userCount       Int      @default(0)
+  newUsers        Int      @default(0)
+  avgSipAmount    Float?
+  avgTargetAmount Float?
+  createdAt       DateTime @default(now())
+
+  @@unique([date, personaId])
+  @@map("persona_analytics")
+}
+
+model MlInferenceLog {
+  id            String   @id @default(uuid())
+  modelId       String?
+  versionId     String?
+  userId        String?
+  inputFeatures Json?
+  prediction    Json?
+  confidence    Float?
+  latencyMs     Int?
+  createdAt     DateTime @default(now())
+
+  model   MlModel?      @relation(fields: [modelId], references: [id])
+  version ModelVersion? @relation(fields: [versionId], references: [id])
+  user    User?         @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@map("ml_inference_logs")
+}

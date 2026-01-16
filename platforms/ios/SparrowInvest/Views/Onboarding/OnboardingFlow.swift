@@ -1,0 +1,518 @@
+import SwiftUI
+
+struct OnboardingFlow: View {
+    @EnvironmentObject var authManager: AuthManager
+    @State private var currentStep: OnboardingStep = .riskProfile
+
+    enum OnboardingStep {
+        case riskProfile
+        case personaResult
+        case firstGoal
+    }
+
+    var body: some View {
+        NavigationStack {
+            switch currentStep {
+            case .riskProfile:
+                RiskAssessmentView(onComplete: { currentStep = .personaResult })
+            case .personaResult:
+                PersonaResultView(onContinue: { currentStep = .firstGoal })
+            case .firstGoal:
+                FirstGoalView(onComplete: { authManager.completeOnboarding() })
+            }
+        }
+    }
+}
+
+// MARK: - Risk Assessment
+struct RiskAssessmentView: View {
+    let onComplete: () -> Void
+    @State private var currentQuestion = 0
+    @State private var answers: [Int] = []
+
+    let questions: [RiskQuestion] = [
+        RiskQuestion(
+            question: "How would you describe your investment experience?",
+            options: [
+                "I'm new to investing",
+                "I've invested in FDs and savings",
+                "I have some mutual fund experience",
+                "I'm an experienced investor"
+            ]
+        ),
+        RiskQuestion(
+            question: "What is your primary investment goal?",
+            options: [
+                "Preserve my money safely",
+                "Steady growth with low risk",
+                "Balance between growth and safety",
+                "Maximum growth, I can handle volatility"
+            ]
+        ),
+        RiskQuestion(
+            question: "How long can you keep your money invested?",
+            options: [
+                "Less than 1 year",
+                "1-3 years",
+                "3-5 years",
+                "More than 5 years"
+            ]
+        ),
+        RiskQuestion(
+            question: "If your investment drops 20% in one month, what would you do?",
+            options: [
+                "Sell everything immediately",
+                "Sell some to reduce risk",
+                "Hold and wait for recovery",
+                "Invest more - great opportunity!"
+            ]
+        ),
+        RiskQuestion(
+            question: "What portion of your monthly income can you invest?",
+            options: [
+                "Less than 10%",
+                "10-20%",
+                "20-30%",
+                "More than 30%"
+            ]
+        )
+    ]
+
+    var body: some View {
+        VStack(spacing: 24) {
+            // Progress
+            HStack {
+                Text("Risk Assessment")
+                    .font(.headline)
+                    .foregroundColor(AppTheme.textPrimary)
+                Spacer()
+                Text("Step \(currentQuestion + 1) of \(questions.count)")
+                    .font(.caption)
+                    .foregroundColor(AppTheme.textSecondary)
+            }
+            .padding(.horizontal)
+
+            // Progress Bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(AppTheme.progressBackground)
+                        .frame(height: 4)
+
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(AppTheme.primaryGradient)
+                        .frame(width: geometry.size.width * CGFloat(currentQuestion + 1) / CGFloat(questions.count), height: 4)
+                }
+            }
+            .frame(height: 4)
+            .padding(.horizontal)
+
+            Spacer()
+
+            // Question
+            VStack(spacing: 32) {
+                Text(questions[currentQuestion].question)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundColor(AppTheme.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                // Options
+                VStack(spacing: 12) {
+                    ForEach(0..<questions[currentQuestion].options.count, id: \.self) { index in
+                        OptionButton(
+                            text: questions[currentQuestion].options[index],
+                            isSelected: answers.count > currentQuestion && answers[currentQuestion] == index
+                        ) {
+                            selectOption(index)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+
+            Spacer()
+
+            // Navigation
+            HStack {
+                if currentQuestion > 0 {
+                    Button(action: previousQuestion) {
+                        HStack {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+
+                Spacer()
+
+                if currentQuestion < questions.count - 1 {
+                    Button(action: nextQuestion) {
+                        HStack {
+                            Text("Next")
+                            Image(systemName: "chevron.right")
+                        }
+                        .fontWeight(.semibold)
+                        .foregroundColor(answers.count > currentQuestion ? AppTheme.primary : AppTheme.textTertiary)
+                    }
+                    .disabled(answers.count <= currentQuestion)
+                } else {
+                    Button(action: completeAssessment) {
+                        Text("Complete")
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(answers.count > currentQuestion ? AppTheme.primaryGradient : LinearGradient(colors: [AppTheme.textTertiary], startPoint: .leading, endPoint: .trailing))
+                            .foregroundColor(.white)
+                            .cornerRadius(24)
+                    }
+                    .disabled(answers.count <= currentQuestion)
+                }
+            }
+            .padding()
+        }
+        .background(AppTheme.background)
+    }
+
+    private func selectOption(_ index: Int) {
+        if answers.count > currentQuestion {
+            answers[currentQuestion] = index
+        } else {
+            answers.append(index)
+        }
+    }
+
+    private func nextQuestion() {
+        if currentQuestion < questions.count - 1 {
+            withAnimation {
+                currentQuestion += 1
+            }
+        }
+    }
+
+    private func previousQuestion() {
+        if currentQuestion > 0 {
+            withAnimation {
+                currentQuestion -= 1
+            }
+        }
+    }
+
+    private func completeAssessment() {
+        onComplete()
+    }
+}
+
+struct RiskQuestion {
+    let question: String
+    let options: [String]
+}
+
+struct OptionButton: View {
+    let text: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(text)
+                    .font(.body)
+                    .foregroundColor(isSelected ? .white : AppTheme.textPrimary)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.white)
+                }
+            }
+            .padding()
+            .background(
+                isSelected
+                    ? AnyShapeStyle(AppTheme.primaryGradient)
+                    : AnyShapeStyle(AppTheme.cardBackground)
+            )
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.clear : AppTheme.cardBorder, lineWidth: 1)
+            )
+        }
+    }
+}
+
+// MARK: - Persona Result
+struct PersonaResultView: View {
+    @EnvironmentObject var authManager: AuthManager
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(spacing: 32) {
+            Spacer()
+
+            // Persona Card
+            VStack(spacing: 20) {
+                Image(systemName: "chart.pie.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(AppTheme.primary)
+
+                Text("Moderate Investor")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(AppTheme.textPrimary)
+
+                Text("You balance risk and reward, seeking steady growth while protecting your principal.")
+                    .font(.body)
+                    .foregroundColor(AppTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+
+                // Recommended Allocation
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("RECOMMENDED ALLOCATION")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(AppTheme.primary)
+                        .tracking(1)
+
+                    AllocationBar(equity: 50, debt: 40, other: 10)
+
+                    HStack {
+                        AllocationLegend(color: AppTheme.primary, label: "Equity 50%")
+                        AllocationLegend(color: AppTheme.success, label: "Debt 40%")
+                        AllocationLegend(color: AppTheme.warning, label: "Other 10%")
+                    }
+                }
+                .padding()
+                .background(AppTheme.blueGlassGradient)
+                .cornerRadius(16)
+            }
+            .padding()
+            .background(AppTheme.cardBackground)
+            .cornerRadius(24)
+            .shadow(color: AppTheme.shadowColor, radius: 16, x: 0, y: 8)
+            .padding(.horizontal)
+
+            Spacer()
+
+            Button(action: onContinue) {
+                Text("Continue")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(AppTheme.primaryGradient)
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 40)
+        }
+        .background(AppTheme.background)
+    }
+}
+
+struct AllocationBar: View {
+    let equity: Double
+    let debt: Double
+    let other: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            HStack(spacing: 2) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(AppTheme.primary)
+                    .frame(width: geometry.size.width * equity / 100)
+
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(AppTheme.success)
+                    .frame(width: geometry.size.width * debt / 100)
+
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(AppTheme.warning)
+                    .frame(width: geometry.size.width * other / 100)
+            }
+        }
+        .frame(height: 8)
+    }
+}
+
+struct AllocationLegend: View {
+    let color: Color
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(label)
+                .font(.caption)
+                .foregroundColor(AppTheme.textSecondary)
+        }
+    }
+}
+
+// MARK: - First Goal
+struct FirstGoalView: View {
+    let onComplete: () -> Void
+    @State private var selectedCategory: GoalCategory?
+    @State private var goalName = ""
+    @State private var targetAmount = ""
+    @State private var targetYears = 3
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                VStack(spacing: 8) {
+                    Text("Create Your First Goal")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(AppTheme.textPrimary)
+
+                    Text("What are you saving for?")
+                        .font(.subheadline)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                .padding(.top, 20)
+
+                // Goal Templates
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(GoalCategory.allCases.filter { $0 != .custom }, id: \.self) { category in
+                        GoalTemplateCard(
+                            category: category,
+                            isSelected: selectedCategory == category
+                        ) {
+                            selectedCategory = category
+                            goalName = category.rawValue
+                            targetAmount = String(Int(category.defaultTarget))
+                            targetYears = category.defaultYears
+                        }
+                    }
+                }
+                .padding(.horizontal)
+
+                // Goal Details
+                if selectedCategory != nil {
+                    VStack(spacing: 16) {
+                        FormField(label: "GOAL NAME", text: $goalName)
+                        FormField(label: "TARGET AMOUNT (₹)", text: $targetAmount, keyboardType: .numberPad)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("TIMELINE")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(AppTheme.primary)
+                                .tracking(1)
+
+                            HStack {
+                                Text("\(targetYears) years")
+                                    .fontWeight(.medium)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                Spacer()
+                                Stepper("", value: $targetYears, in: 1...30)
+                            }
+                            .padding()
+                            .background(AppTheme.inputBackground)
+                            .cornerRadius(12)
+                        }
+
+                        // Estimated SIP
+                        if let amount = Double(targetAmount) {
+                            let monthlySIP = calculateSIP(target: amount, years: targetYears)
+                            VStack(spacing: 8) {
+                                Text("RECOMMENDED SIP")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(AppTheme.primary)
+                                    .tracking(1)
+
+                                Text(monthlySIP.currencyFormatted + "/month")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(AppTheme.primary)
+
+                                Text("Based on 12% expected returns")
+                                    .font(.caption)
+                                    .foregroundColor(AppTheme.textSecondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(AppTheme.blueGlassGradient)
+                            .cornerRadius(16)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+
+                Spacer(minLength: 100)
+            }
+        }
+        .background(AppTheme.background)
+        .safeAreaInset(edge: .bottom) {
+            VStack {
+                Button(action: onComplete) {
+                    Text("Create Goal")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(selectedCategory != nil ? AppTheme.primaryGradient : LinearGradient(colors: [AppTheme.textTertiary], startPoint: .leading, endPoint: .trailing))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .disabled(selectedCategory == nil)
+                .padding(.horizontal, 24)
+
+                Button(action: onComplete) {
+                    Text("Skip for now")
+                        .font(.subheadline)
+                        .foregroundColor(AppTheme.textSecondary)
+                }
+                .padding(.top, 8)
+            }
+            .padding(.vertical)
+            .background(AppTheme.background)
+        }
+    }
+
+    private func calculateSIP(target: Double, years: Int) -> Double {
+        let rate = 0.12 / 12 // 12% annual, monthly
+        let months = Double(years * 12)
+        // PMT formula: P = FV * r / ((1 + r)^n - 1)
+        let sip = target * rate / (pow(1 + rate, months) - 1)
+        return sip
+    }
+}
+
+struct GoalTemplateCard: View {
+    let category: GoalCategory
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Text(category.icon)
+                    .font(.title)
+                Text(category.rawValue)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(isSelected ? .white : AppTheme.textPrimary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(isSelected ? AnyShapeStyle(AppTheme.primaryGradient) : AnyShapeStyle(AppTheme.cardBackground))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.clear : AppTheme.cardBorder, lineWidth: 1)
+            )
+        }
+    }
+}
+
+#Preview {
+    OnboardingFlow()
+        .environmentObject(AuthManager())
+}

@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+package ml_service;
+
+// ML Service - Investment Portfolio AI
+service MLService {
+  // Classify user profile into investment persona
+  rpc ClassifyProfile(ClassifyRequest) returns (ClassifyResponse);
+
+  // Get fund recommendations based on persona
+  rpc GetRecommendations(RecommendationRequest) returns (RecommendationResponse);
+
+  // Optimize portfolio allocation
+  rpc OptimizePortfolio(OptimizeRequest) returns (OptimizeResponse);
+
+  // Assess portfolio risk
+  rpc AssessRisk(RiskRequest) returns (RiskResponse);
+
+  // Health check
+  rpc HealthCheck(HealthRequest) returns (HealthResponse);
+}
+
+// ============= Common Types =============
+
+message Profile {
+  int32 age = 1;
+  optional string goal = 2;
+  optional double target_amount = 3;
+  optional int32 target_year = 4;
+  optional double monthly_sip = 5;
+  optional double lump_sum = 6;
+  string liquidity = 7;        // Low, Medium, High
+  string risk_tolerance = 8;   // Conservative, Moderate, Aggressive
+  string knowledge = 9;        // Beginner, Intermediate, Advanced
+  string volatility = 10;      // Low, Medium, High
+  int32 horizon_years = 11;
+}
+
+message Fund {
+  int32 scheme_code = 1;
+  string scheme_name = 2;
+  string category = 3;
+  optional double return_1y = 4;
+  optional double return_3y = 5;
+  optional double return_5y = 6;
+  optional double volatility = 7;
+  optional double sharpe_ratio = 8;
+  optional double expense_ratio = 9;
+  optional double weight = 10;
+}
+
+// ============= Persona Classification =============
+
+message ClassifyRequest {
+  optional string request_id = 1;
+  Profile profile = 2;
+  optional string model_version = 3;
+}
+
+message Persona {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string risk_band = 4;
+  optional string description = 5;
+}
+
+message ClassifyResponse {
+  optional string request_id = 1;
+  Persona persona = 2;
+  double confidence = 3;
+  map<string, double> probabilities = 4;
+  string model_version = 5;
+  int32 latency_ms = 6;
+}
+
+// ============= Fund Recommendations =============
+
+message RecommendationRequest {
+  optional string request_id = 1;
+  string persona_id = 2;
+  map<string, string> profile = 3;
+  int32 top_n = 4;
+  repeated string category_filters = 5;
+  repeated int32 exclude_funds = 6;
+}
+
+message FundRecommendation {
+  int32 scheme_code = 1;
+  string scheme_name = 2;
+  optional string fund_house = 3;
+  string category = 4;
+  double score = 5;
+  double suggested_allocation = 6;
+  string reasoning = 7;
+  map<string, double> metrics = 8;
+}
+
+message RecommendationResponse {
+  optional string request_id = 1;
+  repeated FundRecommendation recommendations = 2;
+  string persona_alignment = 3;
+  string model_version = 4;
+  int32 latency_ms = 5;
+}
+
+// ============= Portfolio Optimization =============
+
+message OptimizationConstraints {
+  double max_equity_pct = 1;
+  double min_debt_pct = 2;
+  double max_single_fund_pct = 3;
+  int32 min_funds = 4;
+  int32 max_funds = 5;
+  optional double target_return = 6;
+  optional double max_volatility = 7;
+}
+
+message OptimizeRequest {
+  optional string request_id = 1;
+  string persona_id = 2;
+  map<string, string> profile = 3;
+  repeated Fund available_funds = 4;
+  optional OptimizationConstraints constraints = 5;
+}
+
+message AllocationResult {
+  int32 scheme_code = 1;
+  string scheme_name = 2;
+  string category = 3;
+  double weight = 4;
+  optional double monthly_sip = 5;
+}
+
+message PortfolioMetrics {
+  double expected_return = 1;
+  double expected_volatility = 2;
+  double sharpe_ratio = 3;
+  optional double max_drawdown = 4;
+  optional double projected_value = 5;
+}
+
+message OptimizeResponse {
+  optional string request_id = 1;
+  repeated AllocationResult allocations = 2;
+  PortfolioMetrics expected_metrics = 3;
+  string model_version = 4;
+  int32 latency_ms = 5;
+}
+
+// ============= Risk Assessment =============
+
+message RiskRequest {
+  optional string request_id = 1;
+  map<string, string> profile = 2;
+  repeated Fund current_portfolio = 3;
+  repeated Fund proposed_portfolio = 4;
+}
+
+message RiskFactor {
+  string name = 1;
+  double contribution = 2;
+  string severity = 3;
+  optional string description = 4;
+}
+
+message RiskResponse {
+  optional string request_id = 1;
+  string risk_level = 2;
+  double risk_score = 3;
+  repeated RiskFactor risk_factors = 4;
+  repeated string recommendations = 5;
+  string persona_alignment = 6;
+  string model_version = 7;
+  int32 latency_ms = 8;
+}
+
+// ============= Health Check =============
+
+message HealthRequest {}
+
+message ServiceStatus {
+  string name = 1;
+  string version = 2;
+  bool healthy = 3;
+}
+
+message HealthResponse {
+  string status = 1;
+  repeated ServiceStatus services = 2;
+}
