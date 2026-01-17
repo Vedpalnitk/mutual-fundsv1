@@ -28,6 +28,10 @@ struct ProfileView: View {
                         ProfileMenuItem(icon: "doc.text.fill", title: "Tax Reports", destination: AnyView(TaxReportsView()))
                     ])
 
+                    ProfileMenuSection(title: "Developer", items: [
+                        ProfileMenuItem(icon: "paintbrush.fill", title: "Design System", destination: AnyView(DesignSystemView()))
+                    ])
+
                     // Logout Button
                     Button(action: {
                         authManager.logout()
