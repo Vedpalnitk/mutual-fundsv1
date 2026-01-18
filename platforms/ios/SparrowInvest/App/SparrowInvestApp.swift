@@ -8,6 +8,9 @@ struct SparrowInvestApp: App {
     @StateObject private var fundsStore = FundsStore()
     @StateObject private var dashboardStore = DashboardStore()
     @StateObject private var familyStore = FamilyStore()
+    @StateObject private var pointsStore = PointsStore()
+    @StateObject private var advisorStore = AdvisorStore()
+    @StateObject private var appearanceManager = AppearanceManager()
 
     var body: some Scene {
         WindowGroup {
@@ -18,6 +21,10 @@ struct SparrowInvestApp: App {
                 .environmentObject(fundsStore)
                 .environmentObject(dashboardStore)
                 .environmentObject(familyStore)
+                .environmentObject(pointsStore)
+                .environmentObject(advisorStore)
+                .environmentObject(appearanceManager)
+                .preferredColorScheme(appearanceManager.preferredColorScheme)
         }
     }
 }

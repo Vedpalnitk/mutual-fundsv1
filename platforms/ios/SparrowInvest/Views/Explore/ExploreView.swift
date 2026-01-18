@@ -1,18 +1,27 @@
+//
+//  ExploreView.swift
+//  SparrowInvest
+//
+//  iOS 26 Liquid Glass - Explore Funds
+//
+
 import SwiftUI
 
 struct ExploreView: View {
     @EnvironmentObject var fundsStore: FundsStore
+    @EnvironmentObject var pointsStore: PointsStore
+    @EnvironmentObject var advisorStore: AdvisorStore
     @State private var searchText = ""
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: AppTheme.Spacing.large) {
                     // Search Bar
                     SearchBar(text: $searchText)
 
-                    // AI Recommendations Section
-                    AIRecommendationsSection()
+                    // Quick Access - Points & Advisors
+                    QuickAccessSection()
 
                     // Categories
                     CategoriesSection()
@@ -20,15 +29,16 @@ struct ExploreView: View {
                     // Top Performing Funds
                     TopFundsSection()
                 }
-                .padding()
+                .padding(AppTheme.Spacing.medium)
             }
-            .background(AppTheme.background)
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Explore")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: WatchlistView()) {
                         Image(systemName: "heart.fill")
-                            .foregroundColor(AppTheme.textSecondary)
+                            .font(.system(size: 16, weight: .light))
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -37,111 +47,109 @@ struct ExploreView: View {
 }
 
 // MARK: - Search Bar
+
 struct SearchBar: View {
     @Binding var text: String
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var searchShadow: Color {
+        colorScheme == .dark ? Color.clear : Color.black.opacity(0.08)
+    }
 
     var body: some View {
-        HStack {
+        HStack(spacing: AppTheme.Spacing.compact) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(AppTheme.textTertiary)
+                .font(.system(size: 16, weight: .light))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
             TextField("Search funds...", text: $text)
+                .font(.system(size: 15, weight: .light))
                 .textFieldStyle(.plain)
         }
-        .padding()
-        .background(AppTheme.inputBackground)
-        .cornerRadius(12)
+        .padding(AppTheme.Spacing.medium)
+        .background(searchBackground)
+        .overlay(searchBorder)
+        .shadow(color: searchShadow, radius: 12, x: 0, y: 4)
+    }
+
+    @ViewBuilder
+    private var searchBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color(uiColor: .white))
+        }
+    }
+
+    private var searchBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
     }
 }
 
-// MARK: - AI Recommendations
-struct AIRecommendationsSection: View {
+// MARK: - Quick Access Section
+
+struct QuickAccessSection: View {
+    @EnvironmentObject var pointsStore: PointsStore
+    @EnvironmentObject var advisorStore: AdvisorStore
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "sparkles")
-                    .foregroundColor(AppTheme.primary)
-                Text("AI RECOMMENDATIONS")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(AppTheme.primary)
-                    .tracking(1)
+        HStack(spacing: AppTheme.Spacing.compact) {
+            NavigationLink(destination: PointsView()) {
+                QuickAccessCard(
+                    icon: "star.fill",
+                    iconColor: pointsStore.points.tier.color,
+                    title: "Points",
+                    value: "\(pointsStore.points.totalPoints.formatted()) pts",
+                    subtitle: "\(pointsStore.points.tier.displayName) Tier"
+                )
             }
+            .buttonStyle(.plain)
 
-            Text("Personalized picks based on your profile")
-                .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(0..<5, id: \.self) { _ in
-                        RecommendedFundCard()
-                    }
-                }
+            NavigationLink(destination: AdvisorsView()) {
+                QuickAccessCard(
+                    icon: "person.2.fill",
+                    iconColor: .blue,
+                    title: "Find Advisor",
+                    value: "\(advisorStore.regionCount) nearby",
+                    subtitle: "Browse All →"
+                )
             }
+            .buttonStyle(.plain)
         }
-    }
-}
-
-struct RecommendedFundCard: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(AppTheme.primary.opacity(0.1))
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Text("PP")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(AppTheme.primary)
-                    )
-                Spacer()
-                Image(systemName: "heart")
-                    .foregroundColor(AppTheme.textTertiary)
-            }
-
-            Text("Parag Parikh Flexi Cap Fund")
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundColor(AppTheme.textPrimary)
-                .lineLimit(2)
-
-            Text("Equity - Flexi Cap")
-                .font(.caption)
-                .foregroundColor(AppTheme.textSecondary)
-
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("3Y Returns")
-                        .font(.caption2)
-                        .foregroundColor(AppTheme.textTertiary)
-                    Text("+18.7%")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.success)
-                }
-                Spacer()
-                Button(action: {}) {
-                    Text("Invest")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(AppTheme.primary)
-                        .foregroundColor(.white)
-                        .cornerRadius(20)
-                }
-            }
-        }
-        .padding()
-        .frame(width: 200)
-        .background(AppTheme.cardBackground)
-        .cornerRadius(16)
-        .shadow(color: AppTheme.shadowColor, radius: 4, x: 0, y: 2)
     }
 }
 
 // MARK: - Categories
+
 struct CategoriesSection: View {
     let categories = [
         ("Equity", "chart.line.uptrend.xyaxis", Color.blue),
@@ -153,18 +161,17 @@ struct CategoriesSection: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
             Text("BROWSE BY CATEGORY")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(AppTheme.primary)
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(.blue)
                 .tracking(1)
 
             LazyVGrid(columns: [
                 GridItem(.flexible()),
                 GridItem(.flexible()),
                 GridItem(.flexible())
-            ], spacing: 12) {
+            ], spacing: AppTheme.Spacing.compact) {
                 ForEach(categories, id: \.0) { category in
                     CategoryCard(name: category.0, icon: category.1, color: category.2)
                 }
@@ -177,42 +184,48 @@ struct CategoryCard: View {
     let name: String
     let icon: String
     let color: Color
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: {}) {
             VStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.title2)
+                    .font(.system(size: 22, weight: .light))
                     .foregroundColor(color)
                 Text(name)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.primary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(color.opacity(0.1))
-            .cornerRadius(12)
+            .background(
+                color.opacity(colorScheme == .dark ? 0.15 : 0.1),
+                in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                    .stroke(colorScheme == .dark ? color.opacity(0.2) : Color.clear, lineWidth: 0.5)
+            )
         }
         .buttonStyle(.plain)
     }
 }
 
 // MARK: - Top Funds
+
 struct TopFundsSection: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
             HStack {
                 Text("TOP PERFORMERS")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(AppTheme.primary)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundColor(.blue)
                     .tracking(1)
                 Spacer()
                 Button(action: {}) {
                     Text("See all")
-                        .font(.caption)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.blue)
                 }
             }
 
@@ -225,64 +238,123 @@ struct TopFundsSection: View {
 
 struct FundListItem: View {
     let rank: Int
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var itemShadow: Color {
+        colorScheme == .dark ? Color.clear : Color.black.opacity(0.08)
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: AppTheme.Spacing.compact) {
             Text("\(rank)")
-                .font(.caption)
-                .fontWeight(.bold)
-                .foregroundColor(AppTheme.textTertiary)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
                 .frame(width: 24)
 
-            RoundedRectangle(cornerRadius: 8)
-                .fill(AppTheme.primary.opacity(0.1))
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
+                .fill(Color.blue.opacity(colorScheme == .dark ? 0.15 : 0.1))
                 .frame(width: 40, height: 40)
                 .overlay(
                     Text("MF")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 10, weight: .light))
+                        .foregroundColor(.blue)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Sample Fund Name")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(.primary)
                 Text("Category")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
             }
 
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text("+25.4%")
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppTheme.success)
+                    .font(.system(size: 14, weight: .light, design: .rounded))
+                    .foregroundColor(.green)
                 Text("1Y")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 11, weight: .light))
+                    .foregroundColor(.secondary)
             }
         }
-        .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(12)
+        .padding(AppTheme.Spacing.medium)
+        .background(itemBackground)
+        .overlay(itemBorder)
+        .shadow(color: itemShadow, radius: 12, x: 0, y: 4)
+    }
+
+    @ViewBuilder
+    private var itemBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                .fill(Color(uiColor: .white))
+        }
+    }
+
+    private var itemBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
     }
 }
 
 // MARK: - Watchlist View
+
 struct WatchlistView: View {
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                Text("Your saved funds will appear here")
-                    .foregroundColor(AppTheme.textSecondary)
+            VStack(spacing: AppTheme.Spacing.medium) {
+                VStack(spacing: AppTheme.Spacing.compact) {
+                    Image(systemName: "heart.slash")
+                        .font(.system(size: 48, weight: .ultraLight))
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
+
+                    Text("No saved funds")
+                        .font(.system(size: 16, weight: .light))
+                        .foregroundColor(.secondary)
+
+                    Text("Your saved funds will appear here")
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 60)
             }
-            .padding()
+            .padding(AppTheme.Spacing.medium)
         }
-        .background(AppTheme.background)
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("Watchlist")
     }
 }
@@ -290,4 +362,6 @@ struct WatchlistView: View {
 #Preview {
     ExploreView()
         .environmentObject(FundsStore())
+        .environmentObject(PointsStore())
+        .environmentObject(AdvisorStore())
 }

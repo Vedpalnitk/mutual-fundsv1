@@ -29,6 +29,8 @@ struct DesignSystemView: View {
                     switch selectedSection {
                     case .overview:
                         overviewSection
+                    case .tiles:
+                        tilesSection
                     case .materials:
                         materialsSection
                     case .colors:
@@ -213,6 +215,554 @@ extension DesignSystemView {
                 FeatureCard(icon: "arrow.up.and.down.text.horizontal", title: "Extra Large", description: "Bigger touch targets")
             }
         }
+    }
+}
+
+// MARK: - Tiles Section
+
+extension DesignSystemView {
+    private var tilesSection: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            sectionHeader(title: "Tiles", subtitle: "Consistent card system across all screens")
+
+            // 1. Primary Glass Tile
+            VStack(alignment: .leading, spacing: 12) {
+                tileTypeLabel("1. Primary Glass Tile")
+                Text("Use for: Hero cards, dashboard widgets, section containers")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
+
+                PrimaryGlassTileDemo()
+            }
+
+            // 2. Quick Access Tile
+            VStack(alignment: .leading, spacing: 12) {
+                tileTypeLabel("2. Quick Access Tile")
+                Text("Use for: Points, Find Advisor, action cards")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 12) {
+                    QuickAccessTileDemo(
+                        icon: "star.fill",
+                        iconColor: .yellow,
+                        title: "Points",
+                        value: "2,450",
+                        subtitle: "Gold Tier"
+                    )
+                    QuickAccessTileDemo(
+                        icon: "person.2.fill",
+                        iconColor: .blue,
+                        title: "Advisors",
+                        value: "3 nearby",
+                        subtitle: "Browse →"
+                    )
+                }
+            }
+
+            // 3. List Item Tile
+            VStack(alignment: .leading, spacing: 12) {
+                tileTypeLabel("3. List Item Tile")
+                Text("Use for: Menu items, transaction rows, fund items")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
+
+                ListItemTileDemo()
+            }
+
+            // 4. Category Tile
+            VStack(alignment: .leading, spacing: 12) {
+                tileTypeLabel("4. Category Tile")
+                Text("Use for: Equity, Debt, Hybrid cards, filter chips")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 12) {
+                    CategoryTileDemo(icon: "chart.line.uptrend.xyaxis", title: "Equity", color: .blue)
+                    CategoryTileDemo(icon: "shield.fill", title: "Debt", color: .green)
+                    CategoryTileDemo(icon: "circle.hexagongrid.fill", title: "Hybrid", color: .orange)
+                }
+            }
+
+            // 5. Stat Badge Tile
+            VStack(alignment: .leading, spacing: 12) {
+                tileTypeLabel("5. Stat Badge Tile")
+                Text("Use for: Returns badges, status pills, percentage indicators")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 12) {
+                    StatBadgeTileDemo(value: "+12.4%", isPositive: true)
+                    StatBadgeTileDemo(value: "-3.2%", isPositive: false)
+                    StatBadgeTileDemo(value: "Verified", isPositive: true, icon: "checkmark.seal.fill")
+                }
+            }
+
+            // 6. Icon Container
+            VStack(alignment: .leading, spacing: 12) {
+                tileTypeLabel("6. Icon Container")
+                Text("Use for: Icons within tiles, avatar placeholders")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 16) {
+                    IconContainerDemo(icon: "person.fill", color: .blue, size: 32)
+                    IconContainerDemo(icon: "bell.fill", color: .orange, size: 36)
+                    IconContainerDemo(icon: "chart.bar.fill", color: .green, size: 48)
+                }
+            }
+
+            // Specs Table
+            VStack(alignment: .leading, spacing: 12) {
+                tileTypeLabel("Corner Radius Reference")
+                TileSpecsTable()
+            }
+        }
+    }
+
+    private func tileTypeLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundColor(.blue)
+            .textCase(.uppercase)
+    }
+}
+
+// MARK: - Tile Demo Components
+
+private struct PrimaryGlassTileDemo: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Portfolio Value")
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            HStack {
+                Text("₹2,45,680")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundColor(.primary)
+                Spacer()
+            }
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 12))
+                Text("+₹12,450 (5.3%)")
+                    .font(.system(size: 14, weight: .regular))
+            }
+            .foregroundColor(.green)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.green.opacity(colorScheme == .dark ? 0.2 : 0.12), in: Capsule())
+        }
+        .padding(20)
+        .background(primaryBackground)
+        .overlay(primaryBorder)
+    }
+
+    @ViewBuilder
+    private var primaryBackground: some View {
+        if colorScheme == .dark {
+            // Dark transparent glass with subtle inner glow
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            // Light mode: White background with subtle shadow
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(uiColor: .white))
+                .shadow(color: .black.opacity(0.08), radius: 16, x: 0, y: 4)
+        }
+    }
+
+    private var primaryBorder: some View {
+        RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.12), location: 0),
+                            .init(color: .black.opacity(0.06), location: 0.3),
+                            .init(color: .black.opacity(0.04), location: 0.7),
+                            .init(color: .black.opacity(0.08), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+private struct QuickAccessTileDemo: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let value: String
+    let subtitle: String
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(iconColor.opacity(colorScheme == .dark ? 0.25 : 0.15))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(iconColor)
+                }
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            Text(value)
+                .font(.system(size: 18, weight: .semibold))
+            Text(subtitle)
+                .font(.system(size: 12))
+                .foregroundStyle(iconColor)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(quickAccessBackground)
+        .overlay(quickAccessBorder)
+        .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.15), radius: 12, x: 0, y: 4)
+    }
+
+    @ViewBuilder
+    private var quickAccessBackground: some View {
+        if colorScheme == .dark {
+            // Dark transparent glass
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.5))
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(uiColor: .white))
+        }
+    }
+
+    private var quickAccessBorder: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.5), location: 0),
+                            .init(color: .white.opacity(0.2), location: 0.25),
+                            .init(color: .white.opacity(0.05), location: 0.6),
+                            .init(color: .white.opacity(0.15), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+private struct ListItemTileDemo: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 0) {
+            listRow(icon: "person.fill", title: "Edit Profile")
+            Divider().opacity(colorScheme == .dark ? 0.3 : 1).padding(.leading, 52)
+            listRow(icon: "bell.fill", title: "Notifications")
+            Divider().opacity(colorScheme == .dark ? 0.3 : 1).padding(.leading, 52)
+            listRow(icon: "lock.fill", title: "Security")
+        }
+        .background(listBackground)
+        .overlay(listBorder)
+    }
+
+    private func listRow(icon: String, title: String) -> some View {
+        HStack(spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.blue.opacity(colorScheme == .dark ? 0.25 : 0.15))
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.blue)
+            }
+            Text(title)
+                .font(.system(size: 15, weight: .regular))
+                .foregroundColor(.primary)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
+        }
+        .padding(16)
+    }
+
+    @ViewBuilder
+    private var listBackground: some View {
+        if colorScheme == .dark {
+            // Dark transparent glass
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.black.opacity(0.5))
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            // Light mode: White with subtle shadow
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: 3)
+        }
+    }
+
+    private var listBorder: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.12), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+private struct CategoryTileDemo: View {
+    let icon: String
+    let title: String
+    let color: Color
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 24))
+                .foregroundColor(color)
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.primary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(categoryBackground)
+        .overlay(categoryBorder)
+    }
+
+    @ViewBuilder
+    private var categoryBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(color.opacity(0.15))
+                )
+        } else {
+            // Light mode: White with color tint
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(color.opacity(0.08))
+                )
+                .shadow(color: color.opacity(0.15), radius: 8, x: 0, y: 2)
+        }
+    }
+
+    private var categoryBorder: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: color.opacity(0.5), location: 0),
+                            .init(color: color.opacity(0.2), location: 0.5),
+                            .init(color: color.opacity(0.3), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: color.opacity(0.25), location: 0),
+                            .init(color: color.opacity(0.15), location: 0.5),
+                            .init(color: color.opacity(0.2), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+private struct StatBadgeTileDemo: View {
+    let value: String
+    let isPositive: Bool
+    var icon: String? = nil
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var color: Color { isPositive ? .green : .red }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if let icon = icon {
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+            }
+            Text(value)
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(color.opacity(colorScheme == .dark ? 0.15 : 0.12), in: Capsule())
+    }
+}
+
+private struct IconContainerDemo: View {
+    let icon: String
+    let color: Color
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(color.opacity(0.15))
+                .frame(width: size, height: size)
+            Image(systemName: icon)
+                .font(.system(size: size * 0.4, weight: .medium))
+                .foregroundColor(color)
+        }
+    }
+}
+
+private struct TileSpecsTable: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 0) {
+            specRow(name: "small", value: "8pt", useCase: "Icon containers")
+            Divider().opacity(colorScheme == .dark ? 0.3 : 1)
+            specRow(name: "medium", value: "12pt", useCase: "List items")
+            Divider().opacity(colorScheme == .dark ? 0.3 : 1)
+            specRow(name: "large", value: "16pt", useCase: "Quick access tiles")
+            Divider().opacity(colorScheme == .dark ? 0.3 : 1)
+            specRow(name: "xLarge", value: "20pt", useCase: "Section cards")
+            Divider().opacity(colorScheme == .dark ? 0.3 : 1)
+            specRow(name: "xxLarge", value: "24pt", useCase: "Hero cards")
+        }
+        .background(tableBackground)
+        .overlay(tableBorder)
+    }
+
+    @ViewBuilder
+    private var tableBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.black.opacity(0.5))
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            // Light mode: White with subtle shadow
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 3)
+        }
+    }
+
+    private var tableBorder: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.3), location: 0),
+                            .init(color: .white.opacity(0.1), location: 0.5),
+                            .init(color: .white.opacity(0.15), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.08), location: 0),
+                            .init(color: .black.opacity(0.04), location: 0.5),
+                            .init(color: .black.opacity(0.06), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+
+    private func specRow(name: String, value: String, useCase: String) -> some View {
+        HStack {
+            Text(name)
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundColor(.blue)
+                .frame(width: 70, alignment: .leading)
+            Text(value)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundColor(.primary)
+                .frame(width: 50, alignment: .leading)
+            Text(useCase)
+                .font(.system(size: 12, weight: .light))
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 }
 
@@ -1051,6 +1601,7 @@ struct SpacingRow: View {
 
 enum DesignSection: String, CaseIterable {
     case overview = "Overview"
+    case tiles = "Tiles"
     case materials = "Materials"
     case colors = "Colors"
     case typography = "Typography"

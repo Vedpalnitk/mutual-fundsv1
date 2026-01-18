@@ -63,6 +63,329 @@ Reusable visual system to apply across Sparrow projects while preserving the Spa
 - Provide focus states on all interactive elements; label sliders and ranges.
 - Use semantic headings and list/table structures.
 
-## Do & Don’t
+## Do & Don't
 - Do: Light, clean cards; structured spacing; gradient CTAs; pill badges; thin borders.
-- Don’t: Heavy drop shadows, dark themes, neon palettes, dense tables without breathing room, sharp corners.
+- Don't: Heavy drop shadows, dark themes, neon palettes, dense tables without breathing room, sharp corners.
+
+---
+
+## iOS Native App (SwiftUI) - Tile Design System
+
+### Overview
+
+The iOS app uses a consistent tile system across all screens. All tiles adapt to light and dark modes with distinct visual treatments.
+
+---
+
+### 1. Primary Glass Tile (Section Container)
+
+Use for: Main section containers, hero cards, dashboard widgets.
+
+| Property | Light Mode | Dark Mode |
+|----------|------------|-----------|
+| Background | `.regularMaterial` | `.ultraThinMaterial` |
+| Border | None | `white.opacity(0.1)` gradient |
+| Shadow | None (material provides depth) | None |
+| Corner Radius | `24pt` (xxLarge) | `24pt` |
+| Padding | `20pt` (large) | `20pt` |
+
+```swift
+// Light & Dark Mode (adapts automatically)
+.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+
+// Dark mode with glass border (optional)
+.overlay(
+    RoundedRectangle(cornerRadius: 24, style: .continuous)
+        .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+)
+```
+
+---
+
+### 2. Quick Access Tile (Action Cards)
+
+Use for: Points, Find Advisor, quick action buttons on Explore tab.
+
+| Property | Light Mode | Dark Mode |
+|----------|------------|-----------|
+| Background | `Color.white` (pure) | `.ultraThinMaterial` + `white.opacity(0.05)` overlay |
+| Border | `blue.opacity(0.15)` solid | Gradient `white.opacity(0.3)` → `white.opacity(0.1)` |
+| Shadow | `black.opacity(0.15)`, radius 12, y: 4 | None |
+| Corner Radius | `16pt` (large) | `16pt` |
+| Padding | `16pt` (medium) | `16pt` |
+
+```swift
+// Light Mode
+.background(Color(uiColor: .white))
+.overlay(
+    RoundedRectangle(cornerRadius: 16, style: .continuous)
+        .stroke(Color.blue.opacity(0.15), lineWidth: 1)
+)
+.shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 4)
+
+// Dark Mode
+.background(
+    RoundedRectangle(cornerRadius: 16, style: .continuous)
+        .fill(.ultraThinMaterial)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.05))
+        )
+)
+.overlay(
+    RoundedRectangle(cornerRadius: 16, style: .continuous)
+        .stroke(
+            LinearGradient(
+                colors: [Color.white.opacity(0.3), Color.white.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            lineWidth: 1
+        )
+)
+```
+
+---
+
+### 3. List Item Tile (Nested Cards)
+
+Use for: Items within lists, goal rows, transaction rows, fund items.
+
+| Property | Light Mode | Dark Mode |
+|----------|------------|-----------|
+| Background | `tertiarySystemFill` | `white.opacity(0.06)` |
+| Border | None | `white.opacity(0.08)` |
+| Shadow | None | None |
+| Corner Radius | `12pt` (medium) | `12pt` |
+| Padding | `12pt` (compact) | `12pt` |
+
+```swift
+// Light Mode
+.background(
+    Color(uiColor: .tertiarySystemFill),
+    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+)
+
+// Dark Mode
+.background(
+    Color.white.opacity(0.06),
+    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+)
+.overlay(
+    RoundedRectangle(cornerRadius: 12, style: .continuous)
+        .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+)
+```
+
+---
+
+### 4. Category Tile (Grid Items)
+
+Use for: Category cards (Equity, Debt, Hybrid), filter chips.
+
+| Property | Light Mode | Dark Mode |
+|----------|------------|-----------|
+| Background | `categoryColor.opacity(0.1)` | `categoryColor.opacity(0.15)` |
+| Border | None | `categoryColor.opacity(0.2)` |
+| Shadow | None | None |
+| Corner Radius | `12pt` (medium) | `12pt` |
+| Padding | `16pt` vertical | `16pt` |
+
+```swift
+// Both modes (color-tinted)
+.background(
+    categoryColor.opacity(colorScheme == .dark ? 0.15 : 0.1),
+    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+)
+
+// Dark mode border (optional)
+.overlay(
+    RoundedRectangle(cornerRadius: 12, style: .continuous)
+        .stroke(categoryColor.opacity(0.2), lineWidth: 0.5)
+)
+```
+
+---
+
+### 5. Stat Badge Tile (Metrics)
+
+Use for: Returns badge, percentage indicators, status pills.
+
+| Property | Light Mode | Dark Mode |
+|----------|------------|-----------|
+| Background | `statusColor.opacity(0.12)` | `statusColor.opacity(0.15)` |
+| Border | None | None |
+| Shape | Capsule | Capsule |
+| Padding | `14pt` horizontal, `8pt` vertical | Same |
+
+```swift
+.background(
+    (isPositive ? Color.green : Color.red).opacity(0.12),
+    in: Capsule()
+)
+```
+
+---
+
+### 6. Icon Container
+
+Use for: Icons within tiles, avatar placeholders.
+
+| Property | Value |
+|----------|-------|
+| Background | `iconColor.opacity(0.15)` |
+| Corner Radius | `8pt` (small) |
+| Size | `32x32pt` (small), `36x36pt` (medium), `48x48pt` (large) |
+
+```swift
+ZStack {
+    RoundedRectangle(cornerRadius: 8, style: .continuous)
+        .fill(iconColor.opacity(0.15))
+        .frame(width: 32, height: 32)
+
+    Image(systemName: icon)
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundStyle(iconColor)
+}
+```
+
+---
+
+### 7. Segmented Control / Toggle
+
+Use for: View mode toggle (Individual/Family), tab selection.
+
+| Property | Light Mode | Dark Mode |
+|----------|------------|-----------|
+| Track Background | `tertiarySystemFill` | `white.opacity(0.08)` |
+| Active Segment | `Color.blue` | `Color.blue` |
+| Shape | Capsule | Capsule |
+
+```swift
+HStack(spacing: 4) {
+    ForEach(options) { option in
+        Text(option.title)
+            .foregroundColor(isSelected ? .white : .secondary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background {
+                if isSelected {
+                    Capsule().fill(Color.blue)
+                }
+            }
+    }
+}
+.padding(4)
+.background(Color(uiColor: .tertiarySystemFill), in: Capsule())
+```
+
+---
+
+### Corner Radius Reference
+
+| Name | Value | Use Case |
+|------|-------|----------|
+| `small` | 8pt | Icon containers, small badges |
+| `medium` | 12pt | List items, nested cards |
+| `large` | 16pt | Quick access tiles, action cards |
+| `xLarge` | 20pt | Section cards |
+| `xxLarge` | 24pt | Hero cards, primary containers |
+
+---
+
+### Spacing Reference
+
+| Name | Value | Use Case |
+|------|-------|----------|
+| `small` | 8pt | Tight spacing, icon gaps |
+| `compact` | 12pt | List item padding, row spacing |
+| `medium` | 16pt | Card padding, section gaps |
+| `large` | 20pt | Hero card padding |
+| `xLarge` | 24pt | Major section separation |
+
+---
+
+### Complete Example: Quick Access Card
+
+```swift
+struct QuickAccessCard: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let value: String
+    let subtitle: String
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header
+            HStack(spacing: 8) {
+                // Icon container
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(iconColor.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(iconColor)
+                }
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            // Value
+            Text(value)
+                .font(.system(size: 18, weight: .semibold))
+
+            // Subtitle
+            Text(subtitle)
+                .font(.system(size: 12))
+                .foregroundStyle(iconColor)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(tileBackground)
+        .overlay(tileBorder)
+        .shadow(color: tileShadow, radius: 12, x: 0, y: 4)
+    }
+
+    @ViewBuilder
+    private var tileBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.05))
+                )
+        } else {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(uiColor: .white))
+        }
+    }
+
+    private var tileBorder: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        colors: [.white.opacity(0.3), .white.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        colors: [.blue.opacity(0.15), .blue.opacity(0.15)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                      ),
+                lineWidth: 1
+            )
+    }
+
+    private var tileShadow: Color {
+        colorScheme == .dark ? .clear : .black.opacity(0.15)
+    }
+}
+```
