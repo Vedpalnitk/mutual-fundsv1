@@ -2,7 +2,7 @@
 //  PortfolioHealthTile.swift
 //  SparrowInvest
 //
-//  Portfolio health score display
+//  iOS 26 Liquid Glass Portfolio Health - SF Pro Light
 //
 
 import SwiftUI
@@ -13,11 +13,11 @@ struct PortfolioHealthTile: View {
 
     private var healthColor: Color {
         if healthScore >= 80 {
-            return AppTheme.success
+            return .green
         } else if healthScore >= 60 {
-            return Color(hex: "#F59E0B")
+            return .orange
         } else {
-            return AppTheme.error
+            return .red
         }
     }
 
@@ -42,16 +42,16 @@ struct PortfolioHealthTile: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Portfolio Health")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(.primary)
 
                     Text(healthLabel)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 13, weight: .light))
                         .foregroundColor(healthColor)
                 }
 
@@ -70,23 +70,23 @@ struct PortfolioHealthTile: View {
                         .rotationEffect(.degrees(-90))
 
                     Text("\(healthScore)")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 18, weight: .light, design: .rounded))
                         .foregroundColor(healthColor)
                 }
             }
 
             // Quick Diagnostics
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
                 ForEach(diagnostics.indices, id: \.self) { index in
                     let diagnostic = diagnostics[index]
                     HStack(spacing: 8) {
                         Image(systemName: diagnostic.icon)
-                            .font(.system(size: 14))
-                            .foregroundColor(diagnostic.isPositive ? AppTheme.success : Color(hex: "#F59E0B"))
+                            .font(.system(size: 14, weight: .light))
+                            .foregroundColor(diagnostic.isPositive ? .green : .orange)
 
                         Text(diagnostic.text)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(AppTheme.textSecondary)
+                            .font(.system(size: 13, weight: .light))
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -97,19 +97,15 @@ struct PortfolioHealthTile: View {
             } label: {
                 HStack {
                     Text("View Full Analysis")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 13, weight: .regular))
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 12, weight: .light))
                 }
-                .foregroundColor(AppTheme.primary)
+                .foregroundColor(.blue)
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
-                .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2)
-        )
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 }
 

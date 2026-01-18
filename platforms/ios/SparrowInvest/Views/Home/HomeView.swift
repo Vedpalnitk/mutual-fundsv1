@@ -11,7 +11,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: AppTheme.Spacing.large) {
                     // Greeting
                     GreetingHeader(name: authManager.user?.firstName ?? "Investor")
 
@@ -57,13 +57,6 @@ struct HomeView: View {
                         )
                     }
 
-                    // Top Movers
-                    let movers = dashboardStore.topMovers(from: portfolioStore.holdings)
-                    TopMoversCard(
-                        gainers: movers.gainers,
-                        losers: movers.losers
-                    )
-
                     // SIP Dashboard
                     SIPDashboardCard(activeSIPs: portfolioStore.activeSIPs)
 
@@ -74,9 +67,6 @@ struct HomeView: View {
                             // Navigate to goal detail
                         }
                     )
-
-                    // Market Overview
-                    MarketOverviewCard(marketOverview: dashboardStore.marketOverview)
 
                     // Upcoming Actions
                     UpcomingActionsCard(
@@ -94,44 +84,51 @@ struct HomeView: View {
 
                     // Tax Summary
                     TaxSummaryCard(taxSummary: dashboardStore.taxSummary)
-
-                    // Dividend Income
-                    DividendIncomeCard(dividendSummary: dashboardStore.dividendSummary)
                 }
-                .padding()
+                .padding(.horizontal, AppTheme.Spacing.medium)
+                .padding(.bottom, AppTheme.Spacing.xxLarge)
             }
-            .background(AppTheme.background)
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    HStack {
+                    HStack(spacing: 8) {
                         Image(systemName: "bird.fill")
-                            .foregroundColor(AppTheme.primary)
-                        Text("Sparrow Invest")
-                            .font(.headline)
-                            .fontWeight(.bold)
+                            .font(.system(size: 20, weight: .light))
+                            .foregroundStyle(
+                            LinearGradient(
+                                colors: [.blue, .cyan],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        Text("Sparrow")
+                            .font(.system(size: 18, weight: .light, design: .rounded))
+                            .foregroundColor(.primary)
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
+                    HStack(spacing: 12) {
                         // Notification Bell with Badge
-                        ZStack(alignment: .topTrailing) {
-                            Button(action: {}) {
+                        Button(action: {}) {
+                            ZStack(alignment: .topTrailing) {
                                 Image(systemName: "bell.fill")
-                                    .foregroundColor(AppTheme.textSecondary)
-                            }
-                            if dashboardStore.highPriorityActionCount > 0 {
-                                Text("\(dashboardStore.highPriorityActionCount)")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .frame(width: 16, height: 16)
-                                    .background(Circle().fill(AppTheme.error))
-                                    .offset(x: 6, y: -6)
+                                    .font(.system(size: 18))
+                                    .foregroundColor(.secondary)
+                                if dashboardStore.highPriorityActionCount > 0 {
+                                    Text("\(dashboardStore.highPriorityActionCount)")
+                                        .font(.system(size: 10, weight: .regular))
+                                        .foregroundColor(.white)
+                                        .frame(width: 16, height: 16)
+                                        .background(Circle().fill(Color.red))
+                                        .offset(x: 6, y: -6)
+                                }
                             }
                         }
                         NavigationLink(destination: ProfileView()) {
                             Image(systemName: "person.circle.fill")
-                                .foregroundColor(AppTheme.textSecondary)
+                                .font(.system(size: 24))
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
@@ -144,8 +141,6 @@ struct HomeView: View {
 
     // Current portfolio based on view mode
     private var currentPortfolio: Portfolio {
-        // For now, return individual portfolio
-        // In family mode, this would aggregate family data
         portfolioStore.portfolio
     }
 
@@ -171,6 +166,7 @@ struct HomeView: View {
 }
 
 // MARK: - Greeting Header
+
 struct GreetingHeader: View {
     let name: String
 
@@ -188,37 +184,38 @@ struct GreetingHeader: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(greeting),")
                     .font(.subheadline)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(.secondary)
                 Text(name)
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 24, weight: .light, design: .rounded))
+                    .foregroundColor(.primary)
             }
             Spacer()
         }
+        .padding(.top, 8)
     }
 }
 
 // MARK: - Quick Actions
+
 struct QuickActionsRow: View {
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: AppTheme.Spacing.compact) {
             HomeQuickActionButton(
                 title: "Invest",
                 icon: "plus.circle.fill",
-                color: AppTheme.primary
+                color: .blue
             )
 
             HomeQuickActionButton(
                 title: "Withdraw",
                 icon: "arrow.down.circle.fill",
-                color: AppTheme.secondary
+                color: .cyan
             )
 
             HomeQuickActionButton(
                 title: "SIP",
                 icon: "repeat.circle.fill",
-                color: AppTheme.success
+                color: .green
             )
         }
     }
@@ -231,17 +228,17 @@ struct HomeQuickActionButton: View {
 
     var body: some View {
         Button(action: {}) {
-            VStack(spacing: 8) {
+            VStack(spacing: 10) {
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundColor(color)
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(.primary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(color.opacity(0.1))
-            .foregroundColor(color)
-            .cornerRadius(12)
+            .padding(.vertical, 16)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous))
         }
     }
 }

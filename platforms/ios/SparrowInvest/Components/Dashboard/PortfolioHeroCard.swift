@@ -2,7 +2,7 @@
 //  PortfolioHeroCard.swift
 //  SparrowInvest
 //
-//  Main portfolio summary hero card
+//  iOS 26 Liquid Glass Portfolio Hero - SF Pro Light
 //
 
 import SwiftUI
@@ -33,114 +33,123 @@ struct PortfolioHeroCard: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: AppTheme.Spacing.large) {
             // View Mode Toggle
             viewModeToggle
 
             // Main Value Display
             VStack(spacing: 8) {
                 Text("Total Portfolio Value")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
 
                 Text(currentValue.currencyFormatted)
-                    .font(.system(size: 36, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 38, weight: .light, design: .rounded))
+                    .foregroundColor(.primary)
 
-                // Day Change (mock for now)
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text("+₹2,450 (0.2%) today")
-                        .font(.system(size: 13, weight: .medium))
+                // Returns Badge
+                HStack(spacing: 6) {
+                    Image(systemName: returns >= 0 ? "arrow.up.right" : "arrow.down.right")
+                        .font(.system(size: 12, weight: .regular))
+                    Text("\(returns >= 0 ? "+" : "")\(returns.compactCurrencyFormatted)")
+                        .font(.system(size: 14, weight: .regular))
+                    Text("(\(returnsPercentage.percentFormatted))")
+                        .font(.system(size: 14, weight: .light))
                 }
-                .foregroundColor(AppTheme.success)
+                .foregroundColor(returns >= 0 ? .green : .red)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(
+                    (returns >= 0 ? Color.green : Color.red).opacity(0.12),
+                    in: Capsule()
+                )
             }
 
-            // Returns Summary
-            HStack(spacing: 24) {
-                VStack(spacing: 4) {
-                    Text("Invested")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
-                    Text(investedValue.currencyFormatted)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
-                }
+            // Stats Row
+            HStack(spacing: 0) {
+                HeroStatItem(
+                    label: "Invested",
+                    value: investedValue.compactCurrencyFormatted,
+                    icon: "arrow.down.circle.fill",
+                    color: .blue
+                )
 
-                Rectangle()
-                    .fill(AppTheme.cardBorder)
-                    .frame(width: 1, height: 32)
+                Divider()
+                    .frame(height: 40)
 
-                VStack(spacing: 4) {
-                    Text("Returns")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
-                    HStack(spacing: 4) {
-                        Text(returns.currencyFormatted)
-                            .font(.system(size: 15, weight: .semibold))
-                        Text("(\(returnsPercentage.percentFormatted))")
-                            .font(.system(size: 13, weight: .medium))
-                    }
-                    .foregroundColor(returns >= 0 ? AppTheme.success : AppTheme.error)
-                }
+                HeroStatItem(
+                    label: "Day Change",
+                    value: "+₹2,450",
+                    icon: "chart.line.uptrend.xyaxis",
+                    color: .green
+                )
 
-                Rectangle()
-                    .fill(AppTheme.cardBorder)
-                    .frame(width: 1, height: 32)
+                Divider()
+                    .frame(height: 40)
 
-                VStack(spacing: 4) {
-                    Text("XIRR")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
-                    Text(xirrValue.percentFormatted)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(xirrValue >= 0 ? AppTheme.success : AppTheme.error)
-                }
+                HeroStatItem(
+                    label: "XIRR",
+                    value: xirrValue.percentFormatted,
+                    icon: "percent",
+                    color: xirrValue >= 0 ? .green : .red
+                )
             }
+            .padding(.top, 8)
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(AppTheme.cardBackground)
-                .shadow(color: AppTheme.cardShadow, radius: 12, x: 0, y: 4)
-        )
+        .padding(AppTheme.Spacing.large)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xxLarge, style: .continuous))
     }
 
     private var viewModeToggle: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             ForEach(PortfolioViewMode.allCases, id: \.self) { mode in
                 Button {
-                    withAnimation(.spring(response: 0.3)) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         viewMode = mode
                     }
                 } label: {
                     Text(mode.rawValue)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(viewMode == mode ? .white : AppTheme.textSecondary)
-                        .frame(maxWidth: .infinity)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(viewMode == mode ? .white : .secondary)
+                        .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(
-                            viewMode == mode ?
-                            AnyView(
+                        .background {
+                            if viewMode == mode {
                                 Capsule()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [AppTheme.primary, AppTheme.primaryDark],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
-                                    )
-                            ) : AnyView(Color.clear)
-                        )
+                                    .fill(Color.blue)
+                            }
+                        }
                 }
             }
         }
         .padding(4)
-        .background(
-            Capsule()
-                .fill(AppTheme.chipBackground)
-        )
+        .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
+    }
+}
+
+// MARK: - Hero Stat Item
+
+private struct HeroStatItem: View {
+    let label: String
+    let value: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .light))
+                .foregroundColor(color)
+
+            Text(value)
+                .font(.system(size: 15, weight: .regular, design: .rounded))
+                .foregroundColor(.primary)
+
+            Text(label)
+                .font(.system(size: 11, weight: .light))
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -150,4 +159,5 @@ struct PortfolioHeroCard: View {
         viewMode: .constant(.individual)
     )
     .padding()
+    .background(Color(uiColor: .systemGroupedBackground))
 }

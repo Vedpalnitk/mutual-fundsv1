@@ -2,7 +2,7 @@
 //  RecentTransactionsCard.swift
 //  SparrowInvest
 //
-//  Recent transactions display card
+//  iOS 26 Liquid Glass Recent Transactions Card
 //
 
 import SwiftUI
@@ -15,23 +15,23 @@ struct RecentTransactionsCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
             // Header
             HStack {
                 Text("Recent Transactions")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Spacer()
 
                 NavigationLink(destination: Text("All Transactions")) {
                     HStack(spacing: 4) {
                         Text("View All")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 13, weight: .light))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 11, weight: .regular))
                     }
-                    .foregroundColor(AppTheme.primary)
+                    .foregroundColor(.blue)
                 }
             }
 
@@ -40,27 +40,23 @@ struct RecentTransactionsCard: View {
                 VStack(spacing: 8) {
                     Image(systemName: "doc.text")
                         .font(.system(size: 28))
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                     Text("No transactions yet")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
             } else {
-                VStack(spacing: 8) {
+                VStack(spacing: AppTheme.Spacing.small) {
                     ForEach(recentTransactions) { transaction in
                         TransactionRow(transaction: transaction)
                     }
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
-                .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2)
-        )
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 }
 
@@ -70,13 +66,13 @@ struct TransactionRow: View {
     private var typeColor: Color {
         switch transaction.type {
         case .purchase, .sipInstallment:
-            return AppTheme.success
+            return .green
         case .redemption, .switchOut:
-            return AppTheme.error
+            return .red
         case .switchIn:
-            return AppTheme.primary
+            return .blue
         case .dividend:
-            return Color(hex: "#8B5CF6")
+            return .purple
         }
     }
 
@@ -95,7 +91,7 @@ struct TransactionRow: View {
         HStack(spacing: 12) {
             // Type Icon
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
                     .fill(typeColor.opacity(0.15))
                     .frame(width: 36, height: 36)
 
@@ -107,21 +103,21 @@ struct TransactionRow: View {
             // Transaction Info
             VStack(alignment: .leading, spacing: 2) {
                 Text(transaction.fundName)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 13, weight: .light))
+                    .foregroundColor(.primary)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
                     Text(transaction.type.displayName)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 11, weight: .regular))
                         .foregroundColor(typeColor)
 
                     Text("•")
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
 
                     Text(formatDate(transaction.date))
                         .font(.system(size: 11, weight: .regular))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(.secondary)
                 }
             }
 
@@ -130,18 +126,18 @@ struct TransactionRow: View {
             // Amount
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(transaction.type == .redemption ? "-" : "+")\(transaction.amount.currencyFormatted)")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(transaction.type == .redemption ? AppTheme.error : AppTheme.success)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(transaction.type == .redemption ? .red : .green)
 
                 Text("\(String(format: "%.3f", transaction.units)) units")
                     .font(.system(size: 11, weight: .regular))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(.secondary)
             }
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(AppTheme.chipBackground)
+            Color(uiColor: .tertiarySystemFill),
+            in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
         )
     }
 

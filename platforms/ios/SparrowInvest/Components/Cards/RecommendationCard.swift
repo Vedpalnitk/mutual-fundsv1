@@ -1,33 +1,38 @@
+//
+//  RecommendationCard.swift
+//  SparrowInvest
+//
+//  iOS 26 Liquid Glass Recommendation Card
+//
+
 import SwiftUI
 
 struct RecommendationCard: View {
     let recommendation: FundRecommendation
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
+            HStack(spacing: AppTheme.Spacing.compact) {
                 // Fund Avatar
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(AppTheme.primary.opacity(0.1))
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                        .fill(Color.blue.opacity(0.1))
                         .frame(width: 44, height: 44)
 
                     Text(recommendation.fund.initials)
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 12, weight: .light))
+                        .foregroundColor(.blue)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(recommendation.fund.shortName)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(.primary)
                         .lineLimit(1)
 
                     Text("\(recommendation.fund.assetClass.capitalized) • \(recommendation.fund.category)")
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.secondary)
                 }
 
                 Spacer()
@@ -35,51 +40,55 @@ struct RecommendationCard: View {
                 // Returns
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(recommendation.fund.returns?.threeYear?.percentFormatted ?? "N/A")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.success)
+                        .font(.system(size: 16, weight: .light))
+                        .foregroundColor(.green)
                     Text("3Y")
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(.secondary)
                 }
             }
 
             // Reason
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.primary)
+                    .font(.system(size: 12))
+                    .foregroundColor(.blue)
                 Text(recommendation.topReason)
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
                     .lineLimit(1)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(AppTheme.primary.opacity(0.08))
-            .cornerRadius(8)
+            .background(
+                Color.blue.opacity(0.08),
+                in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
+            )
 
             // Action Button
             NavigationLink(destination: FundDetailView(fund: recommendation.fund)) {
                 HStack {
                     Spacer()
                     Text("Invest")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 14, weight: .regular))
                     Image(systemName: "arrow.right")
-                        .font(.caption)
+                        .font(.system(size: 12, weight: .regular))
                     Spacer()
                 }
                 .padding(.vertical, 12)
-                .background(AppTheme.primaryGradient)
+                .background(
+                    LinearGradient(
+                        colors: [.blue, .cyan],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                )
                 .foregroundColor(.white)
-                .cornerRadius(12)
             }
         }
-        .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(16)
-        .shadow(color: AppTheme.shadowColor, radius: 4, x: 0, y: 2)
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 }
 

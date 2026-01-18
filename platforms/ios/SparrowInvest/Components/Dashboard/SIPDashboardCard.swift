@@ -2,7 +2,7 @@
 //  SIPDashboardCard.swift
 //  SparrowInvest
 //
-//  SIP summary dashboard tile
+//  iOS 26 Liquid Glass SIP Dashboard
 //
 
 import SwiftUI
@@ -37,81 +37,79 @@ struct SIPDashboardCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
             // Header
             HStack {
                 Text("SIP Dashboard")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Spacer()
 
                 NavigationLink(destination: Text("SIP Details")) {
                     HStack(spacing: 4) {
                         Text("Manage")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 13, weight: .light))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 11, weight: .regular))
                     }
-                    .foregroundColor(AppTheme.primary)
+                    .foregroundColor(.blue)
                 }
             }
 
             // Stats Grid
-            HStack(spacing: 16) {
+            HStack(spacing: 0) {
                 // Active SIPs
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Image(systemName: "repeat.circle.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(AppTheme.primary)
+                            .foregroundColor(.blue)
                         Text("Active")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(AppTheme.textSecondary)
+                            .font(.system(size: 12, weight: .light))
+                            .foregroundColor(.secondary)
                     }
                     Text("\(activeSIPs.filter { $0.isActive }.count)")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 22, weight: .light, design: .rounded))
+                        .foregroundColor(.primary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Rectangle()
-                    .fill(AppTheme.cardBorder)
-                    .frame(width: 1, height: 44)
+                Divider()
+                    .frame(height: 44)
 
                 // Monthly Amount
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Image(systemName: "indianrupeesign.circle.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(AppTheme.success)
+                            .foregroundColor(.green)
                         Text("Monthly")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(AppTheme.textSecondary)
+                            .font(.system(size: 12, weight: .light))
+                            .foregroundColor(.secondary)
                     }
                     Text(totalMonthlyAmount.currencyFormatted)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 16, weight: .light, design: .rounded))
+                        .foregroundColor(.primary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Rectangle()
-                    .fill(AppTheme.cardBorder)
-                    .frame(width: 1, height: 44)
+                Divider()
+                    .frame(height: 44)
 
                 // Next SIP
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Image(systemName: "calendar.badge.clock")
                             .font(.system(size: 14))
-                            .foregroundColor(Color(hex: "#F59E0B"))
+                            .foregroundColor(.orange)
                         Text("Next")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(AppTheme.textSecondary)
+                            .font(.system(size: 12, weight: .light))
+                            .foregroundColor(.secondary)
                     }
                     Text(nextSIPFormatted)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 16, weight: .light, design: .rounded))
+                        .foregroundColor(.primary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -119,19 +117,15 @@ struct SIPDashboardCard: View {
             // Upcoming SIPs List
             let upcomingSIPs = Array(getUpcomingSIPs().prefix(2))
             if !upcomingSIPs.isEmpty {
-                VStack(spacing: 8) {
+                VStack(spacing: AppTheme.Spacing.small) {
                     ForEach(upcomingSIPs) { sip in
                         UpcomingSIPRow(sip: sip)
                     }
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
-                .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2)
-        )
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 
     private func getUpcomingSIPs() -> [SIP] {
@@ -148,26 +142,26 @@ struct UpcomingSIPRow: View {
         HStack(spacing: 12) {
             // Fund Icon
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(AppTheme.primary.opacity(0.1))
+                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
+                    .fill(Color.blue.opacity(0.1))
                     .frame(width: 36, height: 36)
 
                 Text(String(sip.fundName.prefix(2)).uppercased())
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(AppTheme.primary)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundColor(.blue)
             }
 
             // Info
             VStack(alignment: .leading, spacing: 2) {
                 Text(sip.fundName)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 13, weight: .light))
+                    .foregroundColor(.primary)
                     .lineLimit(1)
 
                 if let date = sip.nextInstallmentDate {
                     Text(formatDate(date))
                         .font(.system(size: 11, weight: .regular))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(.secondary)
                 }
             }
 
@@ -175,13 +169,13 @@ struct UpcomingSIPRow: View {
 
             // Amount
             Text(sip.amount.currencyFormatted)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .font(.system(size: 14, weight: .regular))
+                .foregroundColor(.primary)
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(AppTheme.chipBackground)
+            Color(uiColor: .tertiarySystemFill),
+            in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
         )
     }
 

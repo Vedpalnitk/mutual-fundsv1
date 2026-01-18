@@ -2,7 +2,7 @@
 //  TopMoversCard.swift
 //  SparrowInvest
 //
-//  Top gainers and losers display
+//  iOS 26 Liquid Glass Top Movers Display
 //
 
 import SwiftUI
@@ -19,12 +19,12 @@ struct TopMoversCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
             // Header with Tab Toggle
             HStack {
                 Text("Today's Movers")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Spacer()
             }
@@ -33,30 +33,26 @@ struct TopMoversCard: View {
             HStack(spacing: 0) {
                 ForEach(MoverTab.allCases, id: \.self) { tab in
                     Button {
-                        withAnimation(.spring(response: 0.3)) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                             selectedTab = tab
                         }
                     } label: {
                         Text(tab.rawValue)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(selectedTab == tab ? .white : AppTheme.textSecondary)
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(selectedTab == tab ? .white : .secondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(
-                                selectedTab == tab ?
-                                AnyView(
+                            .background {
+                                if selectedTab == tab {
                                     Capsule()
-                                        .fill(tab == .gainers ? AppTheme.success : AppTheme.error)
-                                ) : AnyView(Color.clear)
-                            )
+                                        .fill(tab == .gainers ? Color.green : Color.red)
+                                }
+                            }
                     }
                 }
             }
-            .padding(3)
-            .background(
-                Capsule()
-                    .fill(AppTheme.chipBackground)
-            )
+            .padding(4)
+            .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
 
             // Holdings List
             let holdings = selectedTab == .gainers ? gainers : losers
@@ -65,27 +61,23 @@ struct TopMoversCard: View {
                 VStack(spacing: 8) {
                     Image(systemName: selectedTab == .gainers ? "chart.line.uptrend.xyaxis" : "chart.line.downtrend.xyaxis")
                         .font(.system(size: 24))
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                     Text(selectedTab == .gainers ? "No gainers today" : "No losers today")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 13, weight: .light))
+                        .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
             } else {
-                VStack(spacing: 8) {
+                VStack(spacing: AppTheme.Spacing.small) {
                     ForEach(holdings.prefix(3)) { holding in
                         MoverRow(holding: holding, isGainer: selectedTab == .gainers)
                     }
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
-                .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2)
-        )
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 }
 
@@ -97,25 +89,25 @@ struct MoverRow: View {
         HStack(spacing: 12) {
             // Fund Icon
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
                     .fill(holding.assetClass.color.opacity(0.15))
                     .frame(width: 36, height: 36)
 
                 Text(String(holding.fundName.prefix(2)).uppercased())
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 12, weight: .light))
                     .foregroundColor(holding.assetClass.color)
             }
 
             // Fund Info
             VStack(alignment: .leading, spacing: 2) {
                 Text(holding.fundName)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 13, weight: .light))
+                    .foregroundColor(.primary)
                     .lineLimit(1)
 
                 Text(holding.assetClass.rawValue.capitalized)
                     .font(.system(size: 11, weight: .regular))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(.secondary)
             }
 
             Spacer()
@@ -123,22 +115,22 @@ struct MoverRow: View {
             // Change
             VStack(alignment: .trailing, spacing: 2) {
                 Text(holding.dayChange.currencyFormatted)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(isGainer ? AppTheme.success : AppTheme.error)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(isGainer ? .green : .red)
 
                 HStack(spacing: 2) {
                     Image(systemName: isGainer ? "arrow.up" : "arrow.down")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 10, weight: .medium))
                     Text(holding.dayChangePercentage.percentFormatted)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 11, weight: .regular))
                 }
-                .foregroundColor(isGainer ? AppTheme.success : AppTheme.error)
+                .foregroundColor(isGainer ? .green : .red)
             }
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(AppTheme.chipBackground)
+            Color(uiColor: .tertiarySystemFill),
+            in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
         )
     }
 }

@@ -2,7 +2,7 @@
 //  FamilyPortfolioCard.swift
 //  SparrowInvest
 //
-//  Family portfolio overview card
+//  iOS 26 Liquid Glass Family Portfolio Card
 //
 
 import SwiftUI
@@ -12,45 +12,45 @@ struct FamilyPortfolioCard: View {
     var onMemberTap: ((FamilyMember) -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
             // Header
             HStack {
                 Text("Family Portfolio")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Spacer()
 
                 NavigationLink(destination: Text("Family Details")) {
                     HStack(spacing: 4) {
                         Text("View All")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 13, weight: .light))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 11, weight: .regular))
                     }
-                    .foregroundColor(AppTheme.primary)
+                    .foregroundColor(.blue)
                 }
             }
 
             // Total Value
             VStack(alignment: .leading, spacing: 4) {
                 Text("Combined Value")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
 
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(familyPortfolio.totalValue.currencyFormatted)
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 24, weight: .light, design: .rounded))
+                        .foregroundColor(.primary)
 
                     Text("+\(familyPortfolio.returnsPercentage.percentFormatted)")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(AppTheme.success)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(.green)
                 }
             }
 
             // Members List
-            VStack(spacing: 8) {
+            VStack(spacing: AppTheme.Spacing.small) {
                 ForEach(familyPortfolio.linkedMembers.prefix(4)) { member in
                     FamilyMemberRow(member: member)
                         .onTapGesture {
@@ -68,24 +68,20 @@ struct FamilyPortfolioCard: View {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 16))
                         Text("Add Family Member")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 13, weight: .light))
                     }
-                    .foregroundColor(AppTheme.primary)
+                    .foregroundColor(.blue)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(AppTheme.primary.opacity(0.1))
+                        Color.blue.opacity(0.1),
+                        in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
                     )
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
-                .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2)
-        )
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 }
 
@@ -101,7 +97,7 @@ struct FamilyMemberRow: View {
                     .frame(width: 40, height: 40)
 
                 Text(member.initials)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundColor(member.relationship.color)
             }
 
@@ -109,25 +105,25 @@ struct FamilyMemberRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(member.name)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.primary)
 
                     if member.relationship == .myself {
                         Text("You")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(AppTheme.primary)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.blue)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(
-                                Capsule()
-                                    .fill(AppTheme.primary.opacity(0.1))
+                                Color.blue.opacity(0.1),
+                                in: Capsule()
                             )
                     }
                 }
 
                 Text(member.relationship.displayName)
                     .font(.system(size: 12, weight: .regular))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(.secondary)
             }
 
             Spacer()
@@ -135,18 +131,18 @@ struct FamilyMemberRow: View {
             // Value & Contribution
             VStack(alignment: .trailing, spacing: 2) {
                 Text(member.portfolioValue.currencyFormatted)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Text("\(Int(member.contribution))%")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
             }
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(AppTheme.chipBackground)
+            Color(uiColor: .tertiarySystemFill),
+            in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
         )
     }
 }

@@ -6,7 +6,7 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: AppTheme.Spacing.xLarge) {
                     // Profile Header
                     ProfileHeader()
 
@@ -40,23 +40,25 @@ struct ProfileView: View {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
                             Text("Logout")
                         }
-                        .foregroundColor(AppTheme.error)
+                        .foregroundColor(.red)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(AppTheme.error.opacity(0.1))
-                        .cornerRadius(12)
+                        .background(
+                            Color.red.opacity(0.1),
+                            in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                        )
                     }
                     .padding(.top)
 
                     // Version
                     Text("Version 1.0.0")
                         .font(.caption)
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                         .padding(.top, 8)
                 }
                 .padding()
             }
-            .background(AppTheme.background)
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Profile")
         }
     }
@@ -73,7 +75,7 @@ struct ProfileHeader: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [AppTheme.primary, AppTheme.secondary],
+                            colors: [.blue, .cyan],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -82,39 +84,37 @@ struct ProfileHeader: View {
 
                 Text(authManager.user?.initials ?? "U")
                     .font(.title)
-                    .fontWeight(.bold)
+                    .fontWeight(.light)
                     .foregroundColor(.white)
             }
 
             VStack(spacing: 4) {
                 Text(authManager.user?.fullName ?? "User")
                     .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .fontWeight(.light)
+                    .foregroundColor(.primary)
 
                 Text(authManager.user?.email ?? "email@example.com")
                     .font(.subheadline)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(.secondary)
             }
 
             // KYC Badge
             HStack(spacing: 4) {
                 Image(systemName: "checkmark.seal.fill")
-                    .foregroundColor(AppTheme.success)
+                    .foregroundColor(.green)
                 Text("KYC Verified")
                     .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(AppTheme.success)
+                    .fontWeight(.light)
+                    .foregroundColor(.green)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(AppTheme.success.opacity(0.1))
-            .cornerRadius(20)
+            .background(Color.green.opacity(0.1), in: Capsule())
         }
         .frame(maxWidth: .infinity)
-        .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(16)
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 }
 
@@ -127,8 +127,8 @@ struct ProfileMenuSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title.uppercased())
                 .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(AppTheme.primary)
+                .fontWeight(.regular)
+                .foregroundColor(.blue)
                 .tracking(1)
 
             VStack(spacing: 0) {
@@ -137,18 +137,18 @@ struct ProfileMenuSection: View {
                         HStack(spacing: 16) {
                             Image(systemName: item.icon)
                                 .font(.body)
-                                .foregroundColor(AppTheme.primary)
+                                .foregroundColor(.blue)
                                 .frame(width: 24)
 
                             Text(item.title)
                                 .font(.body)
-                                .foregroundColor(AppTheme.textPrimary)
+                                .foregroundColor(.primary)
 
                             Spacer()
 
                             Image(systemName: "chevron.right")
                                 .font(.caption)
-                                .foregroundColor(AppTheme.textTertiary)
+                                .foregroundColor(Color(uiColor: .tertiaryLabel))
                         }
                         .padding()
                     }
@@ -159,8 +159,7 @@ struct ProfileMenuSection: View {
                     }
                 }
             }
-            .background(AppTheme.cardBackground)
-            .cornerRadius(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous))
         }
     }
 }

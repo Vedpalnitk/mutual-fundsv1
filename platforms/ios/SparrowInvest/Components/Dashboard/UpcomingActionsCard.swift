@@ -2,7 +2,7 @@
 //  UpcomingActionsCard.swift
 //  SparrowInvest
 //
-//  Upcoming actions and alerts card
+//  iOS 26 Liquid Glass Upcoming Actions Card
 //
 
 import SwiftUI
@@ -17,20 +17,20 @@ struct UpcomingActionsCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
             // Header
             HStack {
                 HStack(spacing: 8) {
                     Text("Upcoming Actions")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(.primary)
 
                     if actions.highPriorityCount > 0 {
                         Text("\(actions.highPriorityCount)")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 11, weight: .regular))
                             .foregroundColor(.white)
                             .frame(width: 20, height: 20)
-                            .background(Circle().fill(AppTheme.error))
+                            .background(Circle().fill(Color.red))
                     }
                 }
 
@@ -39,11 +39,11 @@ struct UpcomingActionsCard: View {
                 NavigationLink(destination: Text("All Actions")) {
                     HStack(spacing: 4) {
                         Text("View All")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 13, weight: .light))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 11, weight: .regular))
                     }
-                    .foregroundColor(AppTheme.primary)
+                    .foregroundColor(.blue)
                 }
             }
 
@@ -52,10 +52,10 @@ struct UpcomingActionsCard: View {
                 VStack(spacing: 8) {
                     Image(systemName: "checkmark.circle")
                         .font(.system(size: 28))
-                        .foregroundColor(AppTheme.success)
+                        .foregroundColor(.green)
                     Text("All caught up!")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
@@ -71,12 +71,8 @@ struct UpcomingActionsCard: View {
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
-                .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2)
-        )
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 }
 
@@ -87,31 +83,33 @@ struct ActionRow: View {
 
     private var priorityColor: Color {
         switch action.priority {
-        case .high: return AppTheme.error
-        case .medium: return Color(hex: "#F59E0B")
-        case .low: return AppTheme.success
+        case .high: return .red
+        case .medium: return .orange
+        case .low: return .green
         }
     }
 
     private var typeColor: Color {
-        Color(hex: action.type.color == "primary" ? "#3B82F6" :
-                    action.type.color == "secondary" ? "#8B5CF6" :
-                    action.type.color == "success" ? "#10B981" :
-                    action.type.color == "warning" ? "#F59E0B" :
-                    action.type.color == "error" ? "#EF4444" : "#64748B")
+        switch action.type.color {
+        case "primary": return .blue
+        case "secondary": return .purple
+        case "success": return .green
+        case "warning": return .orange
+        case "error": return .red
+        default: return .gray
+        }
     }
 
     var body: some View {
         HStack(spacing: 12) {
             // Priority Indicator
-            Rectangle()
+            RoundedRectangle(cornerRadius: 2)
                 .fill(priorityColor)
                 .frame(width: 3)
-                .cornerRadius(2)
 
             // Icon
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
                     .fill(typeColor.opacity(0.15))
                     .frame(width: 36, height: 36)
 
@@ -123,24 +121,24 @@ struct ActionRow: View {
             // Content
             VStack(alignment: .leading, spacing: 2) {
                 Text(action.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 13, weight: .light))
+                    .foregroundColor(.primary)
                     .lineLimit(1)
 
                 HStack(spacing: 6) {
                     Text(action.dueDateFormatted)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(action.isOverdue ? AppTheme.error : AppTheme.textSecondary)
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(action.isOverdue ? .red : .secondary)
 
                     if action.isOverdue {
                         Text("Overdue")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(AppTheme.error)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.red)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(
-                                Capsule()
-                                    .fill(AppTheme.error.opacity(0.1))
+                                Color.red.opacity(0.1),
+                                in: Capsule()
                             )
                     }
                 }
@@ -155,7 +153,7 @@ struct ActionRow: View {
                 } label: {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 22))
-                        .foregroundColor(AppTheme.success)
+                        .foregroundColor(.green)
                 }
 
                 Button {
@@ -163,14 +161,14 @@ struct ActionRow: View {
                 } label: {
                     Image(systemName: "xmark.circle")
                         .font(.system(size: 22))
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                 }
             }
         }
         .padding(10)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(AppTheme.chipBackground)
+            Color(uiColor: .tertiarySystemFill),
+            in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
         )
     }
 }

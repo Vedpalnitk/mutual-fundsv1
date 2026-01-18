@@ -1,16 +1,22 @@
+//
+//  PortfolioSummaryCard.swift
+//  SparrowInvest
+//
+//  iOS 26 Liquid Glass Portfolio Summary Card
+//
+
 import SwiftUI
 
 struct PortfolioSummaryCard: View {
     let portfolio: Portfolio
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: AppTheme.Spacing.medium) {
             // Header
             HStack {
                 Text("YOUR PORTFOLIO")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(AppTheme.primary)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundColor(.blue)
                     .tracking(1)
                 Spacer()
             }
@@ -18,21 +24,20 @@ struct PortfolioSummaryCard: View {
             // Main Value
             VStack(alignment: .leading, spacing: 4) {
                 Text(portfolio.totalValue.currencyFormatted)
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 32, weight: .light, design: .rounded))
+                    .foregroundColor(.primary)
 
                 HStack(spacing: 8) {
                     HStack(spacing: 4) {
                         Image(systemName: portfolio.totalReturns >= 0 ? "arrow.up.right" : "arrow.down.right")
                         Text(portfolio.totalReturns.currencyFormatted)
                     }
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(portfolio.totalReturns >= 0 ? AppTheme.success : AppTheme.error)
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundColor(portfolio.totalReturns >= 0 ? .green : .red)
 
                     Text("(\(portfolio.returnsPercentage.percentFormatted)) all time")
-                        .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(.secondary)
                 }
             }
 
@@ -41,31 +46,30 @@ struct PortfolioSummaryCard: View {
             // Today's Change
             HStack {
                 Text("Today")
-                    .font(.subheadline)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: portfolio.todayChange >= 0 ? "arrow.up" : "arrow.down")
-                        .font(.caption)
+                        .font(.system(size: 12, weight: .regular))
                     Text("\(portfolio.todayChange.currencyFormatted) (\(portfolio.todayChangePercentage.percentFormatted))")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(.system(size: 14, weight: .regular))
                 }
-                .foregroundColor(portfolio.todayChange >= 0 ? AppTheme.success : AppTheme.error)
+                .foregroundColor(portfolio.todayChange >= 0 ? .green : .red)
             }
         }
-        .padding()
+        .padding(AppTheme.Spacing.medium)
         .background(
             LinearGradient(
-                colors: [AppTheme.primary.opacity(0.08), AppTheme.secondary.opacity(0.04)],
+                colors: [Color.blue.opacity(0.08), Color.cyan.opacity(0.04)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
-            )
+            ),
+            in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
         )
-        .cornerRadius(20)
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(AppTheme.cardBorder, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .stroke(Color(uiColor: .separator).opacity(0.3), lineWidth: 1)
         )
     }
 }

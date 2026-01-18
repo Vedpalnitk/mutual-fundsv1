@@ -2,7 +2,7 @@
 //  PortfolioGrowthLineChart.swift
 //  SparrowInvest
 //
-//  Line/area chart for portfolio growth over time
+//  iOS 26 Liquid Glass Portfolio Growth Chart
 //
 
 import SwiftUI
@@ -16,33 +16,33 @@ struct PortfolioGrowthLineChart: View {
     @State private var selectedPoint: PortfolioHistoryPoint?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Portfolio Growth")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(.primary)
 
                     if let point = selectedPoint {
                         HStack(spacing: 8) {
                             Text(point.value.currencyFormatted)
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(AppTheme.textPrimary)
+                                .font(.system(size: 14, weight: .light))
+                                .foregroundColor(.primary)
 
                             Text(point.returnsPercentage.percentFormatted)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(point.returns >= 0 ? AppTheme.success : AppTheme.error)
+                                .font(.system(size: 12, weight: .light))
+                                .foregroundColor(point.returns >= 0 ? .green : .red)
                         }
                     } else {
                         HStack(spacing: 8) {
                             Text(history.periodReturn >= 0 ? "+" : "")
                             Text("\(String(format: "%.1f", history.periodReturn))%")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(history.periodReturn >= 0 ? AppTheme.success : AppTheme.error)
+                                .font(.system(size: 14, weight: .regular))
+                                .foregroundColor(history.periodReturn >= 0 ? .green : .red)
                             Text("in \(selectedPeriod.rawValue)")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(AppTheme.textSecondary)
+                                .font(.system(size: 12, weight: .light))
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
@@ -58,10 +58,10 @@ struct PortfolioGrowthLineChart: View {
                 VStack(spacing: 8) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.system(size: 32))
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                     Text("No data available")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 180)
@@ -75,7 +75,7 @@ struct PortfolioGrowthLineChart: View {
                         )
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [AppTheme.primary.opacity(0.3), AppTheme.primary.opacity(0.05)],
+                                colors: [Color.blue.opacity(0.3), Color.blue.opacity(0.05)],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -86,21 +86,21 @@ struct PortfolioGrowthLineChart: View {
                             x: .value("Date", point.date),
                             y: .value("Value", point.value)
                         )
-                        .foregroundStyle(AppTheme.primary)
+                        .foregroundStyle(Color.blue)
                         .lineStyle(StrokeStyle(lineWidth: 2))
                     }
 
                     // Selection indicator
                     if let selected = selectedPoint {
                         RuleMark(x: .value("Date", selected.date))
-                            .foregroundStyle(AppTheme.primary.opacity(0.3))
+                            .foregroundStyle(Color.blue.opacity(0.3))
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
 
                         PointMark(
                             x: .value("Date", selected.date),
                             y: .value("Value", selected.value)
                         )
-                        .foregroundStyle(AppTheme.primary)
+                        .foregroundStyle(Color.blue)
                         .symbolSize(80)
                     }
                 }
@@ -111,7 +111,7 @@ struct PortfolioGrowthLineChart: View {
                             if let date = value.as(Date.self) {
                                 Text(formatAxisDate(date))
                                     .font(.system(size: 10))
-                                    .foregroundColor(AppTheme.textTertiary)
+                                    .foregroundColor(Color(uiColor: .tertiaryLabel))
                             }
                         }
                     }
@@ -122,7 +122,7 @@ struct PortfolioGrowthLineChart: View {
                             if let amount = value.as(Double.self) {
                                 Text(amount.compactCurrencyFormatted)
                                     .font(.system(size: 10))
-                                    .foregroundColor(AppTheme.textTertiary)
+                                    .foregroundColor(Color(uiColor: .tertiaryLabel))
                             }
                         }
                     }
@@ -153,49 +153,41 @@ struct PortfolioGrowthLineChart: View {
                 .frame(height: 180)
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
-                .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2)
-        )
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 
     private var periodSelector: some View {
         HStack(spacing: 0) {
             ForEach(HistoryPeriod.allCases, id: \.self) { period in
                 Button {
-                    withAnimation(.spring(response: 0.3)) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         selectedPeriod = period
                         onPeriodChange?(period)
                     }
                 } label: {
                     Text(period.rawValue)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(selectedPeriod == period ? .white : AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(selectedPeriod == period ? .white : .secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(
-                            selectedPeriod == period ?
-                            AnyView(
+                        .background {
+                            if selectedPeriod == period {
                                 Capsule()
                                     .fill(
                                         LinearGradient(
-                                            colors: [AppTheme.primary, AppTheme.primaryDark],
+                                            colors: [.blue, .cyan],
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         )
                                     )
-                            ) : AnyView(Color.clear)
-                        )
+                            }
+                        }
                 }
             }
         }
-        .padding(3)
-        .background(
-            Capsule()
-                .fill(AppTheme.chipBackground)
-        )
+        .padding(4)
+        .background(Color(uiColor: .tertiarySystemFill), in: Capsule())
     }
 
     private func formatAxisDate(_ date: Date) -> String {

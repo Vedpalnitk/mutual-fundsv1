@@ -1,55 +1,184 @@
 import SwiftUI
 import UIKit
 
+// MARK: - iOS 26 Liquid Glass Theme
+
 enum AppTheme {
-    // MARK: - Primary Colors (V4 Design System)
-    static let primary = Color(hex: "#2563EB")
-    static let primaryDark = Color(hex: "#1D4ED8")
-    static let secondary = Color(hex: "#0EA5E9")
+    // MARK: - Primary Colors (System-based)
+    static let primary = Color.blue
+    static let primaryDark = Color(uiColor: .systemBlue).opacity(0.8)
+    static let secondary = Color.cyan
+    static let accent = Color.teal
 
     // MARK: - Semantic Colors
-    static let success = Color(hex: "#10B981")
-    static let warning = Color(hex: "#F59E0B")
-    static let error = Color(hex: "#EF4444")
+    static let success = Color.green
+    static let warning = Color.orange
+    static let error = Color.red
+    static let info = Color.purple
 
-    // MARK: - Text Colors
-    static let textPrimary = Color(light: "#1E293B", dark: "#F8FAFC")
-    static let textSecondary = Color(light: "#64748B", dark: "#94A3B8")
-    static let textTertiary = Color(light: "#94A3B8", dark: "#64748B")
+    // MARK: - Text Colors (System Dynamic)
+    static let textPrimary = Color.primary
+    static let textSecondary = Color.secondary
+    static let textTertiary = Color(uiColor: .tertiaryLabel)
 
-    // MARK: - Background Colors
-    static let background = Color(light: "#F8FAFC", dark: "#0F172A")
-    static let cardBackground = Color(light: "#FFFFFF", dark: "#1E293B")
-    static let inputBackground = Color(light: "#F1F5F9", dark: "#334155")
+    // MARK: - Background Colors (System Dynamic)
+    static let background = Color(uiColor: .systemBackground)
+    static let secondaryBackground = Color(uiColor: .secondarySystemBackground)
+    static let groupedBackground = Color(uiColor: .systemGroupedBackground)
+    static let cardBackground = Color(uiColor: .secondarySystemGroupedBackground)
 
-    // MARK: - Border & Shadow
-    static let cardBorder = Color(light: "#E2E8F0", dark: "#334155")
-    static let shadowColor = Color.black.opacity(0.08)
+    // MARK: - Fill Colors
+    static let primaryFill = Color(uiColor: .systemFill)
+    static let secondaryFill = Color(uiColor: .secondarySystemFill)
+    static let tertiaryFill = Color(uiColor: .tertiarySystemFill)
+    static let quaternaryFill = Color(uiColor: .quaternarySystemFill)
+
+    // MARK: - Border & Separator
+    static let separator = Color(uiColor: .separator)
+    static let opaqueSeparator = Color(uiColor: .opaqueSeparator)
+
+    // MARK: - Legacy compatibility
+    static let inputBackground = Color(uiColor: .tertiarySystemFill)
+    static let cardBorder = Color(uiColor: .separator)
+    static let chipBackground = Color(uiColor: .tertiarySystemFill)
+    static let progressBackground = Color(uiColor: .tertiarySystemFill)
     static let cardShadow = Color.black.opacity(0.06)
-    static let progressBackground = Color(light: "#E2E8F0", dark: "#334155")
-
-    // MARK: - Chip/Pill Colors
-    static let chipBackground = Color(light: "#F1F5F9", dark: "#1E293B")
+    static let shadowColor = Color.black.opacity(0.08)
 
     // MARK: - Gradients
     static var primaryGradient: LinearGradient {
         LinearGradient(
-            colors: [primary, primaryDark],
+            colors: [.blue, .cyan],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
+        )
+    }
+
+    static var successGradient: LinearGradient {
+        LinearGradient(
+            colors: [.green, .mint],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    static var warmGradient: LinearGradient {
+        LinearGradient(
+            colors: [.orange, .yellow],
+            startPoint: .leading,
+            endPoint: .trailing
         )
     }
 
     static var blueGlassGradient: LinearGradient {
         LinearGradient(
-            colors: [primary.opacity(0.1), secondary.opacity(0.05)],
+            colors: [Color.blue.opacity(0.1), Color.cyan.opacity(0.05)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
     }
+
+    // MARK: - Typography (SF Pro Light)
+    struct Typography {
+        // Display - Large titles
+        static func display(_ size: CGFloat = 32) -> Font {
+            .system(size: size, weight: .light, design: .default)
+        }
+
+        // Title - Section headers
+        static func title(_ size: CGFloat = 24) -> Font {
+            .system(size: size, weight: .light, design: .default)
+        }
+
+        // Headline - Card titles
+        static func headline(_ size: CGFloat = 18) -> Font {
+            .system(size: size, weight: .regular, design: .default)
+        }
+
+        // Body - Main content
+        static func body(_ size: CGFloat = 16) -> Font {
+            .system(size: size, weight: .light, design: .default)
+        }
+
+        // Caption - Secondary text
+        static func caption(_ size: CGFloat = 14) -> Font {
+            .system(size: size, weight: .light, design: .default)
+        }
+
+        // Label - Small labels
+        static func label(_ size: CGFloat = 12) -> Font {
+            .system(size: size, weight: .regular, design: .default)
+        }
+
+        // Numeric - Numbers and stats (rounded design)
+        static func numeric(_ size: CGFloat = 20) -> Font {
+            .system(size: size, weight: .light, design: .rounded)
+        }
+
+        // Bold accent - For emphasis
+        static func accent(_ size: CGFloat = 14) -> Font {
+            .system(size: size, weight: .medium, design: .default)
+        }
+    }
+
+    // MARK: - Corner Radii (Concentric Design)
+    struct CornerRadius {
+        static let small: CGFloat = 8
+        static let medium: CGFloat = 12
+        static let large: CGFloat = 16
+        static let xLarge: CGFloat = 20
+        static let xxLarge: CGFloat = 24
+        static let hero: CGFloat = 32
+    }
+
+    // MARK: - Spacing
+    struct Spacing {
+        static let micro: CGFloat = 4
+        static let small: CGFloat = 8
+        static let compact: CGFloat = 12
+        static let medium: CGFloat = 16
+        static let large: CGFloat = 20
+        static let xLarge: CGFloat = 24
+        static let xxLarge: CGFloat = 32
+    }
+}
+
+// MARK: - Glass Card Modifier
+
+struct GlassCard: ViewModifier {
+    var cornerRadius: CGFloat = AppTheme.CornerRadius.xLarge
+    var material: Material = .regularMaterial
+
+    func body(content: Content) -> some View {
+        content
+            .background(material, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+struct SolidCard: ViewModifier {
+    var cornerRadius: CGFloat = AppTheme.CornerRadius.xLarge
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+            )
+    }
+}
+
+extension View {
+    func glassCard(cornerRadius: CGFloat = AppTheme.CornerRadius.xLarge, material: Material = .regularMaterial) -> some View {
+        modifier(GlassCard(cornerRadius: cornerRadius, material: material))
+    }
+
+    func solidCard(cornerRadius: CGFloat = AppTheme.CornerRadius.xLarge) -> some View {
+        modifier(SolidCard(cornerRadius: cornerRadius))
+    }
 }
 
 // MARK: - Color Extensions
+
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -85,6 +214,7 @@ extension Color {
 }
 
 // MARK: - Number Formatting
+
 extension Double {
     var currencyFormatted: String {
         let formatter = NumberFormatter()

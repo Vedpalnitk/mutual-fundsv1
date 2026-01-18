@@ -1,43 +1,48 @@
+//
+//  GoalProgressCard.swift
+//  SparrowInvest
+//
+//  iOS 26 Liquid Glass Goal Progress Card
+//
+
 import SwiftUI
 
 struct GoalProgressCard: View {
     let goal: Goal
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
             HStack {
                 Text(goal.icon)
-                    .font(.title2)
+                    .font(.system(size: 24))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(goal.name)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(.primary)
                     Text(goal.timeRemaining)
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .light))
+                        .foregroundColor(.secondary)
                 }
 
                 Spacer()
 
                 Text("\(Int(goal.progress * 100))%")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppTheme.primary)
+                    .font(.system(size: 18, weight: .light, design: .rounded))
+                    .foregroundColor(.blue)
             }
 
             // Progress Bar
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(AppTheme.progressBackground)
+                        .fill(Color(uiColor: .tertiarySystemFill))
                         .frame(height: 6)
 
                     RoundedRectangle(cornerRadius: 4)
                         .fill(
                             LinearGradient(
-                                colors: [AppTheme.primary, AppTheme.secondary],
+                                colors: [.blue, .cyan],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -49,18 +54,15 @@ struct GoalProgressCard: View {
 
             HStack {
                 Text(goal.currentAmount.currencyFormatted)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.primary)
                 Text("of \(goal.targetAmount.currencyFormatted)")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.secondary)
             }
         }
-        .padding()
-        .background(AppTheme.cardBackground)
-        .cornerRadius(16)
-        .shadow(color: AppTheme.shadowColor, radius: 4, x: 0, y: 2)
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous))
     }
 }
 

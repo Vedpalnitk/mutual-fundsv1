@@ -2,7 +2,7 @@
 //  GoalProgressTile.swift
 //  SparrowInvest
 //
-//  Goal progress summary tile
+//  iOS 26 Liquid Glass Goal Progress Tile
 //
 
 import SwiftUI
@@ -16,23 +16,23 @@ struct GoalProgressTile: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
             // Header
             HStack {
                 Text("Goal Progress")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Spacer()
 
                 NavigationLink(destination: GoalsView()) {
                     HStack(spacing: 4) {
                         Text("View All")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 13, weight: .light))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 11, weight: .regular))
                     }
-                    .foregroundColor(AppTheme.primary)
+                    .foregroundColor(.blue)
                 }
             }
 
@@ -41,15 +41,15 @@ struct GoalProgressTile: View {
                 VStack(spacing: 12) {
                     Image(systemName: "target")
                         .font(.system(size: 32))
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                     Text("No goals set yet")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
                     Button {
                         // Create goal action
                     } label: {
                         Text("Create Your First Goal")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 13, weight: .regular))
                             .foregroundColor(.white)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 10)
@@ -57,7 +57,7 @@ struct GoalProgressTile: View {
                                 Capsule()
                                     .fill(
                                         LinearGradient(
-                                            colors: [AppTheme.primary, AppTheme.primaryDark],
+                                            colors: [.blue, .cyan],
                                             startPoint: .leading,
                                             endPoint: .trailing
                                         )
@@ -68,7 +68,7 @@ struct GoalProgressTile: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 20)
             } else {
-                VStack(spacing: 12) {
+                VStack(spacing: AppTheme.Spacing.compact) {
                     ForEach(displayGoals) { goal in
                         GoalProgressRow(goal: goal)
                             .onTapGesture {
@@ -78,12 +78,8 @@ struct GoalProgressTile: View {
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
-                .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2)
-        )
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 }
 
@@ -96,11 +92,11 @@ struct GoalProgressRow: View {
 
     private var progressColor: Color {
         if progressPercentage >= 80 {
-            return AppTheme.success
+            return .green
         } else if progressPercentage >= 50 {
-            return AppTheme.primary
+            return .blue
         } else {
-            return Color(hex: "#F59E0B")
+            return .orange
         }
     }
 
@@ -109,7 +105,7 @@ struct GoalProgressRow: View {
             HStack {
                 // Goal Icon
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
                         .fill(progressColor.opacity(0.15))
                         .frame(width: 36, height: 36)
 
@@ -120,24 +116,24 @@ struct GoalProgressRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(goal.name)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.primary)
 
                     Text(goal.timeRemaining)
                         .font(.system(size: 12, weight: .regular))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(.secondary)
                 }
 
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(Int(progressPercentage))%")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 14, weight: .light, design: .rounded))
                         .foregroundColor(progressColor)
 
                     Text(goal.currentAmount.compactCurrencyFormatted)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .light))
+                        .foregroundColor(.secondary)
                 }
             }
 
@@ -155,10 +151,10 @@ struct GoalProgressRow: View {
             }
             .frame(height: 6)
         }
-        .padding(12)
+        .padding(AppTheme.Spacing.compact)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(AppTheme.chipBackground)
+            Color(uiColor: .tertiarySystemFill),
+            in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
         )
     }
 }

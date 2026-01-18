@@ -2,7 +2,7 @@
 //  AssetAllocationPieChart.swift
 //  SparrowInvest
 //
-//  Donut chart for asset allocation display
+//  iOS 26 Liquid Glass Asset Allocation Chart
 //
 
 import SwiftUI
@@ -25,31 +25,31 @@ struct AssetAllocationPieChart: View {
                 name: "Equity",
                 value: allocation.equity,
                 percentage: allocation.equityPercentage,
-                color: Color(hex: "#3B82F6")
+                color: .blue
             ),
             AllocationSlice(
                 name: "Debt",
                 value: allocation.debt,
                 percentage: allocation.debtPercentage,
-                color: Color(hex: "#10B981")
+                color: .green
             ),
             AllocationSlice(
                 name: "Hybrid",
                 value: allocation.hybrid,
                 percentage: allocation.hybridPercentage,
-                color: Color(hex: "#8B5CF6")
+                color: .purple
             ),
             AllocationSlice(
                 name: "Gold",
                 value: allocation.gold,
                 percentage: allocation.goldPercentage,
-                color: Color(hex: "#F59E0B")
+                color: .orange
             ),
             AllocationSlice(
                 name: "Other",
                 value: allocation.other,
                 percentage: allocation.otherPercentage,
-                color: Color(hex: "#64748B")
+                color: .gray
             )
         ].filter { $0.value > 0 }
     }
@@ -57,13 +57,13 @@ struct AssetAllocationPieChart: View {
     @State private var selectedSlice: AllocationSlice?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
             // Header
             Text("Asset Allocation")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .font(.system(size: 16, weight: .regular))
+                .foregroundColor(.primary)
 
-            HStack(spacing: 20) {
+            HStack(spacing: AppTheme.Spacing.large) {
                 // Pie Chart
                 ZStack {
                     Chart(slices) { slice in
@@ -79,18 +79,18 @@ struct AssetAllocationPieChart: View {
                         VStack(spacing: 2) {
                             if let selected = selectedSlice {
                                 Text(selected.name)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(AppTheme.textSecondary)
+                                    .font(.system(size: 12, weight: .light))
+                                    .foregroundColor(.secondary)
                                 Text("\(Int(selected.percentage))%")
-                                    .font(.system(size: 20, weight: .bold))
+                                    .font(.system(size: 20, weight: .light, design: .rounded))
                                     .foregroundColor(selected.color)
                             } else {
                                 Text("Total")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(AppTheme.textSecondary)
+                                    .font(.system(size: 12, weight: .light))
+                                    .foregroundColor(.secondary)
                                 Text(allocation.total.compactCurrencyFormatted)
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(AppTheme.textPrimary)
+                                    .font(.system(size: 16, weight: .light, design: .rounded))
+                                    .foregroundColor(.primary)
                             }
                         }
                     }
@@ -107,18 +107,18 @@ struct AssetAllocationPieChart: View {
 
                             VStack(alignment: .leading, spacing: 0) {
                                 Text(slice.name)
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(AppTheme.textPrimary)
+                                    .font(.system(size: 13, weight: .light))
+                                    .foregroundColor(.primary)
 
                                 Text(slice.value.compactCurrencyFormatted)
                                     .font(.system(size: 11, weight: .regular))
-                                    .foregroundColor(AppTheme.textSecondary)
+                                    .foregroundColor(.secondary)
                             }
 
                             Spacer()
 
                             Text("\(Int(slice.percentage))%")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 13, weight: .regular, design: .rounded))
                                 .foregroundColor(slice.color)
                         }
                         .onTapGesture {
@@ -134,12 +134,8 @@ struct AssetAllocationPieChart: View {
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(AppTheme.cardBackground)
-                .shadow(color: AppTheme.cardShadow, radius: 8, x: 0, y: 2)
-        )
+        .padding(AppTheme.Spacing.medium)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous))
     }
 }
 
