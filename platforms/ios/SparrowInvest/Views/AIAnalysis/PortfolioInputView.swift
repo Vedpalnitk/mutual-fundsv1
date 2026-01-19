@@ -96,7 +96,7 @@ struct PortfolioInputView: View {
                 if portfolioTarget == .aiAnalysis {
                     AddHoldingView()
                 } else if let member = selectedMember {
-                    FamilyMemberAddHoldingView(memberId: member.id)
+                    AddHoldingSheet(memberId: member.id)
                 }
             }
             .sheet(item: $holdingToEdit) { holding in

@@ -16,6 +16,38 @@ class AdvisorStore: ObservableObject {
     @Published var isLoading = false
     @Published var error: Error?
 
+    // User's assigned advisor (if any)
+    @Published var assignedAdvisorId: String? = "adv_001" // Mock: Rajesh Sharma is assigned
+    @Published var userRatings: [String: Int] = [:] // advisorId -> rating (1-5)
+
+    // MARK: - Assigned Advisor
+
+    var assignedAdvisor: Advisor? {
+        guard let id = assignedAdvisorId else { return nil }
+        return advisors.first { $0.id == id }
+    }
+
+    var hasAssignedAdvisor: Bool {
+        assignedAdvisorId != nil && assignedAdvisor != nil
+    }
+
+    func assignAdvisor(_ advisorId: String) {
+        assignedAdvisorId = advisorId
+    }
+
+    func removeAssignedAdvisor() {
+        assignedAdvisorId = nil
+    }
+
+    func rateAdvisor(_ advisorId: String, rating: Int) {
+        userRatings[advisorId] = rating
+        // In a real app, this would also update the advisor's overall rating on the server
+    }
+
+    func getUserRating(for advisorId: String) -> Int? {
+        userRatings[advisorId]
+    }
+
     // MARK: - Computed Properties
 
     var advisorsInUserRegion: [Advisor] {

@@ -78,6 +78,55 @@ class PortfolioStore: ObservableObject {
         }
     }
 
+    func addHolding(_ holding: Holding) {
+        holdings.append(holding)
+
+        // Update portfolio totals
+        portfolio = Portfolio(
+            totalValue: portfolio.totalValue + holding.currentValue,
+            totalInvested: portfolio.totalInvested + holding.investedAmount,
+            totalReturns: portfolio.totalReturns + holding.returns,
+            returnsPercentage: ((portfolio.totalInvested + holding.investedAmount) > 0)
+                ? ((portfolio.totalReturns + holding.returns) / (portfolio.totalInvested + holding.investedAmount)) * 100
+                : 0,
+            todayChange: portfolio.todayChange,
+            todayChangePercentage: portfolio.todayChangePercentage,
+            xirr: portfolio.xirr,
+            assetAllocation: recalculateAssetAllocation(),
+            holdings: holdings
+        )
+    }
+
+    private func recalculateAssetAllocation() -> AssetAllocation {
+        let totalValue = holdings.reduce(0) { $0 + $1.currentValue }
+        guard totalValue > 0 else {
+            return AssetAllocation(equity: 0, debt: 0, hybrid: 0, gold: 0)
+        }
+
+        var equity: Double = 0
+        var debt: Double = 0
+        var hybrid: Double = 0
+        var gold: Double = 0
+
+        for holding in holdings {
+            let percentage = (holding.currentValue / totalValue) * 100
+            switch holding.assetClass {
+            case .equity: equity += percentage
+            case .debt: debt += percentage
+            case .hybrid: hybrid += percentage
+            case .gold: gold += percentage
+            case .other: break // Ignore other asset classes
+            }
+        }
+
+        return AssetAllocation(
+            equity: equity.rounded(),
+            debt: debt.rounded(),
+            hybrid: hybrid.rounded(),
+            gold: gold.rounded()
+        )
+    }
+
     private func loadMockData() {
         // Mock Portfolio
         portfolio = Portfolio(

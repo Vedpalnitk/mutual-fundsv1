@@ -50,11 +50,13 @@ struct InvestmentsView: View {
     @EnvironmentObject var portfolioStore: PortfolioStore
     @EnvironmentObject var fundsStore: FundsStore
     @EnvironmentObject var familyStore: FamilyStore
+    @EnvironmentObject var navigationStore: NavigationStore
     @State private var selectedTab: InvestmentTab = .portfolio
     @State private var selectedMode: PortfolioSelectionMode = .myPortfolio
     @State private var showPortfolioPicker = false
     @State private var showAddHolding = false
     @State private var showAddFamilyMember = false
+    @State private var showAddFundToMyPortfolio = false
     @State private var selectedFilter: Holding.AssetClass? = nil
 
     private var currentPortfolioValue: Double {
@@ -134,8 +136,12 @@ struct InvestmentsView: View {
                                 holdings: filteredHoldings,
                                 selectedFilter: $selectedFilter,
                                 canEdit: selectedMode != .myPortfolio,
+                                isMyPortfolio: selectedMode == .myPortfolio,
                                 onAddHolding: {
                                     showAddHolding = true
+                                },
+                                onAddToMyPortfolio: {
+                                    showAddFundToMyPortfolio = true
                                 },
                                 onDeleteHolding: { holding in
                                     if case .familyMember(let member) = selectedMode {
@@ -186,12 +192,461 @@ struct InvestmentsView: View {
             }
             .sheet(isPresented: $showAddHolding) {
                 if case .familyMember(let member) = selectedMode {
-                    FamilyMemberAddHoldingView(memberId: member.id)
+                    AddHoldingSheet(memberId: member.id)
                 }
             }
             .sheet(isPresented: $showAddFamilyMember) {
                 AddFamilyMemberSheet()
             }
+            .sheet(isPresented: $showAddFundToMyPortfolio) {
+                AddHoldingSheet()
+            }
+        }
+    }
+}
+
+// MARK: - Add Holding Sheet (Unified)
+
+struct AddHoldingSheet: View {
+    // Optional memberId for family member portfolios, nil for My Portfolio
+    var memberId: String? = nil
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject var fundsStore: FundsStore
+    @EnvironmentObject var portfolioStore: PortfolioStore
+    @EnvironmentObject var familyStore: FamilyStore
+
+    @State private var fundSearchText = ""
+    @State private var fundCode = ""
+    @State private var selectedFund: Fund?
+    @State private var units = ""
+    @State private var investedAmount = ""
+    @State private var currentNav = ""
+    @State private var selectedAssetClass: Holding.AssetClass = .equity
+    @State private var showSuggestions = false
+    @FocusState private var isFundFieldFocused: Bool
+
+    private var filteredFunds: [Fund] {
+        guard !fundSearchText.isEmpty else { return [] }
+        let searchTerm = fundSearchText.lowercased()
+        return fundsStore.funds
+            .filter { $0.schemeName.lowercased().contains(searchTerm) }
+            .prefix(8)
+            .map { $0 }
+    }
+
+    private var isValid: Bool {
+        !fundSearchText.isEmpty &&
+        Double(units) ?? 0 > 0 &&
+        Double(investedAmount) ?? 0 > 0 &&
+        Double(currentNav) ?? 0 > 0
+    }
+
+    private var calculatedValues: (currentValue: Double, returns: Double, returnsPercentage: Double) {
+        let unitsVal = Double(units) ?? 0
+        let navVal = Double(currentNav) ?? 0
+        let investedVal = Double(investedAmount) ?? 0
+
+        let currentValue = unitsVal * navVal
+        let returns = currentValue - investedVal
+        let returnsPercentage = investedVal > 0 ? (returns / investedVal) * 100 : 0
+
+        return (currentValue, returns, returnsPercentage)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: AppTheme.Spacing.large) {
+                    fundSearchCard
+                    investmentDetailsCard
+                    calculatedSummaryCard
+                    addButton
+                }
+                .padding(AppTheme.Spacing.medium)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("Add Holding")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .onTapGesture {
+                isFundFieldFocused = false
+                showSuggestions = false
+            }
+        }
+    }
+
+    // MARK: - Fund Search Card
+
+    private var fundSearchCard: some View {
+        VStack(spacing: AppTheme.Spacing.medium) {
+            fundNameField
+            fundCodeField
+            assetClassPicker
+        }
+        .padding(AppTheme.Spacing.medium)
+        .background(cardBackground)
+        .overlay(cardBorder)
+    }
+
+    private var fundCodeField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("FUND CODE (OPTIONAL)")
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(.secondary)
+                .tracking(0.5)
+
+            TextField("e.g., 119598", text: $fundCode)
+                .font(.system(size: 15, weight: .regular))
+                .keyboardType(.numberPad)
+                .padding(AppTheme.Spacing.compact)
+                .background(
+                    colorScheme == .dark ? Color.white.opacity(0.06) : Color(uiColor: .tertiarySystemFill),
+                    in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                )
+        }
+    }
+
+    private var fundNameField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("FUND NAME")
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(.secondary)
+                .tracking(0.5)
+
+            TextField("Search fund name...", text: $fundSearchText)
+                .font(.system(size: 15, weight: .regular))
+                .focused($isFundFieldFocused)
+                .padding(AppTheme.Spacing.compact)
+                .background(
+                    colorScheme == .dark ? Color.white.opacity(0.06) : Color(uiColor: .tertiarySystemFill),
+                    in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                )
+                .onChange(of: fundSearchText) { _, newValue in
+                    showSuggestions = !newValue.isEmpty && isFundFieldFocused
+                    if newValue.isEmpty { selectedFund = nil }
+                }
+                .onChange(of: isFundFieldFocused) { _, focused in
+                    showSuggestions = focused && !fundSearchText.isEmpty
+                }
+
+            fundSuggestionsList
+            selectedFundInfo
+        }
+    }
+
+    @ViewBuilder
+    private var fundSuggestionsList: some View {
+        if showSuggestions && !filteredFunds.isEmpty {
+            VStack(spacing: 0) {
+                ForEach(filteredFunds) { fund in
+                    FundSuggestionRow(fund: fund) { selectFund(fund) }
+                    if fund.id != filteredFunds.last?.id { Divider() }
+                }
+            }
+            .background(
+                colorScheme == .dark ? Color.black.opacity(0.6) : Color.white,
+                in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                    .stroke(colorScheme == .dark ? Color.white.opacity(0.15) : Color.black.opacity(0.1), lineWidth: 1)
+            )
+            .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.1), radius: 8, y: 4)
+        }
+    }
+
+    @ViewBuilder
+    private var selectedFundInfo: some View {
+        if let fund = selectedFund {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                    .font(.system(size: 14))
+                Text(fund.fundHouse ?? fund.category ?? "")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("NAV: ₹\(String(format: "%.2f", fund.nav))")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.blue)
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private var assetClassPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("ASSET CLASS")
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(.secondary)
+                .tracking(0.5)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppTheme.Spacing.small) {
+                    ForEach([Holding.AssetClass.equity, .debt, .hybrid, .gold], id: \.self) { assetClass in
+                        assetClassChip(assetClass)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Investment Details Card
+
+    private var investmentDetailsCard: some View {
+        VStack(spacing: AppTheme.Spacing.medium) {
+            formField(title: "Units", placeholder: "e.g., 150.254", text: $units, keyboardType: .decimalPad)
+            formField(title: "Invested Amount", placeholder: "e.g., 50000", text: $investedAmount, keyboardType: .decimalPad)
+            formField(title: "Current NAV", placeholder: "e.g., 425.50", text: $currentNav, keyboardType: .decimalPad)
+        }
+        .padding(AppTheme.Spacing.medium)
+        .background(cardBackground)
+        .overlay(cardBorder)
+    }
+
+    // MARK: - Calculated Summary Card
+
+    @ViewBuilder
+    private var calculatedSummaryCard: some View {
+        if isValid {
+            let calc = calculatedValues
+            let returnsColor: Color = calc.returns >= 0 ? .green : .red
+            VStack(spacing: AppTheme.Spacing.compact) {
+                HStack {
+                    Text("CALCULATED VALUES")
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(.secondary)
+                        .tracking(0.5)
+                    Spacer()
+                }
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Current Value")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(.secondary)
+                        Text(calc.currentValue.currencyFormatted)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.primary)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text("Returns")
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(.secondary)
+                        HStack(spacing: 4) {
+                            Text(calc.returns.currencyFormatted)
+                                .font(.system(size: 16, weight: .semibold))
+                            Text("(\(calc.returnsPercentage.percentFormatted))")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundColor(returnsColor)
+                    }
+                }
+            }
+            .padding(AppTheme.Spacing.medium)
+            .background(
+                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                    .fill(returnsColor.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                    .stroke(returnsColor.opacity(0.2), lineWidth: 1)
+            )
+        }
+    }
+
+    // MARK: - Add Button
+
+    private var addButton: some View {
+        Button { addHolding() } label: {
+            Text("Add Holding")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    LinearGradient(colors: [.blue, .cyan], startPoint: .leading, endPoint: .trailing),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
+        }
+        .disabled(!isValid)
+        .opacity(isValid ? 1 : 0.6)
+    }
+
+    private func selectFund(_ fund: Fund) {
+        selectedFund = fund
+        fundSearchText = fund.schemeName
+        fundCode = fund.id
+        currentNav = String(format: "%.2f", fund.nav)
+        showSuggestions = false
+        isFundFieldFocused = false
+
+        // Auto-select asset class based on fund
+        let category = (fund.category ?? "").lowercased()
+        if category.contains("debt") || category.contains("liquid") || category.contains("money market") {
+            selectedAssetClass = .debt
+        } else if category.contains("hybrid") || category.contains("balanced") {
+            selectedAssetClass = .hybrid
+        } else if category.contains("gold") || category.contains("commodity") {
+            selectedAssetClass = .gold
+        } else {
+            selectedAssetClass = .equity
+        }
+    }
+
+    private func formField(title: String, placeholder: String, text: Binding<String>, keyboardType: UIKeyboardType = .default) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(.secondary)
+                .tracking(0.5)
+
+            TextField(placeholder, text: text)
+                .font(.system(size: 15, weight: .regular))
+                .keyboardType(keyboardType)
+                .padding(AppTheme.Spacing.compact)
+                .background(
+                    colorScheme == .dark
+                        ? Color.white.opacity(0.06)
+                        : Color(uiColor: .tertiarySystemFill),
+                    in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                )
+        }
+    }
+
+    private func assetClassChip(_ assetClass: Holding.AssetClass) -> some View {
+        Button {
+            selectedAssetClass = assetClass
+        } label: {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(assetClass.color)
+                    .frame(width: 8, height: 8)
+                Text(assetClass.rawValue.capitalized)
+                    .font(.system(size: 13, weight: .regular))
+            }
+            .foregroundColor(selectedAssetClass == assetClass ? .white : .primary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                selectedAssetClass == assetClass
+                    ? AnyShapeStyle(assetClass.color)
+                    : AnyShapeStyle(colorScheme == .dark ? Color.white.opacity(0.08) : Color(uiColor: .tertiarySystemFill)),
+                in: Capsule()
+            )
+        }
+    }
+
+    private func addHolding() {
+        let unitsVal = Double(units) ?? 0
+        let investedVal = Double(investedAmount) ?? 0
+        let navVal = Double(currentNav) ?? 0
+        let calc = calculatedValues
+
+        let fundName = selectedFund?.schemeName ?? fundSearchText
+        // Use user-entered fundCode if provided, otherwise use selectedFund?.id or generate UUID
+        let resolvedFundCode = !fundCode.isEmpty ? fundCode : (selectedFund?.id ?? UUID().uuidString)
+
+        let holding = Holding(
+            id: UUID().uuidString,
+            fundCode: resolvedFundCode,
+            fundName: fundName,
+            category: selectedFund?.category ?? selectedAssetClass.rawValue.capitalized,
+            assetClass: selectedAssetClass,
+            units: unitsVal,
+            averageNav: investedVal / unitsVal,
+            currentNav: navVal,
+            investedAmount: investedVal,
+            currentValue: calc.currentValue,
+            returns: calc.returns,
+            returnsPercentage: calc.returnsPercentage
+        )
+
+        // Route to correct store based on memberId
+        if let memberId = memberId {
+            familyStore.addHolding(holding, to: memberId)
+        } else {
+            portfolioStore.addHolding(holding)
+        }
+        dismiss()
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .fill(Color.white)
+        }
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.08), location: 0),
+                            .init(color: .black.opacity(0.04), location: 0.3),
+                            .init(color: .black.opacity(0.02), location: 0.7),
+                            .init(color: .black.opacity(0.06), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+// MARK: - Fund Suggestion Row
+
+struct FundSuggestionRow: View {
+    let fund: Fund
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(fund.schemeName)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    Text(fund.category ?? fund.assetClass.capitalized)
+                        .font(.system(size: 11, weight: .light))
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Text("₹\(String(format: "%.2f", fund.nav))")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.blue)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
         }
     }
 }
@@ -399,7 +854,9 @@ struct PortfolioTabContent: View {
     let holdings: [Holding]
     @Binding var selectedFilter: Holding.AssetClass?
     var canEdit: Bool = false
+    var isMyPortfolio: Bool = false
     var onAddHolding: (() -> Void)?
+    var onAddToMyPortfolio: (() -> Void)?
     var onDeleteHolding: ((Holding) -> Void)?
 
     @Environment(\.colorScheme) private var colorScheme
@@ -444,6 +901,8 @@ struct PortfolioTabContent: View {
                 if holdings.isEmpty {
                     if canEdit {
                         EditableEmptyHoldingsView(onAddHolding: onAddHolding)
+                    } else if isMyPortfolio {
+                        EmptyHoldingsViewWithAction(onAddHolding: onAddToMyPortfolio)
                     } else {
                         EmptyHoldingsView()
                     }
@@ -463,6 +922,29 @@ struct PortfolioTabContent: View {
                             .buttonStyle(.plain)
                         }
                     }
+                }
+            }
+
+            // Buy More Button for My Portfolio
+            if isMyPortfolio && !holdings.isEmpty {
+                Button(action: { onAddToMyPortfolio?() }) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 18, weight: .light))
+                        Text("Buy More")
+                            .font(.system(size: 14, weight: .regular))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        LinearGradient(
+                            colors: [.blue, .cyan],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                    )
+                    .foregroundColor(.white)
                 }
             }
         }
@@ -1705,6 +2187,104 @@ struct EmptyHoldingsView: View {
     }
 }
 
+// MARK: - Empty Holdings View With Action
+
+struct EmptyHoldingsViewWithAction: View {
+    var onAddHolding: (() -> Void)?
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: AppTheme.Spacing.medium) {
+            Image(systemName: "chart.pie")
+                .font(.system(size: 48, weight: .ultraLight))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
+
+            Text("No holdings yet")
+                .font(.system(size: 16, weight: .light))
+                .foregroundColor(.secondary)
+
+            Text("Add your first investment to start tracking your portfolio")
+                .font(.system(size: 14, weight: .light))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+
+            Button(action: { onAddHolding?() }) {
+                HStack {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 16, weight: .light))
+                    Text("Add Holding")
+                        .font(.system(size: 14, weight: .regular))
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(
+                    LinearGradient(
+                        colors: [.blue, .cyan],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    in: Capsule()
+                )
+                .foregroundColor(.white)
+            }
+            .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 48)
+        .background(emptyHoldingsBackground)
+        .overlay(emptyHoldingsBorder)
+        .shadow(color: emptyHoldingsShadow, radius: 12, x: 0, y: 4)
+    }
+
+    private var emptyHoldingsShadow: Color {
+        colorScheme == .dark ? .clear : .black.opacity(0.08)
+    }
+
+    @ViewBuilder
+    private var emptyHoldingsBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color.white)
+        }
+    }
+
+    private var emptyHoldingsBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.15), location: 0),
+                            .init(color: .black.opacity(0.08), location: 0.3),
+                            .init(color: .black.opacity(0.05), location: 0.7),
+                            .init(color: .black.opacity(0.12), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
 // MARK: - Family Portfolio Picker Sheet
 
 struct FamilyPortfolioPickerSheet: View {
@@ -1933,4 +2513,5 @@ struct PortfolioOptionRow: View {
         .environmentObject(PortfolioStore())
         .environmentObject(FundsStore())
         .environmentObject(FamilyStore())
+        .environmentObject(NavigationStore())
 }
