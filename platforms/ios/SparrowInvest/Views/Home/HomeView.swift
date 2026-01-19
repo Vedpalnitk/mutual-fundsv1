@@ -242,26 +242,142 @@ struct GreetingHeader: View {
 
 // MARK: - Quick Actions
 
+enum QuickActionType: String {
+    case invest = "Invest"
+    case withdraw = "Withdraw"
+    case sip = "Start SIP"
+
+    var icon: String {
+        switch self {
+        case .invest: return "plus.circle.fill"
+        case .withdraw: return "arrow.down.circle.fill"
+        case .sip: return "repeat.circle.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .invest: return .blue
+        case .withdraw: return .cyan
+        case .sip: return .green
+        }
+    }
+
+    var sheetTitle: String {
+        switch self {
+        case .invest: return "Invest via"
+        case .withdraw: return "Withdraw via"
+        case .sip: return "Start SIP via"
+        }
+    }
+
+    var sheetSubtitle: String {
+        switch self {
+        case .invest: return "Choose a platform to invest in mutual funds"
+        case .withdraw: return "Choose a platform to withdraw your investments"
+        case .sip: return "Choose a platform to start a SIP"
+        }
+    }
+}
+
+struct TradingPlatform: Identifiable {
+    let id = UUID()
+    let name: String
+    let shortName: String
+    let icon: String // SF Symbol or custom
+    let color: Color
+    let appScheme: String // URL scheme to open app
+    let webURL: String // Fallback web URL
+
+    static let platforms: [TradingPlatform] = [
+        TradingPlatform(
+            name: "Zerodha Coin",
+            shortName: "Zerodha",
+            icon: "z.circle.fill",
+            color: Color(red: 0.15, green: 0.68, blue: 0.38), // Zerodha green
+            appScheme: "zerodha://",
+            webURL: "https://coin.zerodha.com"
+        ),
+        TradingPlatform(
+            name: "Groww",
+            shortName: "Groww",
+            icon: "g.circle.fill",
+            color: Color(red: 0.0, green: 0.78, blue: 0.55), // Groww teal
+            appScheme: "groww://",
+            webURL: "https://groww.in/mutual-funds"
+        ),
+        TradingPlatform(
+            name: "Kuvera",
+            shortName: "Kuvera",
+            icon: "k.circle.fill",
+            color: Color(red: 0.2, green: 0.4, blue: 0.8), // Kuvera blue
+            appScheme: "kuvera://",
+            webURL: "https://kuvera.in"
+        ),
+        TradingPlatform(
+            name: "Paytm Money",
+            shortName: "Paytm",
+            icon: "p.circle.fill",
+            color: Color(red: 0.0, green: 0.69, blue: 0.94), // Paytm blue
+            appScheme: "paytmmoney://",
+            webURL: "https://www.paytmmoney.com/mutual-funds"
+        ),
+        TradingPlatform(
+            name: "ET Money",
+            shortName: "ET Money",
+            icon: "e.circle.fill",
+            color: Color(red: 0.13, green: 0.13, blue: 0.13), // ET Money dark
+            appScheme: "etmoney://",
+            webURL: "https://www.etmoney.com"
+        ),
+        TradingPlatform(
+            name: "MF Central",
+            shortName: "MF Central",
+            icon: "m.circle.fill",
+            color: Color(red: 0.0, green: 0.48, blue: 0.8), // MF Central blue
+            appScheme: "mfcentral://",
+            webURL: "https://www.mfcentral.com"
+        )
+    ]
+}
+
 struct QuickActionsRow: View {
+    @State private var selectedAction: QuickActionType?
+    @State private var showPlatformSheet = false
+
     var body: some View {
         HStack(spacing: AppTheme.Spacing.compact) {
             HomeQuickActionButton(
                 title: "Invest",
                 icon: "plus.circle.fill",
                 color: .blue
-            )
+            ) {
+                selectedAction = .invest
+                showPlatformSheet = true
+            }
 
             HomeQuickActionButton(
                 title: "Withdraw",
                 icon: "arrow.down.circle.fill",
                 color: .cyan
-            )
+            ) {
+                selectedAction = .withdraw
+                showPlatformSheet = true
+            }
 
             HomeQuickActionButton(
                 title: "SIP",
                 icon: "repeat.circle.fill",
                 color: .green
-            )
+            ) {
+                selectedAction = .sip
+                showPlatformSheet = true
+            }
+        }
+        .sheet(isPresented: $showPlatformSheet) {
+            if let action = selectedAction {
+                TradingPlatformSheet(actionType: action)
+            }
         }
     }
 }
@@ -270,10 +386,11 @@ struct HomeQuickActionButton: View {
     let title: String
     let icon: String
     let color: Color
+    let action: () -> Void
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Button(action: {}) {
+        Button(action: action) {
             VStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 28, weight: .light))
@@ -329,6 +446,180 @@ struct HomeQuickActionButton: View {
                             .init(color: .black.opacity(0.08), location: 0.3),
                             .init(color: .black.opacity(0.05), location: 0.7),
                             .init(color: .black.opacity(0.12), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+// MARK: - Trading Platform Sheet
+
+struct TradingPlatformSheet: View {
+    let actionType: QuickActionType
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: AppTheme.Spacing.large) {
+                    // Header
+                    VStack(spacing: AppTheme.Spacing.small) {
+                        ZStack {
+                            Circle()
+                                .fill(actionType.color.opacity(0.15))
+                                .frame(width: 64, height: 64)
+                            Image(systemName: actionType.icon)
+                                .font(.system(size: 28, weight: .light))
+                                .foregroundColor(actionType.color)
+                        }
+
+                        Text(actionType.sheetTitle)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(.primary)
+
+                        Text(actionType.sheetSubtitle)
+                            .font(.system(size: 14, weight: .light))
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.top, AppTheme.Spacing.medium)
+
+                    // Platform Grid
+                    LazyVGrid(columns: [
+                        GridItem(.flexible(), spacing: AppTheme.Spacing.compact),
+                        GridItem(.flexible(), spacing: AppTheme.Spacing.compact)
+                    ], spacing: AppTheme.Spacing.compact) {
+                        ForEach(TradingPlatform.platforms) { platform in
+                            PlatformCard(platform: platform) {
+                                openPlatform(platform)
+                            }
+                        }
+                    }
+
+                    // Disclaimer
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                        Text("You will be redirected to the selected platform to complete your transaction.")
+                            .font(.system(size: 12, weight: .light))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(AppTheme.Spacing.compact)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                            .fill(colorScheme == .dark ? Color.white.opacity(0.05) : Color(uiColor: .tertiarySystemFill))
+                    )
+                }
+                .padding(AppTheme.Spacing.medium)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("Choose Platform")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func openPlatform(_ platform: TradingPlatform) {
+        // Try to open the app first
+        if let appURL = URL(string: platform.appScheme) {
+            UIApplication.shared.open(appURL) { success in
+                if !success {
+                    // Fallback to web URL
+                    if let webURL = URL(string: platform.webURL) {
+                        openURL(webURL)
+                    }
+                }
+            }
+        } else if let webURL = URL(string: platform.webURL) {
+            openURL(webURL)
+        }
+        dismiss()
+    }
+}
+
+struct PlatformCard: View {
+    let platform: TradingPlatform
+    let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: AppTheme.Spacing.small) {
+                // Platform Icon
+                ZStack {
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                        .fill(platform.color.opacity(0.15))
+                        .frame(width: 48, height: 48)
+                    Image(systemName: platform.icon)
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundColor(platform.color)
+                }
+
+                Text(platform.shortName)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, AppTheme.Spacing.medium)
+            .background(cardBackground)
+            .overlay(cardBorder)
+            .shadow(color: cardShadow, radius: 8, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var cardShadow: Color {
+        colorScheme == .dark ? .clear : .black.opacity(0.06)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color.white)
+        }
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.12), location: 0),
+                            .init(color: .black.opacity(0.06), location: 0.3),
+                            .init(color: .black.opacity(0.04), location: 0.7),
+                            .init(color: .black.opacity(0.10), location: 1)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing

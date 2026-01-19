@@ -22,8 +22,8 @@ enum PortfolioTargetType: String, CaseIterable {
 
     var color: Color {
         switch self {
-        case .aiAnalysis: return .purple
-        case .familyMember: return .blue
+        case .aiAnalysis: return .blue
+        case .familyMember: return .cyan
         }
     }
 }
