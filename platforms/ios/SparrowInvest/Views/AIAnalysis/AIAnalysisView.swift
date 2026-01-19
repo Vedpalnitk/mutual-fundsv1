@@ -65,6 +65,7 @@ struct AIAnalysisView: View {
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Insights")
+            .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showProfileSetup) {
                 InvestorProfileSetupView()
             }

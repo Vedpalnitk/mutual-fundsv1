@@ -57,6 +57,7 @@ struct ProfileView: View {
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
