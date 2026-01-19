@@ -5,7 +5,10 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if authManager.isAuthenticated {
+            if !authManager.hasSeenWelcome {
+                // First-time user: show intro pages
+                WelcomeFlow()
+            } else if authManager.isAuthenticated {
                 if authManager.hasCompletedOnboarding {
                     MainTabView()
                 } else {
@@ -15,6 +18,7 @@ struct ContentView: View {
                 AuthFlow()
             }
         }
+        .animation(.easeInOut, value: authManager.hasSeenWelcome)
         .animation(.easeInOut, value: authManager.isAuthenticated)
         .animation(.easeInOut, value: authManager.hasCompletedOnboarding)
     }

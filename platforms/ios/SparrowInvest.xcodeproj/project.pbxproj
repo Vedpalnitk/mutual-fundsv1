@@ -20,6 +20,7 @@
 		2B53C89F1334C70ADCDDA04B /* GoalsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B063AC3CF043531B02505AA /* GoalsStore.swift */; };
 		2F26BEFDA44EA712DCDDC43E /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02AB581C952921610FD18046 /* AuthManager.swift */; };
 		372E923814457C2B3FF5D3EC /* RecentTransactionsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E71D8061B92701C1914916DB /* RecentTransactionsCard.swift */; };
+		38428500855F183B2F72577A /* WelcomeFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA24105CF66D32770D492984 /* WelcomeFlow.swift */; };
 		386394252BB78AD1A2FB472B /* AdvisorDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F29FF0C5F67EBD7CAB90AB9 /* AdvisorDetailView.swift */; };
 		3B127A7A60C74B6E3BA2E61F /* InvestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE2C12A51D2F8E0C75A104A /* InvestView.swift */; };
 		3C793929613B6F3338125FDB /* InvestmentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0847576B5693943F1FC7AA /* InvestmentsView.swift */; };
@@ -126,6 +127,7 @@
 		C52BCD25940072C33EB5CC1E /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		C66B1A2B6C6F61025DF6C196 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
 		C77A5BC264D382DB6F3D6E0A /* AIAnalysisView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIAnalysisView.swift; sourceTree = "<group>"; };
+		CA24105CF66D32770D492984 /* WelcomeFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeFlow.swift; sourceTree = "<group>"; };
 		CAA2E1938213361A99F5409B /* DividendIncomeCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DividendIncomeCard.swift; sourceTree = "<group>"; };
 		CC09F89DDD088D2ED22E436C /* PortfolioGrowthLineChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioGrowthLineChart.swift; sourceTree = "<group>"; };
 		CF4945F63111BA9C3DE48F8F /* RecommendationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationCard.swift; sourceTree = "<group>"; };
@@ -218,6 +220,7 @@
 			isa = PBXGroup;
 			children = (
 				578610BD21B35560CF784621 /* OnboardingFlow.swift */,
+				CA24105CF66D32770D492984 /* WelcomeFlow.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -561,6 +564,7 @@
 				432C91AA2FFE883103C91F37 /* UpcomingAction.swift in Sources */,
 				28D052A6FF8E8FAF85F16198 /* UpcomingActionsCard.swift in Sources */,
 				EC859FEDD5E58497A4FDA77B /* User.swift in Sources */,
+				38428500855F183B2F72577A /* WelcomeFlow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

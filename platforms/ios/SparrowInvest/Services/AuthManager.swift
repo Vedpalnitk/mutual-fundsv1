@@ -5,12 +5,14 @@ import SwiftUI
 class AuthManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var hasCompletedOnboarding = false
+    @Published var hasSeenWelcome = false
     @Published var user: User?
     @Published var isLoading = false
 
     private let userDefaults = UserDefaults.standard
     private let authKey = "isAuthenticated"
     private let onboardingKey = "hasCompletedOnboarding"
+    private let welcomeKey = "hasSeenWelcome"
     private let userKey = "currentUser"
 
     init() {
@@ -20,17 +22,24 @@ class AuthManager: ObservableObject {
     private func loadStoredAuth() {
         isAuthenticated = userDefaults.bool(forKey: authKey)
         hasCompletedOnboarding = userDefaults.bool(forKey: onboardingKey)
+        hasSeenWelcome = userDefaults.bool(forKey: welcomeKey)
 
         if let userData = userDefaults.data(forKey: userKey) {
             user = try? JSONDecoder().decode(User.self, from: userData)
         }
 
         // For development - auto-login with mock user
-        #if DEBUG
-        if !isAuthenticated {
-            mockLogin()
-        }
-        #endif
+        // Uncomment the lines below to auto-login (skips welcome flow)
+        // #if DEBUG
+        // if !isAuthenticated {
+        //     mockLogin()
+        // }
+        // #endif
+    }
+
+    func completeWelcome() {
+        hasSeenWelcome = true
+        userDefaults.set(true, forKey: welcomeKey)
     }
 
     func login(phone: String) async throws {
@@ -83,10 +92,12 @@ class AuthManager: ObservableObject {
     func logout() {
         isAuthenticated = false
         hasCompletedOnboarding = false
+        hasSeenWelcome = false
         user = nil
 
         userDefaults.removeObject(forKey: authKey)
         userDefaults.removeObject(forKey: onboardingKey)
+        userDefaults.removeObject(forKey: welcomeKey)
         userDefaults.removeObject(forKey: userKey)
     }
 
@@ -120,7 +131,20 @@ class AuthManager: ObservableObject {
         self.user = mockUser
         self.isAuthenticated = true
         self.hasCompletedOnboarding = true
+        self.hasSeenWelcome = true
         saveAuth()
+    }
+
+    func resetToWelcome() {
+        // Debug helper to reset and show welcome flow
+        isAuthenticated = false
+        hasCompletedOnboarding = false
+        hasSeenWelcome = false
+        user = nil
+        userDefaults.removeObject(forKey: authKey)
+        userDefaults.removeObject(forKey: onboardingKey)
+        userDefaults.removeObject(forKey: welcomeKey)
+        userDefaults.removeObject(forKey: userKey)
     }
     #endif
 }

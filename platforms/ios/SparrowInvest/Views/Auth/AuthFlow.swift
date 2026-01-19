@@ -1,10 +1,9 @@
 import SwiftUI
 
 struct AuthFlow: View {
-    @State private var currentStep: AuthStep = .welcome
+    @State private var currentStep: AuthStep = .login
 
     enum AuthStep {
-        case welcome
         case login
         case otp
         case signup
@@ -13,8 +12,6 @@ struct AuthFlow: View {
     var body: some View {
         NavigationStack {
             switch currentStep {
-            case .welcome:
-                WelcomeView(onGetStarted: { currentStep = .login })
             case .login:
                 LoginView(onOTPSent: { currentStep = .otp })
             case .otp:
@@ -24,107 +21,6 @@ struct AuthFlow: View {
             }
         }
     }
-}
-
-// MARK: - Welcome View
-struct WelcomeView: View {
-    let onGetStarted: () -> Void
-    @State private var currentPage = 0
-
-    let pages = [
-        WelcomePage(
-            title: "Smart Investing",
-            description: "AI-powered recommendations tailored to your financial goals",
-            icon: "sparkles"
-        ),
-        WelcomePage(
-            title: "Goal-Based Planning",
-            description: "Create goals and track your progress towards financial freedom",
-            icon: "target"
-        ),
-        WelcomePage(
-            title: "Start Small",
-            description: "Begin with just ₹500/month and build wealth over time",
-            icon: "indianrupeesign.circle"
-        )
-    ]
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            // Logo
-            HStack {
-                Image(systemName: "bird.fill")
-                    .font(.largeTitle)
-                    .foregroundColor(AppTheme.primary)
-                Text("Sparrow Invest")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppTheme.textPrimary)
-            }
-            .padding(.bottom, 40)
-
-            // Page Content
-            TabView(selection: $currentPage) {
-                ForEach(0..<pages.count, id: \.self) { index in
-                    VStack(spacing: 20) {
-                        Image(systemName: pages[index].icon)
-                            .font(.system(size: 60))
-                            .foregroundColor(AppTheme.primary)
-
-                        Text(pages[index].title)
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(AppTheme.textPrimary)
-
-                        Text(pages[index].description)
-                            .font(.body)
-                            .foregroundColor(AppTheme.textSecondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
-                    .tag(index)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .always))
-            .frame(height: 300)
-
-            Spacer()
-
-            // Get Started Button
-            Button(action: onGetStarted) {
-                Text("Get Started")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(AppTheme.primaryGradient)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 20)
-
-            // Already have account
-            Button(action: onGetStarted) {
-                Text("Already have an account? ")
-                    .foregroundColor(AppTheme.textSecondary)
-                +
-                Text("Login")
-                    .foregroundColor(AppTheme.primary)
-                    .fontWeight(.semibold)
-            }
-            .font(.subheadline)
-            .padding(.bottom, 40)
-        }
-        .background(AppTheme.background)
-    }
-}
-
-struct WelcomePage {
-    let title: String
-    let description: String
-    let icon: String
 }
 
 // MARK: - Login View
