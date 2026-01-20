@@ -61,16 +61,16 @@ val bottomNavItems = listOf(
         unselectedIcon = Icons.Outlined.AccountBalanceWallet
     ),
     BottomNavItem(
-        route = Screen.Explore.route,
-        label = "Explore",
-        selectedIcon = Icons.Filled.Search,
-        unselectedIcon = Icons.Outlined.Search
-    ),
-    BottomNavItem(
         route = Screen.Insights.route,
         label = "Insights",
         selectedIcon = Icons.Filled.Insights,
         unselectedIcon = Icons.Outlined.Insights
+    ),
+    BottomNavItem(
+        route = Screen.Explore.route,
+        label = "Explore",
+        selectedIcon = Icons.Filled.Search,
+        unselectedIcon = Icons.Outlined.Search
     ),
     BottomNavItem(
         route = Screen.Profile.route,

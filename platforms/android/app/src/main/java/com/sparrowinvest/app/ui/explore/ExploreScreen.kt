@@ -26,12 +26,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -285,18 +292,24 @@ private fun QuickAccessSection(
     }
 }
 
+data class CategoryItem(
+    val category: FundCategory,
+    val color: Long,
+    val icon: ImageVector
+)
+
 @Composable
 private fun CategoriesSection(
     selectedCategory: FundCategory?,
     onCategorySelect: (FundCategory?) -> Unit
 ) {
     val categories = listOf(
-        FundCategory.EQUITY to Pair(0xFF2563EB, "chart.line"),
-        FundCategory.DEBT to Pair(0xFF10B981, "shield"),
-        FundCategory.HYBRID to Pair(0xFFF59E0B, "circle"),
-        FundCategory.ELSS to Pair(0xFF8B5CF6, "rupee"),
-        FundCategory.INDEX to Pair(0xFF14B8A6, "chart"),
-        FundCategory.GOLD to Pair(0xFFEAB308, "dollar")
+        CategoryItem(FundCategory.EQUITY, 0xFF2563EB, Icons.AutoMirrored.Filled.TrendingUp),
+        CategoryItem(FundCategory.DEBT, 0xFF10B981, Icons.Default.Shield),
+        CategoryItem(FundCategory.HYBRID, 0xFFF59E0B, Icons.Default.SwapHoriz),
+        CategoryItem(FundCategory.ELSS, 0xFF8B5CF6, Icons.Default.Savings),
+        CategoryItem(FundCategory.INDEX, 0xFF14B8A6, Icons.AutoMirrored.Filled.ShowChart),
+        CategoryItem(FundCategory.GOLD, 0xFFEAB308, Icons.Default.Diamond)
     )
 
     Column {
@@ -313,12 +326,13 @@ private fun CategoriesSection(
             verticalArrangement = Arrangement.spacedBy(Spacing.compact),
             modifier = Modifier.height(180.dp)
         ) {
-            items(categories) { (category, colorIcon) ->
+            items(categories) { item ->
                 CategoryCard(
-                    name = category.displayName,
-                    color = Color(colorIcon.first),
-                    isSelected = selectedCategory == category,
-                    onClick = { onCategorySelect(if (selectedCategory == category) null else category) }
+                    name = item.category.displayName,
+                    color = Color(item.color),
+                    icon = item.icon,
+                    isSelected = selectedCategory == item.category,
+                    onClick = { onCategorySelect(if (selectedCategory == item.category) null else item.category) }
                 )
             }
         }
@@ -329,6 +343,7 @@ private fun CategoriesSection(
 private fun CategoryCard(
     name: String,
     color: Color,
+    icon: ImageVector,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -354,12 +369,13 @@ private fun CategoryCard(
             .padding(vertical = Spacing.medium),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = name.first().toString(),
-            style = MaterialTheme.typography.titleMedium,
-            color = color
+        Icon(
+            imageVector = icon,
+            contentDescription = name,
+            tint = color,
+            modifier = Modifier.size(24.dp)
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = name,
             style = MaterialTheme.typography.labelSmall,
