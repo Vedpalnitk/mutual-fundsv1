@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 struct Goal: Codable, Identifiable {
     let id: String
@@ -58,15 +59,29 @@ enum GoalCategory: String, Codable, CaseIterable {
 
     var icon: String {
         switch self {
-        case .retirement: return "🏖️"
-        case .education: return "🎓"
-        case .home: return "🏠"
-        case .car: return "🚗"
-        case .vacation: return "✈️"
-        case .wedding: return "💒"
-        case .emergency: return "🏥"
-        case .wealth: return "💰"
-        case .custom: return "✨"
+        case .retirement: return "beach.umbrella"
+        case .education: return "graduationcap.fill"
+        case .home: return "house.fill"
+        case .car: return "car.fill"
+        case .vacation: return "airplane"
+        case .wedding: return "heart.circle.fill"
+        case .emergency: return "cross.case.fill"
+        case .wealth: return "chart.line.uptrend.xyaxis"
+        case .custom: return "star.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .retirement: return .orange
+        case .education: return .blue
+        case .home: return .green
+        case .car: return .purple
+        case .vacation: return .cyan
+        case .wedding: return .pink
+        case .emergency: return .red
+        case .wealth: return .indigo
+        case .custom: return .gray
         }
     }
 

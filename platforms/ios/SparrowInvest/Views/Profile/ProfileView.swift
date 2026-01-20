@@ -11,8 +11,20 @@ struct ProfileView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppTheme.Spacing.xLarge) {
-                    // Profile Header - Primary Glass Tile
-                    ProfileHeader()
+                    // Profile Header with Membership - Primary Glass Tile
+                    ProfileHeaderWithMembership()
+
+                    // Premium Upgrade Banner
+                    PremiumUpgradeBanner()
+
+                    // Your Advisor Section (Simplified)
+                    YourAdvisorSection()
+
+                    // Family Members Section
+                    FamilyMembersSection()
+
+                    // Connected Accounts Section
+                    ConnectedAccountsSection()
 
                     // Menu Sections - Primary Glass Tile with List Item Tiles
                     ProfileMenuSection(title: "Account", items: [
@@ -21,9 +33,6 @@ struct ProfileView: View {
                         ProfileMenuItem(icon: "building.columns.fill", title: "Bank Accounts", destination: AnyView(BankAccountsView())),
                         ProfileMenuItem(icon: "chart.bar.fill", title: "Risk Profile", destination: AnyView(RiskProfileView()))
                     ])
-
-                    // Financial Advisor Section
-                    FinancialAdvisorSection()
 
                     // Preferences with Appearance Picker
                     AppearanceSection(appearanceManager: appearanceManager)
@@ -62,7 +71,751 @@ struct ProfileView: View {
     }
 }
 
-// MARK: - Profile Header (Primary Glass Tile)
+// MARK: - Profile Header with Membership (Primary Glass Tile)
+
+struct ProfileHeaderWithMembership: View {
+    @EnvironmentObject var authManager: AuthManager
+    @Environment(\.colorScheme) private var colorScheme
+
+    // Mock membership data
+    private let membershipTier = "Silver"
+    private let currentPoints = 1250
+    private let pointsToNextTier = 750
+
+    var body: some View {
+        VStack(spacing: AppTheme.Spacing.medium) {
+            // Avatar and Name
+            HStack(spacing: AppTheme.Spacing.medium) {
+                // Avatar
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [.blue, .cyan],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 64, height: 64)
+
+                    Text(authManager.user?.initials ?? "U")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(authManager.user?.fullName ?? "User")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.primary)
+
+                    Text(authManager.user?.email ?? "email@example.com")
+                        .font(.system(size: 13, weight: .light))
+                        .foregroundColor(.secondary)
+
+                    // KYC Badge
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 10))
+                        Text("KYC Verified")
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Color.green.opacity(colorScheme == .dark ? 0.15 : 0.12),
+                        in: Capsule()
+                    )
+                }
+
+                Spacer()
+            }
+
+            Divider()
+
+            // Membership Tier Section
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "medal.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.orange)
+                        Text("\(membershipTier) Member")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.primary)
+                    }
+
+                    Text("\(currentPoints) points")
+                        .font(.system(size: 22, weight: .light, design: .rounded))
+                        .foregroundColor(.primary)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(pointsToNextTier) pts to Gold")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.secondary)
+
+                    // Progress to next tier
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.orange.opacity(0.2))
+                            .frame(width: 100, height: 6)
+
+                        Capsule()
+                            .fill(Color.orange)
+                            .frame(width: 100 * CGFloat(currentPoints) / CGFloat(currentPoints + pointsToNextTier), height: 6)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(AppTheme.Spacing.medium)
+        .background(primaryTileBackground)
+        .overlay(primaryTileBorder)
+        .shadow(color: primaryTileShadow, radius: 12, x: 0, y: 4)
+    }
+
+    private var primaryTileShadow: Color {
+        colorScheme == .dark ? Color.clear : Color.black.opacity(0.08)
+    }
+
+    @ViewBuilder
+    private var primaryTileBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .fill(Color(uiColor: .white))
+        }
+    }
+
+    private var primaryTileBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+// MARK: - Premium Upgrade Banner
+
+struct PremiumUpgradeBanner: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button {
+            // Premium upgrade action
+        } label: {
+            HStack(spacing: AppTheme.Spacing.medium) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.2))
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Upgrade to Premium")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Text("Get personalized advice & priority support")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.white.opacity(0.8))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+            .padding(AppTheme.Spacing.medium)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.4, green: 0.3, blue: 0.9),
+                        Color(red: 0.6, green: 0.2, blue: 0.8)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Your Advisor Section (Simplified)
+
+struct YourAdvisorSection: View {
+    @EnvironmentObject var advisorStore: AdvisorStore
+    @EnvironmentObject var navigationStore: NavigationStore
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var sectionShadow: Color {
+        colorScheme == .dark ? Color.clear : Color.black.opacity(0.08)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
+            Text("YOUR ADVISOR")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.blue)
+                .tracking(1)
+
+            if let advisor = advisorStore.assignedAdvisor {
+                // Has assigned advisor - simplified card
+                HStack(spacing: AppTheme.Spacing.medium) {
+                    // Avatar
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.blue, .cyan],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 48, height: 48)
+
+                        Text(advisor.initials)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text(advisor.name)
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(.primary)
+
+                            // Assigned Badge
+                            Text("Assigned")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.green)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Color.green.opacity(colorScheme == .dark ? 0.15 : 0.1),
+                                    in: Capsule()
+                                )
+                        }
+
+                        HStack(spacing: 4) {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(.orange)
+                            Text(String(format: "%.1f", advisor.rating))
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.primary)
+                            Text("•")
+                                .foregroundColor(.secondary)
+                            Text(advisor.formattedExperience + " exp")
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    // Quick Actions
+                    HStack(spacing: 12) {
+                        Button {
+                            if let url = URL(string: "tel:\(advisor.phone.replacingOccurrences(of: " ", with: ""))") {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.green.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "phone.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.green)
+                            }
+                        }
+
+                        Button {
+                            if let url = URL(string: "mailto:\(advisor.email)") {
+                                UIApplication.shared.open(url)
+                            }
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.blue.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "envelope.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                }
+                .padding(AppTheme.Spacing.medium)
+                .background(sectionBackground)
+                .overlay(sectionBorder)
+                .shadow(color: sectionShadow, radius: 12, x: 0, y: 4)
+            } else {
+                // No advisor - compact prompt
+                HStack(spacing: AppTheme.Spacing.medium) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue.opacity(0.1))
+                            .frame(width: 48, height: 48)
+                        Image(systemName: "person.badge.plus")
+                            .font(.system(size: 20))
+                            .foregroundColor(.blue)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("No Advisor Assigned")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.primary)
+                        Text("Get personalized investment guidance")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        navigationStore.selectedTab = .explore
+                    } label: {
+                        Text("Find")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.blue, in: Capsule())
+                    }
+                }
+                .padding(AppTheme.Spacing.medium)
+                .background(sectionBackground)
+                .overlay(sectionBorder)
+                .shadow(color: sectionShadow, radius: 12, x: 0, y: 4)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var sectionBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color(uiColor: .white))
+        }
+    }
+
+    private var sectionBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+// MARK: - Family Members Section
+
+struct ProfileFamilyMemberDisplay: Identifiable {
+    let id = UUID()
+    let name: String
+    let initials: String
+    let relation: String
+    let color: Color
+}
+
+struct FamilyMembersSection: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    // Mock family data
+    private let familyMembers: [ProfileFamilyMemberDisplay] = [
+        ProfileFamilyMemberDisplay(name: "Priya", initials: "P", relation: "Spouse", color: .pink),
+        ProfileFamilyMemberDisplay(name: "Arjun", initials: "A", relation: "Son", color: .orange),
+        ProfileFamilyMemberDisplay(name: "Meera", initials: "M", relation: "Daughter", color: .purple)
+    ]
+
+    private var sectionShadow: Color {
+        colorScheme == .dark ? Color.clear : Color.black.opacity(0.08)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
+            HStack {
+                Text("FAMILY MEMBERS")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.blue)
+                    .tracking(1)
+
+                Spacer()
+
+                NavigationLink(destination: Text("Manage Family")) {
+                    HStack(spacing: 4) {
+                        Text("Manage")
+                            .font(.system(size: 13, weight: .light))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .regular))
+                    }
+                    .foregroundColor(.blue)
+                }
+            }
+
+            // Horizontal scroll of family members
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppTheme.Spacing.medium) {
+                    // Add Family Member Button
+                    Button {
+                        // Add family member action
+                    } label: {
+                        VStack(spacing: 6) {
+                            ZStack {
+                                Circle()
+                                    .strokeBorder(
+                                        style: StrokeStyle(lineWidth: 2, dash: [5])
+                                    )
+                                    .foregroundColor(Color(uiColor: .tertiaryLabel))
+                                    .frame(width: 56, height: 56)
+
+                                Image(systemName: "plus")
+                                    .font(.system(size: 20, weight: .medium))
+                                    .foregroundColor(Color(uiColor: .tertiaryLabel))
+                            }
+
+                            Text("Add")
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    ForEach(familyMembers) { member in
+                        NavigationLink(destination: Text("\(member.name)'s Portfolio")) {
+                            VStack(spacing: 6) {
+                                ZStack {
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [member.color, member.color.opacity(0.7)],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 56, height: 56)
+
+                                    Text(member.initials)
+                                        .font(.system(size: 20, weight: .medium))
+                                        .foregroundColor(.white)
+                                }
+
+                                Text(member.name)
+                                    .font(.system(size: 12, weight: .regular))
+                                    .foregroundColor(.primary)
+
+                                Text(member.relation)
+                                    .font(.system(size: 10, weight: .regular))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, AppTheme.Spacing.compact)
+            }
+            .padding(.horizontal, AppTheme.Spacing.medium)
+            .padding(.vertical, AppTheme.Spacing.small)
+            .background(sectionBackground)
+            .overlay(sectionBorder)
+            .shadow(color: sectionShadow, radius: 12, x: 0, y: 4)
+        }
+    }
+
+    @ViewBuilder
+    private var sectionBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color(uiColor: .white))
+        }
+    }
+
+    private var sectionBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+// MARK: - Connected Accounts Section
+
+struct ConnectedAccount: Identifiable {
+    let id = UUID()
+    let name: String
+    let icon: String
+    let iconColor: Color
+    let isConnected: Bool
+    let lastSynced: String?
+}
+
+struct ConnectedAccountsSection: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    // Mock connected accounts data
+    private let accounts: [ConnectedAccount] = [
+        ConnectedAccount(name: "Zerodha", icon: "chart.line.uptrend.xyaxis", iconColor: .orange, isConnected: true, lastSynced: "2 hrs ago"),
+        ConnectedAccount(name: "Groww", icon: "leaf.fill", iconColor: .green, isConnected: true, lastSynced: "1 day ago"),
+        ConnectedAccount(name: "Kuvera", icon: "k.circle.fill", iconColor: .blue, isConnected: false, lastSynced: nil),
+        ConnectedAccount(name: "Coin by Zerodha", icon: "bitcoinsign.circle.fill", iconColor: .purple, isConnected: false, lastSynced: nil)
+    ]
+
+    private var sectionShadow: Color {
+        colorScheme == .dark ? Color.clear : Color.black.opacity(0.08)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
+            HStack {
+                Text("CONNECTED ACCOUNTS")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.blue)
+                    .tracking(1)
+
+                Spacer()
+
+                Button {
+                    // Add account action
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Add")
+                            .font(.system(size: 13, weight: .light))
+                    }
+                    .foregroundColor(.blue)
+                }
+            }
+
+            VStack(spacing: 0) {
+                ForEach(Array(accounts.enumerated()), id: \.element.id) { index, account in
+                    ConnectedAccountRow(account: account)
+
+                    if index < accounts.count - 1 {
+                        Divider()
+                            .padding(.leading, 52)
+                    }
+                }
+            }
+            .background(sectionBackground)
+            .overlay(sectionBorder)
+            .shadow(color: sectionShadow, radius: 12, x: 0, y: 4)
+        }
+    }
+
+    @ViewBuilder
+    private var sectionBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color(uiColor: .white))
+        }
+    }
+
+    private var sectionBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+struct ConnectedAccountRow: View {
+    let account: ConnectedAccount
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: AppTheme.Spacing.medium) {
+            // Icon
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(account.iconColor.opacity(0.15))
+                    .frame(width: 36, height: 36)
+
+                Image(systemName: account.icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(account.iconColor)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(account.name)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundColor(.primary)
+
+                if let lastSynced = account.lastSynced {
+                    Text("Synced \(lastSynced)")
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if account.isConnected {
+                // Connected status with sync button
+                HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 6, height: 6)
+                        Text("Connected")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.green)
+                    }
+
+                    Button {
+                        // Sync action
+                    } label: {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 14))
+                            .foregroundColor(.blue)
+                    }
+                }
+            } else {
+                // Connect button
+                Button {
+                    // Connect action
+                } label: {
+                    Text("Connect")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Color.blue.opacity(colorScheme == .dark ? 0.15 : 0.1),
+                            in: Capsule()
+                        )
+                }
+            }
+        }
+        .padding(AppTheme.Spacing.medium)
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Profile Header (Primary Glass Tile) - Legacy
 
 struct ProfileHeader: View {
     @EnvironmentObject var authManager: AuthManager

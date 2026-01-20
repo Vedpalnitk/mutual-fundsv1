@@ -85,11 +85,23 @@ struct GoalCard: View {
     let goal: Goal
     @Environment(\.colorScheme) private var colorScheme
 
+    private var iconColor: Color {
+        goal.category.color
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(goal.icon)
-                    .font(.title2)
+                // Icon Container
+                ZStack {
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
+                        .fill(iconColor.opacity(0.15))
+                        .frame(width: 40, height: 40)
+
+                    Image(systemName: goal.category.icon)
+                        .font(.system(size: 18))
+                        .foregroundColor(iconColor)
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(goal.name)
@@ -104,24 +116,18 @@ struct GoalCard: View {
 
                 Text("\(Int(goal.progress * 100))%")
                     .font(.system(size: 18, weight: .light, design: .rounded))
-                    .foregroundColor(.blue)
+                    .foregroundColor(iconColor)
             }
 
             // Progress Bar
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.blue.opacity(0.2))
+                        .fill(iconColor.opacity(0.2))
                         .frame(height: 6)
 
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(
-                            LinearGradient(
-                                colors: [.blue, .cyan],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(iconColor)
                         .frame(width: geometry.size.width * goal.progress, height: 6)
                 }
             }

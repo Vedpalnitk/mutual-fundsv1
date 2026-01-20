@@ -56,12 +56,17 @@ class GoalsStore: ObservableObject {
         goals.removeAll { $0.id == goalId }
     }
 
+    // Synchronous add for simple UI operations
+    func addGoal(_ goal: Goal) {
+        goals.append(goal)
+    }
+
     private func loadMockData() {
         goals = [
             Goal(
                 id: "1",
                 name: "Home Down Payment",
-                icon: "🏠",
+                icon: "house.fill",
                 targetAmount: 500000,
                 currentAmount: 310000,
                 targetDate: Date().addingTimeInterval(86400 * 365 * 2),
@@ -73,7 +78,7 @@ class GoalsStore: ObservableObject {
             Goal(
                 id: "2",
                 name: "Retirement Fund",
-                icon: "🏖️",
+                icon: "beach.umbrella",
                 targetAmount: 10000000,
                 currentAmount: 850000,
                 targetDate: Date().addingTimeInterval(86400 * 365 * 25),
@@ -85,7 +90,7 @@ class GoalsStore: ObservableObject {
             Goal(
                 id: "3",
                 name: "Emergency Fund",
-                icon: "🏥",
+                icon: "cross.case.fill",
                 targetAmount: 300000,
                 currentAmount: 300000,
                 targetDate: Date().addingTimeInterval(-86400 * 30),

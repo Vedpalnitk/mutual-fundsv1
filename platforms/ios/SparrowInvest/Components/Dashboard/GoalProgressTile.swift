@@ -255,7 +255,7 @@ struct GoalProgressRow: View {
                         .fill(progressColor.opacity(0.15))
                         .frame(width: 36, height: 36)
 
-                    Image(systemName: goal.category.systemIcon)
+                    Image(systemName: goal.category.icon)
                         .font(.system(size: 16))
                         .foregroundColor(progressColor)
                 }
@@ -339,23 +339,6 @@ struct GoalProgressRow: View {
                       ),
                 lineWidth: 1
             )
-    }
-}
-
-// Extension for GoalCategory to provide SF Symbol icon
-extension GoalCategory {
-    var systemIcon: String {
-        switch self {
-        case .retirement: return "beach.umbrella"
-        case .education: return "graduationcap.fill"
-        case .home: return "house.fill"
-        case .car: return "car.fill"
-        case .vacation: return "airplane"
-        case .wedding: return "heart.circle.fill"
-        case .emergency: return "cross.case.fill"
-        case .wealth: return "chart.line.uptrend.xyaxis"
-        case .custom: return "star.fill"
-        }
     }
 }
 
