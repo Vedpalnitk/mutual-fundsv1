@@ -22,6 +22,7 @@
 		372E923814457C2B3FF5D3EC /* RecentTransactionsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E71D8061B92701C1914916DB /* RecentTransactionsCard.swift */; };
 		38428500855F183B2F72577A /* WelcomeFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA24105CF66D32770D492984 /* WelcomeFlow.swift */; };
 		386394252BB78AD1A2FB472B /* AdvisorDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F29FF0C5F67EBD7CAB90AB9 /* AdvisorDetailView.swift */; };
+		39E6F0F945C8DF2EBBB9E6D8 /* CreateGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2746099E17A78791D9954A87 /* CreateGoalView.swift */; };
 		3B127A7A60C74B6E3BA2E61F /* InvestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE2C12A51D2F8E0C75A104A /* InvestView.swift */; };
 		3C793929613B6F3338125FDB /* InvestmentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A0847576B5693943F1FC7AA /* InvestmentsView.swift */; };
 		3EFBD542BDA6E1719DAE79E3 /* DesignSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B378BD11713FEEFA3AE6B496 /* DesignSystemView.swift */; };
@@ -87,6 +88,7 @@
 		1D75E755F3FBF62413A8561E /* PortfolioSummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioSummaryCard.swift; sourceTree = "<group>"; };
 		1F29FF0C5F67EBD7CAB90AB9 /* AdvisorDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdvisorDetailView.swift; sourceTree = "<group>"; };
 		226DA4A265E62C4CFBA79824 /* PortfolioHeroCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioHeroCard.swift; sourceTree = "<group>"; };
+		2746099E17A78791D9954A87 /* CreateGoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateGoalView.swift; sourceTree = "<group>"; };
 		2785C696A4C65D2EF6509F17 /* PointsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointsView.swift; sourceTree = "<group>"; };
 		3197B3C5879BC02E8FC7560D /* MarketData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketData.swift; sourceTree = "<group>"; };
 		32F9F14FDAD0E01F6BC1ECE0 /* GoalProgressCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalProgressCard.swift; sourceTree = "<group>"; };
@@ -312,6 +314,7 @@
 		9C6DFB5BD06803B58045EE10 /* Goals */ = {
 			isa = PBXGroup;
 			children = (
+				2746099E17A78791D9954A87 /* CreateGoalView.swift */,
 				0EF4639656556F096CBF6DBD /* GoalDetailView.swift */,
 				6DC334B3EF6AF2FC3CC44A9F /* GoalsView.swift */,
 			);
@@ -514,6 +517,7 @@
 				8C482AA36123B6BC33FA8111 /* AuthFlow.swift in Sources */,
 				2F26BEFDA44EA712DCDDC43E /* AuthManager.swift in Sources */,
 				23DD2FC66DC3ABE74B9839EE /* ContentView.swift in Sources */,
+				39E6F0F945C8DF2EBBB9E6D8 /* CreateGoalView.swift in Sources */,
 				A06491CD983CF529F4C90448 /* DashboardStore.swift in Sources */,
 				3EFBD542BDA6E1719DAE79E3 /* DesignSystemView.swift in Sources */,
 				441F1BB91A30083458CF09A7 /* DividendIncomeCard.swift in Sources */,

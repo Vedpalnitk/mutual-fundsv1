@@ -10,12 +10,19 @@ struct GoalDetailView: View {
             VStack(spacing: 20) {
                 // Progress Card
                 VStack(spacing: 16) {
-                    Text(goal.icon)
-                        .font(.system(size: 48))
+                    // Goal Icon
+                    ZStack {
+                        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                            .fill(goal.category.color.opacity(0.15))
+                            .frame(width: 72, height: 72)
+
+                        Image(systemName: goal.category.icon)
+                            .font(.system(size: 32))
+                            .foregroundColor(goal.category.color)
+                    }
 
                     Text(goal.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(AppTheme.textPrimary)
 
                     // Progress Ring
@@ -263,33 +270,12 @@ struct EditGoalView: View {
     }
 }
 
-struct CreateGoalView: View {
-    @Environment(\.dismiss) var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack {
-                Text("Create Goal")
-                // Form fields would go here
-                Spacer()
-            }
-            .navigationTitle("New Goal")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-    }
-}
-
 #Preview {
     NavigationStack {
         GoalDetailView(goal: Goal(
             id: "1",
             name: "Home Down Payment",
-            icon: "🏠",
+            icon: "house.fill",
             targetAmount: 500000,
             currentAmount: 310000,
             targetDate: Date().addingTimeInterval(86400 * 365 * 2),

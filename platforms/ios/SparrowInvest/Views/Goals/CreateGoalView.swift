@@ -25,7 +25,7 @@ struct CreateGoalView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 // Progress indicator
-                ProgressIndicator(currentStep: currentStep, totalSteps: maxSteps)
+                GoalProgressIndicator(currentStep: currentStep, totalSteps: maxSteps)
                     .padding(.horizontal)
                     .padding(.top, 8)
 
@@ -154,7 +154,7 @@ struct CreateGoalView: View {
 
 // MARK: - Progress Indicator
 
-struct ProgressIndicator: View {
+struct GoalProgressIndicator: View {
     let currentStep: Int
     let totalSteps: Int
 
@@ -228,7 +228,7 @@ struct CategorySelectionStep: View {
 
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(GoalCategory.allCases, id: \.self) { category in
-                    CategoryCard(
+                    GoalCategoryCard(
                         category: category,
                         isSelected: selectedCategory == category,
                         onTap: { selectedCategory = category }
@@ -240,7 +240,7 @@ struct CategorySelectionStep: View {
     }
 }
 
-struct CategoryCard: View {
+struct GoalCategoryCard: View {
     let category: GoalCategory
     let isSelected: Bool
     let onTap: () -> Void
