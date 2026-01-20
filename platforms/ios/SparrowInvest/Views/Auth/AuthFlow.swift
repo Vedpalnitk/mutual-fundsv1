@@ -110,8 +110,8 @@ struct LoginView: View {
                 Spacer()
                 Button(action: onSkip) {
                     Text("Skip")
-                        .font(AppTheme.Typography.body())
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
                 }
                 .padding(.trailing, 24)
             }
@@ -125,19 +125,19 @@ struct LoginView: View {
                     .font(.system(size: 28))
                     .foregroundStyle(AppTheme.primaryGradient)
                 Text("Sparrow Invest")
-                    .font(AppTheme.Typography.title(24))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundColor(.primary)
             }
             .padding(.bottom, 40)
 
             VStack(spacing: 8) {
                 Text("Welcome back")
-                    .font(AppTheme.Typography.headline(20))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Text("Sign in to continue")
-                    .font(AppTheme.Typography.body())
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
             }
 
             // Login Method Toggle
@@ -153,8 +153,8 @@ struct LoginView: View {
 
             if let error = errorMessage {
                 Text(error)
-                    .font(AppTheme.Typography.caption())
-                    .foregroundColor(AppTheme.error)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.red)
                     .padding(.horizontal, 24)
                     .padding(.top, 12)
             }
@@ -169,20 +169,20 @@ struct LoginView: View {
                             .tint(.white)
                     } else {
                         Text(loginMethod == .phone ? "Send OTP" : "Sign In")
-                            .font(AppTheme.Typography.accent(17))
+                            .font(.system(size: 17, weight: .medium))
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(isFormValid ? AppTheme.primaryGradient : LinearGradient(colors: [AppTheme.textTertiary], startPoint: .leading, endPoint: .trailing))
+                .background(isFormValid ? AppTheme.primaryGradient : LinearGradient(colors: [Color(uiColor: .tertiaryLabel)], startPoint: .leading, endPoint: .trailing))
                 .foregroundColor(.white)
                 .cornerRadius(12)
                 .disabled(!isFormValid || isLoading)
 
                 Button(action: onSkip) {
                     Text("Continue without login")
-                        .font(AppTheme.Typography.caption())
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.secondary)
                 }
             }
             .padding(.horizontal, 24)
@@ -210,7 +210,7 @@ struct LoginView: View {
             } label: {
                 Text("Phone")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(loginMethod == .phone ? .white : AppTheme.textPrimary)
+                    .foregroundColor(loginMethod == .phone ? .white : .primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background {
@@ -228,7 +228,7 @@ struct LoginView: View {
             } label: {
                 Text("Email")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(loginMethod == .email ? .white : AppTheme.textPrimary)
+                    .foregroundColor(loginMethod == .email ? .white : .primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background {
@@ -291,12 +291,12 @@ struct LoginView: View {
 
             HStack {
                 Text("+91")
-                    .font(AppTheme.Typography.body())
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.primary)
                     .padding(.leading, 16)
 
                 TextField("98765 43210", text: $phoneNumber)
-                    .font(AppTheme.Typography.body())
+                    .font(.system(size: 14, weight: .light))
                     .keyboardType(.phonePad)
                     .padding(.vertical, 16)
             }
@@ -318,7 +318,7 @@ struct LoginView: View {
                     .tracking(1)
 
                 TextField("Enter your email", text: $email)
-                    .font(AppTheme.Typography.body())
+                    .font(.system(size: 14, weight: .light))
                     .keyboardType(.emailAddress)
                     .textContentType(.emailAddress)
                     .autocapitalization(.none)
@@ -338,11 +338,11 @@ struct LoginView: View {
                 HStack {
                     if isPasswordVisible {
                         TextField("Enter your password", text: $password)
-                            .font(AppTheme.Typography.body())
+                            .font(.system(size: 14, weight: .light))
                             .textContentType(.password)
                     } else {
                         SecureField("Enter your password", text: $password)
-                            .font(AppTheme.Typography.body())
+                            .font(.system(size: 14, weight: .light))
                             .textContentType(.password)
                     }
 
@@ -351,7 +351,7 @@ struct LoginView: View {
                     } label: {
                         Image(systemName: isPasswordVisible ? "eye.slash.fill" : "eye.fill")
                             .font(.system(size: 16))
-                            .foregroundColor(AppTheme.textTertiary)
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
                     }
                 }
                 .padding()
@@ -364,7 +364,7 @@ struct LoginView: View {
                     Spacer()
                     Button(action: onForgotPassword) {
                         Text("Forgot Password?")
-                            .font(AppTheme.Typography.caption())
+                            .font(.system(size: 12, weight: .regular))
                             .foregroundColor(.blue)
                     }
                 }
@@ -458,7 +458,7 @@ struct OTPVerifyView: View {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(.primary)
                 }
                 .padding(.leading, 24)
 
@@ -466,8 +466,8 @@ struct OTPVerifyView: View {
 
                 Button(action: onSkip) {
                     Text("Skip")
-                        .font(AppTheme.Typography.body())
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
                 }
                 .padding(.trailing, 24)
             }
@@ -477,12 +477,12 @@ struct OTPVerifyView: View {
 
             VStack(spacing: 8) {
                 Text("Enter verification code")
-                    .font(AppTheme.Typography.headline(20))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Text("We sent a 6-digit code to +91 \(phone)")
-                    .font(AppTheme.Typography.body())
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
             }
 
             // OTP Input
@@ -515,21 +515,21 @@ struct OTPVerifyView: View {
 
             if let error = errorMessage {
                 Text(error)
-                    .font(AppTheme.Typography.caption())
-                    .foregroundColor(AppTheme.error)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.red)
                     .padding(.top, 12)
             }
 
             // Resend
             Button(action: {}) {
                 Text("Didn't receive code? ")
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(.secondary)
                 +
                 Text("Resend")
                     .foregroundColor(.blue)
-                    .fontWeight(.medium)
+                    .font(.system(size: 12, weight: .medium))
             }
-            .font(AppTheme.Typography.caption())
+            .font(.system(size: 12, weight: .regular))
             .padding(.top, 20)
 
             Spacer()
@@ -541,20 +541,20 @@ struct OTPVerifyView: View {
                             .tint(.white)
                     } else {
                         Text("Verify")
-                            .font(AppTheme.Typography.accent(17))
+                            .font(.system(size: 17, weight: .medium))
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(otp.count == 6 ? AppTheme.primaryGradient : LinearGradient(colors: [AppTheme.textTertiary], startPoint: .leading, endPoint: .trailing))
+                .background(otp.count == 6 ? AppTheme.primaryGradient : LinearGradient(colors: [Color(uiColor: .tertiaryLabel)], startPoint: .leading, endPoint: .trailing))
                 .foregroundColor(.white)
                 .cornerRadius(12)
                 .disabled(otp.count != 6 || isLoading)
 
                 Button(action: onSkip) {
                     Text("Continue without login")
-                        .font(AppTheme.Typography.caption())
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.secondary)
                 }
             }
             .padding(.horizontal, 24)
@@ -600,7 +600,7 @@ struct ForgotPasswordView: View {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(.primary)
                 }
                 .padding(.leading, 24)
                 Spacer()
@@ -622,12 +622,12 @@ struct ForgotPasswordView: View {
 
             VStack(spacing: 8) {
                 Text("Forgot Password?")
-                    .font(AppTheme.Typography.headline(20))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Text("No worries, we'll send you reset instructions")
-                    .font(AppTheme.Typography.body())
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
@@ -645,8 +645,8 @@ struct ForgotPasswordView: View {
 
             if let error = errorMessage {
                 Text(error)
-                    .font(AppTheme.Typography.caption())
-                    .foregroundColor(AppTheme.error)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.red)
                     .padding(.horizontal, 24)
                     .padding(.top, 12)
             }
@@ -661,12 +661,12 @@ struct ForgotPasswordView: View {
                             .tint(.white)
                     } else {
                         Text("Send OTP")
-                            .font(AppTheme.Typography.accent(17))
+                            .font(.system(size: 17, weight: .medium))
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(isFormValid ? AppTheme.primaryGradient : LinearGradient(colors: [AppTheme.textTertiary], startPoint: .leading, endPoint: .trailing))
+                .background(isFormValid ? AppTheme.primaryGradient : LinearGradient(colors: [Color(uiColor: .tertiaryLabel)], startPoint: .leading, endPoint: .trailing))
                 .foregroundColor(.white)
                 .cornerRadius(12)
                 .disabled(!isFormValid || isLoading)
@@ -677,8 +677,8 @@ struct ForgotPasswordView: View {
                             .font(.system(size: 12))
                         Text("Back to login")
                     }
-                    .font(AppTheme.Typography.caption())
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.secondary)
                 }
             }
             .padding(.horizontal, 24)
@@ -705,7 +705,7 @@ struct ForgotPasswordView: View {
             } label: {
                 Text("Email")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(resetMethod == .email ? .white : AppTheme.textPrimary)
+                    .foregroundColor(resetMethod == .email ? .white : .primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background {
@@ -723,7 +723,7 @@ struct ForgotPasswordView: View {
             } label: {
                 Text("Phone")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(resetMethod == .phone ? .white : AppTheme.textPrimary)
+                    .foregroundColor(resetMethod == .phone ? .white : .primary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background {
@@ -785,7 +785,7 @@ struct ForgotPasswordView: View {
                 .tracking(1)
 
             TextField("Enter your email", text: $email)
-                .font(AppTheme.Typography.body())
+                .font(.system(size: 14, weight: .light))
                 .keyboardType(.emailAddress)
                 .textContentType(.emailAddress)
                 .autocapitalization(.none)
@@ -807,12 +807,12 @@ struct ForgotPasswordView: View {
 
             HStack {
                 Text("+91")
-                    .font(AppTheme.Typography.body())
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.primary)
                     .padding(.leading, 16)
 
                 TextField("98765 43210", text: $phoneNumber)
-                    .font(AppTheme.Typography.body())
+                    .font(.system(size: 14, weight: .light))
                     .keyboardType(.phonePad)
                     .padding(.vertical, 16)
             }
@@ -903,7 +903,7 @@ struct ResetOTPVerifyView: View {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(.primary)
                 }
                 .padding(.leading, 24)
                 Spacer()
@@ -914,12 +914,12 @@ struct ResetOTPVerifyView: View {
 
             VStack(spacing: 8) {
                 Text("Enter verification code")
-                    .font(AppTheme.Typography.headline(20))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Text("We sent a 6-digit code to \(resetMethod == .phone ? "+91 " : "")\(identifier)")
-                    .font(AppTheme.Typography.body())
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
@@ -954,21 +954,21 @@ struct ResetOTPVerifyView: View {
 
             if let error = errorMessage {
                 Text(error)
-                    .font(AppTheme.Typography.caption())
-                    .foregroundColor(AppTheme.error)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.red)
                     .padding(.top, 12)
             }
 
             // Resend
             Button(action: {}) {
                 Text("Didn't receive code? ")
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(.secondary)
                 +
                 Text("Resend")
                     .foregroundColor(.blue)
                     .fontWeight(.medium)
             }
-            .font(AppTheme.Typography.caption())
+            .font(.system(size: 12, weight: .regular))
             .padding(.top, 20)
 
             Spacer()
@@ -980,12 +980,12 @@ struct ResetOTPVerifyView: View {
                         .tint(.white)
                 } else {
                     Text("Verify")
-                        .font(AppTheme.Typography.accent(17))
+                        .font(.system(size: 17, weight: .medium))
                 }
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(otp.count == 6 ? AppTheme.primaryGradient : LinearGradient(colors: [AppTheme.textTertiary], startPoint: .leading, endPoint: .trailing))
+            .background(otp.count == 6 ? AppTheme.primaryGradient : LinearGradient(colors: [Color(uiColor: .tertiaryLabel)], startPoint: .leading, endPoint: .trailing))
             .foregroundColor(.white)
             .cornerRadius(12)
             .disabled(otp.count != 6 || isLoading)
@@ -1038,7 +1038,7 @@ struct NewPasswordView: View {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(.primary)
                 }
                 .padding(.leading, 24)
                 Spacer()
@@ -1063,12 +1063,12 @@ struct NewPasswordView: View {
                             .tint(.white)
                     } else {
                         Text("Reset Password")
-                            .font(AppTheme.Typography.accent(17))
+                            .font(.system(size: 17, weight: .medium))
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(isFormValid ? AppTheme.primaryGradient : LinearGradient(colors: [AppTheme.textTertiary], startPoint: .leading, endPoint: .trailing))
+                .background(isFormValid ? AppTheme.primaryGradient : LinearGradient(colors: [Color(uiColor: .tertiaryLabel)], startPoint: .leading, endPoint: .trailing))
                 .foregroundColor(.white)
                 .cornerRadius(12)
                 .disabled(!isFormValid || isLoading)
@@ -1093,12 +1093,12 @@ struct NewPasswordView: View {
 
             VStack(spacing: 8) {
                 Text("Create new password")
-                    .font(AppTheme.Typography.headline(20))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Text("Your new password must be at least 8 characters")
-                    .font(AppTheme.Typography.body())
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
@@ -1114,10 +1114,10 @@ struct NewPasswordView: View {
                     HStack {
                         if isNewPasswordVisible {
                             TextField("Enter new password", text: $newPassword)
-                                .font(AppTheme.Typography.body())
+                                .font(.system(size: 14, weight: .light))
                         } else {
                             SecureField("Enter new password", text: $newPassword)
-                                .font(AppTheme.Typography.body())
+                                .font(.system(size: 14, weight: .light))
                         }
 
                         Button {
@@ -1125,7 +1125,7 @@ struct NewPasswordView: View {
                         } label: {
                             Image(systemName: isNewPasswordVisible ? "eye.slash.fill" : "eye.fill")
                                 .font(.system(size: 16))
-                                .foregroundColor(AppTheme.textTertiary)
+                                .foregroundColor(Color(uiColor: .tertiaryLabel))
                         }
                     }
                     .padding()
@@ -1144,10 +1144,10 @@ struct NewPasswordView: View {
                     HStack {
                         if isConfirmPasswordVisible {
                             TextField("Confirm new password", text: $confirmPassword)
-                                .font(AppTheme.Typography.body())
+                                .font(.system(size: 14, weight: .light))
                         } else {
                             SecureField("Confirm new password", text: $confirmPassword)
-                                .font(AppTheme.Typography.body())
+                                .font(.system(size: 14, weight: .light))
                         }
 
                         Button {
@@ -1155,7 +1155,7 @@ struct NewPasswordView: View {
                         } label: {
                             Image(systemName: isConfirmPasswordVisible ? "eye.slash.fill" : "eye.fill")
                                 .font(.system(size: 16))
-                                .foregroundColor(AppTheme.textTertiary)
+                                .foregroundColor(Color(uiColor: .tertiaryLabel))
                         }
                     }
                     .padding()
@@ -1169,7 +1169,7 @@ struct NewPasswordView: View {
                             Image(systemName: newPassword == confirmPassword ? "checkmark.circle.fill" : "xmark.circle.fill")
                                 .font(.system(size: 12))
                             Text(newPassword == confirmPassword ? "Passwords match" : "Passwords don't match")
-                                .font(AppTheme.Typography.caption())
+                                .font(.system(size: 12, weight: .regular))
                         }
                         .foregroundColor(newPassword == confirmPassword ? .green : .red)
                         .padding(.top, 4)
@@ -1180,8 +1180,8 @@ struct NewPasswordView: View {
 
             if let error = errorMessage {
                 Text(error)
-                    .font(AppTheme.Typography.caption())
-                    .foregroundColor(AppTheme.error)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.red)
                     .padding(.horizontal, 24)
             }
         }
@@ -1201,19 +1201,19 @@ struct NewPasswordView: View {
 
             VStack(spacing: 8) {
                 Text("Password Reset!")
-                    .font(AppTheme.Typography.headline(24))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Text("Your password has been successfully reset. You can now sign in with your new password.")
-                    .font(AppTheme.Typography.body())
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
 
             Button(action: onPasswordReset) {
                 Text("Back to Login")
-                    .font(AppTheme.Typography.accent(17))
+                    .font(.system(size: 17, weight: .medium))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(AppTheme.primaryGradient)
@@ -1288,8 +1288,8 @@ struct OTPDigitBox: View {
 
     var body: some View {
         Text(digit)
-            .font(AppTheme.Typography.title(24))
-            .foregroundColor(AppTheme.textPrimary)
+            .font(.system(size: 24, weight: .regular))
+            .foregroundColor(.primary)
             .frame(width: 48, height: 56)
             .background(boxBackground)
             .overlay(boxBorder)
@@ -1338,8 +1338,8 @@ struct SignupView: View {
                 Spacer()
                 Button(action: onSkip) {
                     Text("Skip")
-                        .font(AppTheme.Typography.body())
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
                 }
                 .padding(.trailing, 24)
             }
@@ -1347,12 +1347,12 @@ struct SignupView: View {
 
             VStack(spacing: 8) {
                 Text("Complete your profile")
-                    .font(AppTheme.Typography.headline(20))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Text("Just a few more details to get started")
-                    .font(AppTheme.Typography.body())
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
             }
             .padding(.top, 24)
 
@@ -1369,7 +1369,7 @@ struct SignupView: View {
             VStack(spacing: 16) {
                 Button(action: completeSignup) {
                     Text("Continue")
-                        .font(AppTheme.Typography.accent(17))
+                        .font(.system(size: 17, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(AppTheme.primaryGradient)
@@ -1379,8 +1379,8 @@ struct SignupView: View {
 
                 Button(action: onSkip) {
                     Text("Skip for now")
-                        .font(AppTheme.Typography.caption())
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.secondary)
                 }
             }
             .padding(.horizontal, 24)
@@ -1409,13 +1409,13 @@ struct FormFieldStyled: View {
                 .tracking(1)
 
             TextField("", text: $text)
-                .font(AppTheme.Typography.body())
+                .font(.system(size: 14, weight: .light))
                 .keyboardType(keyboardType)
                 .padding()
                 .background(fieldBackground)
                 .overlay(fieldBorder)
                 .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.04), radius: 8, x: 0, y: 2)
-                .foregroundColor(AppTheme.textPrimary)
+                .foregroundColor(.primary)
         }
     }
 

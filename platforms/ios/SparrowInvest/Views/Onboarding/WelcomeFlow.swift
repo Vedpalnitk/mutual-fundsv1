@@ -49,8 +49,8 @@ struct WelcomeFlow: View {
                 Spacer()
                 Button(action: skipToLogin) {
                     Text("Skip")
-                        .font(AppTheme.Typography.body())
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
                 }
                 .padding(.trailing, 24)
             }
@@ -64,8 +64,8 @@ struct WelcomeFlow: View {
                     .font(.system(size: 32))
                     .foregroundStyle(AppTheme.primaryGradient)
                 Text("Sparrow Invest")
-                    .font(AppTheme.Typography.title(28))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 28, weight: .regular))
+                    .foregroundColor(.primary)
             }
             .scaleEffect(logoAppeared ? 1 : 0.8)
             .opacity(logoAppeared ? 1 : 0)
@@ -99,7 +99,7 @@ struct WelcomeFlow: View {
             Button(action: handleAction) {
                 HStack(spacing: 8) {
                     Text(currentPage == pages.count - 1 ? "Get Started" : "Next")
-                        .font(AppTheme.Typography.accent(17))
+                        .font(.system(size: 17, weight: .medium))
                     if currentPage < pages.count - 1 {
                         Image(systemName: "arrow.right")
                             .font(.system(size: 14, weight: .medium))
@@ -116,13 +116,13 @@ struct WelcomeFlow: View {
             // Login Link
             Button(action: skipToLogin) {
                 Text("Already have an account? ")
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundColor(.secondary)
                 +
                 Text("Log In")
                     .foregroundColor(AppTheme.primary)
                     .fontWeight(.medium)
             }
-            .font(AppTheme.Typography.caption())
+            .font(.system(size: 12, weight: .regular))
             .padding(.top, 16)
             .padding(.bottom, 40)
         }
@@ -207,15 +207,15 @@ struct IntroPageView: View {
             // Text Content
             VStack(spacing: 12) {
                 Text(page.title)
-                    .font(AppTheme.Typography.headline(20))
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 20, weight: .regular))
+                    .foregroundColor(.primary)
                     .multilineTextAlignment(.center)
                     .offset(y: titleAppeared ? 0 : 20)
                     .opacity(titleAppeared ? 1 : 0)
 
                 Text(page.description)
-                    .font(AppTheme.Typography.body(15))
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 15, weight: .light))
+                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
                     .padding(.horizontal, 32)
@@ -236,8 +236,8 @@ struct IntroPageView: View {
                                 .foregroundColor(page.iconColor)
                         }
                         Text(feature)
-                            .font(AppTheme.Typography.caption())
-                            .foregroundColor(AppTheme.textPrimary)
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(.primary)
                         Spacer()
                     }
                     .offset(x: featuresAppeared ? 0 : -30)

@@ -51,13 +51,12 @@ struct EmptyGoalsView: View {
                 .foregroundColor(AppTheme.primary.opacity(0.5))
 
             Text("No goals yet")
-                .font(.title2)
-                .fontWeight(.bold)
-                .foregroundColor(AppTheme.textPrimary)
+                .font(.system(size: 20, weight: .regular))
+                .foregroundColor(.primary)
 
             Text("Create your first investment goal\nand start building your wealth")
-                .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(.system(size: 14, weight: .light))
+                .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
 
             Button(action: onCreateTapped) {
@@ -65,7 +64,7 @@ struct EmptyGoalsView: View {
                     Image(systemName: "plus")
                     Text("Create Goal")
                 }
-                .fontWeight(.semibold)
+                .font(.system(size: 15, weight: .medium))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(AppTheme.primary)
@@ -105,10 +104,10 @@ struct GoalCard: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(goal.name)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 16, weight: .light))
                         .foregroundColor(.primary)
                     Text(goal.timeRemaining)
-                        .font(.system(size: 12, weight: .light))
+                        .font(.system(size: 12, weight: .regular))
                         .foregroundColor(.secondary)
                 }
 
@@ -135,7 +134,7 @@ struct GoalCard: View {
 
             HStack {
                 Text(goal.currentAmount.currencyFormatted)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.system(size: 14, weight: .light))
                     .foregroundColor(.primary)
                 Text("of \(goal.targetAmount.currencyFormatted)")
                     .font(.system(size: 14, weight: .light))

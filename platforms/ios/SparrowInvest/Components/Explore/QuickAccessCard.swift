@@ -34,20 +34,18 @@ struct QuickAccessCard: View {
             HStack(spacing: AppTheme.Spacing.small) {
                 iconContainer
                 Text(title)
-                    .font(AppTheme.Typography.caption())
-                    .fontWeight(.medium)
-                    .foregroundStyle(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
             }
 
             // Value
             Text(value)
-                .font(AppTheme.Typography.headline())
-                .fontWeight(.semibold)
-                .foregroundStyle(AppTheme.textPrimary)
+                .font(.system(size: 16, weight: .light))
+                .foregroundStyle(.primary)
 
             // Subtitle
             Text(subtitle)
-                .font(AppTheme.Typography.label())
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(iconColor)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

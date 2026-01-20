@@ -99,7 +99,7 @@ private struct ProfileHeaderSection: View {
                     .frame(width: 80, height: 80)
 
                 Text(advisor.initials)
-                    .font(AppTheme.Typography.title())
+                    .font(.system(size: 22, weight: .regular))
                     .fontWeight(.medium)
                     .foregroundStyle(.white)
 
@@ -118,12 +118,12 @@ private struct ProfileHeaderSection: View {
 
             // Name
             Text(advisor.name)
-                .font(AppTheme.Typography.title())
-                .foregroundStyle(AppTheme.textPrimary)
+                .font(.system(size: 22, weight: .regular))
+                .foregroundStyle(.primary)
 
             // Region badge
             Text(advisor.region)
-                .font(AppTheme.Typography.caption())
+                .font(.system(size: 12, weight: .regular))
                 .foregroundStyle(AppTheme.primary)
                 .padding(.horizontal, AppTheme.Spacing.compact)
                 .padding(.vertical, 6)
@@ -139,8 +139,8 @@ private struct ProfileHeaderSection: View {
                     .frame(width: 8, height: 8)
 
                 Text(advisor.isAvailable ? "Available" : "Currently Unavailable")
-                    .font(AppTheme.Typography.caption())
-                    .foregroundStyle(advisor.isAvailable ? .green : AppTheme.textTertiary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(advisor.isAvailable ? .green : Color(uiColor: .tertiaryLabel))
             }
         }
         .frame(maxWidth: .infinity)
@@ -207,8 +207,8 @@ private struct ContactInfoSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
             Text("Contact Information")
-                .font(AppTheme.Typography.headline())
-                .foregroundStyle(AppTheme.textPrimary)
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(.primary)
 
             VStack(spacing: AppTheme.Spacing.compact) {
                 ContactRow(icon: "phone.fill", label: "Phone", value: advisor.phone)
@@ -280,12 +280,12 @@ private struct ContactRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(AppTheme.Typography.label())
-                    .foregroundStyle(AppTheme.textTertiary)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
 
                 Text(value)
-                    .font(AppTheme.Typography.body())
-                    .foregroundStyle(AppTheme.textPrimary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundStyle(.primary)
             }
 
             Spacer()
@@ -301,8 +301,8 @@ private struct SpecializationsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
             Text("Specializations")
-                .font(AppTheme.Typography.headline())
-                .foregroundStyle(AppTheme.textPrimary)
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(.primary)
 
             LazyVGrid(columns: [
                 GridItem(.flexible()),
@@ -315,8 +315,8 @@ private struct SpecializationsSection: View {
                             .foregroundStyle(spec.color)
 
                         Text(spec.displayName)
-                            .font(AppTheme.Typography.caption())
-                            .foregroundStyle(AppTheme.textPrimary)
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundStyle(.primary)
 
                         Spacer()
                     }
@@ -373,12 +373,12 @@ private struct StatTile: View {
                 .foregroundStyle(iconColor)
 
             Text(value)
-                .font(AppTheme.Typography.headline())
-                .foregroundStyle(AppTheme.textPrimary)
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(.primary)
 
             Text(label)
-                .font(AppTheme.Typography.label())
-                .foregroundStyle(AppTheme.textTertiary)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color(uiColor: .tertiaryLabel))
         }
         .frame(maxWidth: .infinity)
         .padding(AppTheme.Spacing.medium)
@@ -439,14 +439,14 @@ private struct LanguagesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
             Text("Languages")
-                .font(AppTheme.Typography.headline())
-                .foregroundStyle(AppTheme.textPrimary)
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(.primary)
 
             HStack(spacing: AppTheme.Spacing.small) {
                 ForEach(languages, id: \.self) { language in
                     Text(language)
-                        .font(AppTheme.Typography.caption())
-                        .foregroundStyle(AppTheme.textPrimary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(.primary)
                         .padding(.horizontal, AppTheme.Spacing.compact)
                         .padding(.vertical, 6)
                         .background(
@@ -472,7 +472,7 @@ private struct CallbackButton: View {
                     .font(.system(size: 18))
 
                 Text("Request Callback")
-                    .font(AppTheme.Typography.body())
+                    .font(.system(size: 14, weight: .light))
                     .fontWeight(.medium)
             }
             .foregroundStyle(.white)
@@ -496,8 +496,8 @@ private struct PendingRequestBanner: View {
                 .foregroundStyle(.orange)
 
             Text("Callback request pending")
-                .font(AppTheme.Typography.body())
-                .foregroundStyle(AppTheme.textPrimary)
+                .font(.system(size: 14, weight: .light))
+                .foregroundStyle(.primary)
 
             Spacer()
         }
@@ -539,20 +539,20 @@ private struct CallbackRequestSheet: View {
                             .frame(width: 48, height: 48)
 
                         Text(advisor.initials)
-                            .font(AppTheme.Typography.body())
+                            .font(.system(size: 14, weight: .light))
                             .fontWeight(.medium)
                             .foregroundStyle(.white)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(advisor.name)
-                            .font(AppTheme.Typography.body())
+                            .font(.system(size: 14, weight: .light))
                             .fontWeight(.medium)
-                            .foregroundStyle(AppTheme.textPrimary)
+                            .foregroundStyle(.primary)
 
                         Text(advisor.region)
-                            .font(AppTheme.Typography.caption())
-                            .foregroundStyle(AppTheme.textSecondary)
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundStyle(.secondary)
                     }
 
                     Spacer()
@@ -567,12 +567,12 @@ private struct CallbackRequestSheet: View {
                     Toggle(isOn: $usePreferredTime) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Preferred Time")
-                                .font(AppTheme.Typography.body())
-                                .foregroundStyle(AppTheme.textPrimary)
+                                .font(.system(size: 14, weight: .light))
+                                .foregroundStyle(.primary)
 
                             Text("Optional - set a preferred callback time")
-                                .font(AppTheme.Typography.label())
-                                .foregroundStyle(AppTheme.textTertiary)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(Color(uiColor: .tertiaryLabel))
                         }
                     }
                     .tint(AppTheme.primary)
@@ -596,11 +596,11 @@ private struct CallbackRequestSheet: View {
                 // Notes field
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
                     Text("Notes (Optional)")
-                        .font(AppTheme.Typography.caption())
-                        .foregroundStyle(AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(.secondary)
 
                     TextField("Add any specific topics you'd like to discuss...", text: $notes, axis: .vertical)
-                        .font(AppTheme.Typography.body())
+                        .font(.system(size: 14, weight: .light))
                         .lineLimit(3...6)
                         .textFieldStyle(.plain)
                         .padding(AppTheme.Spacing.compact)
@@ -615,7 +615,7 @@ private struct CallbackRequestSheet: View {
                 // Submit button
                 Button(action: onSubmit) {
                     Text("Submit Request")
-                        .font(AppTheme.Typography.body())
+                        .font(.system(size: 14, weight: .light))
                         .fontWeight(.medium)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)

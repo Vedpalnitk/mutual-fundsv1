@@ -34,25 +34,23 @@ struct FundDetailView: View {
                 // Header
                 VStack(spacing: 8) {
                     Text(fund.schemeName)
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundColor(.primary)
                         .multilineTextAlignment(.center)
 
                     Text(fund.fundHouse ?? "")
-                        .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
 
                     HStack(spacing: 8) {
                         Text("NAV: \(String(format: "₹%.2f", fund.nav))")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(AppTheme.textPrimary)
+                            .font(.system(size: 14, weight: .light))
+                            .foregroundColor(.primary)
 
                         if let navDate = fund.navDate {
                             Text("• \(navDate.formatted(date: .abbreviated, time: .omitted))")
-                                .font(.caption)
-                                .foregroundColor(AppTheme.textSecondary)
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
@@ -74,9 +72,8 @@ struct FundDetailView: View {
                 // Returns Section
                 VStack(alignment: .leading, spacing: 12) {
                     Text("RETURNS")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.blue)
                         .tracking(1)
 
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -92,9 +89,8 @@ struct FundDetailView: View {
                 // Fund Details
                 VStack(alignment: .leading, spacing: 12) {
                     Text("FUND DETAILS")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.blue)
                         .tracking(1)
 
                     DetailRow(label: "Category", value: fund.category)
@@ -112,9 +108,8 @@ struct FundDetailView: View {
                 if let rating = fund.riskRating {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("RISK LEVEL")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(AppTheme.primary)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.blue)
                             .tracking(1)
 
                         RiskRatingView(rating: rating)
@@ -133,7 +128,7 @@ struct FundDetailView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { toggleWatchlist() }) {
                     Image(systemName: fundsStore.isInWatchlist(fund.id) ? "heart.fill" : "heart")
-                        .foregroundColor(fundsStore.isInWatchlist(fund.id) ? AppTheme.error : AppTheme.textSecondary)
+                        .foregroundColor(fundsStore.isInWatchlist(fund.id) ? .red : .secondary)
                 }
             }
         }
@@ -141,7 +136,7 @@ struct FundDetailView: View {
             HStack(spacing: 12) {
                 Button(action: {}) {
                     Text("Start SIP")
-                        .fontWeight(.semibold)
+                        .font(.system(size: 15, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(AppTheme.primaryGradient)
@@ -151,11 +146,11 @@ struct FundDetailView: View {
 
                 Button(action: {}) {
                     Text("One-time")
-                        .fontWeight(.semibold)
+                        .font(.system(size: 15, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .glassCardStyle(cornerRadius: AppTheme.CornerRadius.medium)
-                        .foregroundColor(AppTheme.primary)
+                        .foregroundColor(.blue)
                 }
             }
             .padding()
@@ -180,12 +175,11 @@ struct ReturnTile: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(period)
-                .font(.caption)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(.secondary)
             Text(value != nil ? "\(String(format: "%.1f", value!))%" : "N/A")
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundColor(value != nil && value! >= 0 ? AppTheme.success : AppTheme.error)
+                .font(.system(size: 16, weight: .light, design: .rounded))
+                .foregroundColor(value != nil && value! >= 0 ? .green : .red)
         }
         .frame(maxWidth: .infinity)
         .padding()
@@ -200,13 +194,12 @@ struct DetailRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.subheadline)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(.system(size: 14, weight: .light))
+                .foregroundColor(.secondary)
             Spacer()
             Text(value)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundColor(AppTheme.textPrimary)
+                .font(.system(size: 14, weight: .light))
+                .foregroundColor(.primary)
         }
         .padding(.vertical, 4)
     }
@@ -225,7 +218,7 @@ struct RiskRatingView: View {
         }
 
         Text(ratingLabel(for: rating))
-            .font(.caption)
+            .font(.system(size: 12, weight: .regular))
             .foregroundColor(ratingColor(for: rating))
     }
 
@@ -234,7 +227,7 @@ struct RiskRatingView: View {
         case 1, 2: return AppTheme.success
         case 3: return AppTheme.warning
         case 4, 5: return AppTheme.error
-        default: return AppTheme.textSecondary
+        default: return .secondary
         }
     }
 

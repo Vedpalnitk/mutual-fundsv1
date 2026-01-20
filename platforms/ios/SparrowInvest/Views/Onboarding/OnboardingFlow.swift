@@ -83,12 +83,12 @@ struct RiskAssessmentView: View {
             // Progress
             HStack {
                 Text("Risk Assessment")
-                    .font(.headline)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(.primary)
                 Spacer()
                 Text("Step \(currentQuestion + 1) of \(questions.count)")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.secondary)
             }
             .padding(.horizontal)
 
@@ -112,9 +112,8 @@ struct RiskAssessmentView: View {
             // Question
             VStack(spacing: 32) {
                 Text(questions[currentQuestion].question)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundColor(.primary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
 
@@ -142,7 +141,8 @@ struct RiskAssessmentView: View {
                             Image(systemName: "chevron.left")
                             Text("Back")
                         }
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(.secondary)
                     }
                 }
 
@@ -154,17 +154,17 @@ struct RiskAssessmentView: View {
                             Text("Next")
                             Image(systemName: "chevron.right")
                         }
-                        .fontWeight(.semibold)
-                        .foregroundColor(answers.count > currentQuestion ? AppTheme.primary : AppTheme.textTertiary)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(answers.count > currentQuestion ? .blue : Color(uiColor: .tertiaryLabel))
                     }
                     .disabled(answers.count <= currentQuestion)
                 } else {
                     Button(action: completeAssessment) {
                         Text("Complete")
-                            .fontWeight(.semibold)
+                            .font(.system(size: 15, weight: .medium))
                             .padding(.horizontal, 24)
                             .padding(.vertical, 12)
-                            .background(answers.count > currentQuestion ? AppTheme.primaryGradient : LinearGradient(colors: [AppTheme.textTertiary], startPoint: .leading, endPoint: .trailing))
+                            .background(answers.count > currentQuestion ? AppTheme.primaryGradient : LinearGradient(colors: [Color(uiColor: .tertiaryLabel)], startPoint: .leading, endPoint: .trailing))
                             .foregroundColor(.white)
                             .cornerRadius(24)
                     }
@@ -220,8 +220,8 @@ struct OptionButton: View {
         Button(action: action) {
             HStack {
                 Text(text)
-                    .font(.body)
-                    .foregroundColor(isSelected ? .white : AppTheme.textPrimary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(isSelected ? .white : .primary)
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
@@ -275,25 +275,23 @@ struct PersonaResultView: View {
             VStack(spacing: 20) {
                 Image(systemName: "chart.pie.fill")
                     .font(.system(size: 60))
-                    .foregroundColor(AppTheme.primary)
+                    .foregroundColor(.blue)
 
                 Text("Moderate Investor")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundColor(.primary)
 
                 Text("You balance risk and reward, seeking steady growth while protecting your principal.")
-                    .font(.body)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
 
                 // Recommended Allocation
                 VStack(alignment: .leading, spacing: 12) {
                     Text("RECOMMENDED ALLOCATION")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.blue)
                         .tracking(1)
 
                     AllocationBar(equity: 50, debt: 40, other: 10)
@@ -316,7 +314,7 @@ struct PersonaResultView: View {
 
             Button(action: onContinue) {
                 Text("Continue")
-                    .fontWeight(.semibold)
+                    .font(.system(size: 15, weight: .medium))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(AppTheme.primaryGradient)
@@ -365,8 +363,8 @@ struct AllocationLegend: View {
                 .fill(color)
                 .frame(width: 8, height: 8)
             Text(label)
-                .font(.caption)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(.secondary)
         }
     }
 }
@@ -384,13 +382,12 @@ struct FirstGoalView: View {
             VStack(spacing: 24) {
                 VStack(spacing: 8) {
                     Text("Create Your First Goal")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 20, weight: .regular))
+                        .foregroundColor(.primary)
 
                     Text("What are you saving for?")
-                        .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
                 }
                 .padding(.top, 20)
 
@@ -418,15 +415,14 @@ struct FirstGoalView: View {
 
                         VStack(alignment: .leading, spacing: 8) {
                             Text("TIMELINE")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(AppTheme.primary)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.blue)
                                 .tracking(1)
 
                             HStack {
                                 Text("\(targetYears) years")
-                                    .fontWeight(.medium)
-                                    .foregroundColor(AppTheme.textPrimary)
+                                    .font(.system(size: 16, weight: .light))
+                                    .foregroundColor(.primary)
                                 Spacer()
                                 Stepper("", value: $targetYears, in: 1...30)
                             }
@@ -440,19 +436,17 @@ struct FirstGoalView: View {
                             let monthlySIP = calculateSIP(target: amount, years: targetYears)
                             VStack(spacing: 8) {
                                 Text("RECOMMENDED SIP")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(AppTheme.primary)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.blue)
                                     .tracking(1)
 
                                 Text(monthlySIP.currencyFormatted + "/month")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(AppTheme.primary)
+                                    .font(.system(size: 22, weight: .light, design: .rounded))
+                                    .foregroundColor(.blue)
 
                                 Text("Based on 12% expected returns")
-                                    .font(.caption)
-                                    .foregroundColor(AppTheme.textSecondary)
+                                    .font(.system(size: 12, weight: .regular))
+                                    .foregroundColor(.secondary)
                             }
                             .frame(maxWidth: .infinity)
                             .padding()
@@ -471,10 +465,10 @@ struct FirstGoalView: View {
             VStack {
                 Button(action: onComplete) {
                     Text("Create Goal")
-                        .fontWeight(.semibold)
+                        .font(.system(size: 15, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(selectedCategory != nil ? AppTheme.primaryGradient : LinearGradient(colors: [AppTheme.textTertiary], startPoint: .leading, endPoint: .trailing))
+                        .background(selectedCategory != nil ? AppTheme.primaryGradient : LinearGradient(colors: [Color(uiColor: .tertiaryLabel)], startPoint: .leading, endPoint: .trailing))
                         .foregroundColor(.white)
                         .cornerRadius(12)
                 }
@@ -483,8 +477,8 @@ struct FirstGoalView: View {
 
                 Button(action: onComplete) {
                     Text("Skip for now")
-                        .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .regular))
+                        .foregroundColor(.secondary)
                 }
                 .padding(.top, 8)
             }
@@ -511,12 +505,12 @@ struct GoalTemplateCard: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 8) {
-                Text(category.icon)
-                    .font(.title)
+                Image(systemName: category.icon)
+                    .font(.system(size: 24))
+                    .foregroundColor(isSelected ? .white : category.color)
                 Text(category.rawValue)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(isSelected ? .white : AppTheme.textPrimary)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(isSelected ? .white : .primary)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)

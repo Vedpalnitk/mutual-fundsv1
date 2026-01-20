@@ -72,8 +72,8 @@ private struct RegionFilterSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
             Text("Filter by Region")
-                .font(AppTheme.Typography.caption())
-                .foregroundStyle(AppTheme.textSecondary)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(.secondary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: AppTheme.Spacing.small) {
@@ -107,7 +107,7 @@ private struct FilterChip: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Text(title)
-                    .font(AppTheme.Typography.caption())
+                    .font(.system(size: 12, weight: .regular))
                     .fontWeight(isSelected ? .medium : .regular)
 
                 if isUserRegion {
@@ -115,7 +115,7 @@ private struct FilterChip: View {
                         .font(.system(size: 10))
                 }
             }
-            .foregroundStyle(isSelected ? .white : AppTheme.textPrimary)
+            .foregroundStyle(isSelected ? .white : .primary)
             .padding(.horizontal, AppTheme.Spacing.compact)
             .padding(.vertical, AppTheme.Spacing.small)
             .background(
@@ -138,20 +138,20 @@ private struct AdvisorSection: View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.compact) {
             HStack {
                 Text(title)
-                    .font(AppTheme.Typography.headline())
-                    .foregroundStyle(AppTheme.textPrimary)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(.primary)
 
                 if let subtitle = subtitle {
                     Text("• \(subtitle)")
-                        .font(AppTheme.Typography.caption())
-                        .foregroundStyle(AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
                 Text("\(advisors.count) \(advisors.count == 1 ? "advisor" : "advisors")")
-                    .font(AppTheme.Typography.caption())
-                    .foregroundStyle(AppTheme.textTertiary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
             }
 
             ForEach(advisors) { advisor in

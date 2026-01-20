@@ -60,7 +60,7 @@ struct CreateGoalView: View {
                         handleNextAction()
                     } label: {
                         Text(currentStep == maxSteps ? "Create Goal" : "Continue")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -219,7 +219,7 @@ struct CategorySelectionStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
             Text("What are you saving for?")
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: 22, weight: .regular))
                 .foregroundColor(.primary)
 
             Text("Choose a goal category to get started")
@@ -324,7 +324,7 @@ struct GoalDetailsStep: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(selectedCategory.rawValue)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 16, weight: .regular))
                         .foregroundColor(.primary)
                     Text("Configure your goal")
                         .font(.system(size: 13, weight: .regular))
@@ -504,10 +504,10 @@ struct SIPSetupStep: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("TARGET")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
                         Text(targetAmount.compactCurrencyFormatted)
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.system(size: 20, weight: .light, design: .rounded))
                             .foregroundColor(.primary)
                     }
 
@@ -515,10 +515,10 @@ struct SIPSetupStep: View {
 
                     VStack(alignment: .trailing, spacing: 4) {
                         Text("TIMELINE")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
                         Text("\(targetYears) years")
-                            .font(.system(size: 20, weight: .semibold))
+                            .font(.system(size: 20, weight: .light, design: .rounded))
                             .foregroundColor(.primary)
                     }
                 }
@@ -528,10 +528,10 @@ struct SIPSetupStep: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("SUGGESTED MONTHLY SIP")
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
                         Text(suggestedSIP.currencyFormatted)
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.system(size: 22, weight: .light, design: .rounded))
                             .foregroundColor(.blue)
                     }
 
@@ -541,7 +541,7 @@ struct SIPSetupStep: View {
                         monthlySIP = String(Int(suggestedSIP))
                     } label: {
                         Text("Use this")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.white)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)

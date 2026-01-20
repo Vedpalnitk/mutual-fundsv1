@@ -14,6 +14,7 @@ class FamilyStore: ObservableObject {
     @Published var selectedMemberId: String?
     @Published var isLoading: Bool = false
     @Published var memberHoldings: [String: [Holding]] = [:]
+    @Published var memberProfiles: [String: InvestorProfile] = [:] // Investor profiles per family member
 
     init() {
         loadMockData()
@@ -162,6 +163,20 @@ class FamilyStore: ObservableObject {
 
     func getHoldings(for memberId: String) -> [Holding] {
         memberHoldings[memberId] ?? []
+    }
+
+    // MARK: - Investor Profile Management
+
+    func getProfile(for memberId: String) -> InvestorProfile? {
+        memberProfiles[memberId]
+    }
+
+    func setProfile(_ profile: InvestorProfile, for memberId: String) {
+        memberProfiles[memberId] = profile
+    }
+
+    func hasProfile(for memberId: String) -> Bool {
+        memberProfiles[memberId] != nil
     }
 
     private func recalculateMemberPortfolio(memberId: String) {

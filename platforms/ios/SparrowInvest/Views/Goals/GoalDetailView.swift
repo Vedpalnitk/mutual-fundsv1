@@ -22,8 +22,8 @@ struct GoalDetailView: View {
                     }
 
                     Text(goal.name)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundColor(.primary)
 
                     // Progress Ring
                     ZStack {
@@ -46,51 +46,49 @@ struct GoalDetailView: View {
 
                         VStack(spacing: 4) {
                             Text("\(Int(goal.progress * 100))%")
-                                .font(.title)
-                                .fontWeight(.bold)
-                                .foregroundColor(AppTheme.primary)
+                                .font(.system(size: 28, weight: .light, design: .rounded))
+                                .foregroundColor(.blue)
                             Text("Complete")
-                                .font(.caption)
-                                .foregroundColor(AppTheme.textSecondary)
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.secondary)
                         }
                     }
 
                     HStack(spacing: 24) {
                         VStack(spacing: 4) {
                             Text(goal.currentAmount.currencyFormatted)
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(AppTheme.textPrimary)
+                                .font(.system(size: 16, weight: .light, design: .rounded))
+                                .foregroundColor(.primary)
                             Text("Current")
-                                .font(.caption)
-                                .foregroundColor(AppTheme.textSecondary)
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.secondary)
                         }
 
                         Rectangle()
-                            .fill(AppTheme.cardBorder)
+                            .fill(Color(uiColor: .separator))
                             .frame(width: 1, height: 40)
 
                         VStack(spacing: 4) {
                             Text(goal.targetAmount.currencyFormatted)
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(AppTheme.textPrimary)
+                                .font(.system(size: 16, weight: .light, design: .rounded))
+                                .foregroundColor(.primary)
                             Text("Target")
-                                .font(.caption)
-                                .foregroundColor(AppTheme.textSecondary)
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.secondary)
                         }
                     }
 
                     // Timeline
                     HStack {
                         Image(systemName: "calendar")
-                            .foregroundColor(AppTheme.primary)
+                            .font(.system(size: 14))
+                            .foregroundColor(.blue)
                         Text("Target: \(goal.targetDate.formatted(date: .abbreviated, time: .omitted))")
-                            .font(.subheadline)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundColor(.secondary)
                         Text("• \(goal.timeRemaining)")
-                            .font(.subheadline)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundColor(.secondary)
                     }
                 }
                 .padding()
@@ -101,24 +99,21 @@ struct GoalDetailView: View {
                 if let sip = goal.monthlySIP {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("MONTHLY SIP")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(AppTheme.primary)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.blue)
                             .tracking(1)
 
                         HStack {
                             Text(sip.currencyFormatted)
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(AppTheme.textPrimary)
+                                .font(.system(size: 22, weight: .light, design: .rounded))
+                                .foregroundColor(.primary)
 
                             Spacer()
 
                             Button(action: {}) {
                                 Text("Modify")
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(AppTheme.primary)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.blue)
                             }
                         }
                     }
@@ -132,24 +127,23 @@ struct GoalDetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("LINKED INVESTMENTS")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(AppTheme.primary)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.blue)
                             .tracking(1)
 
                         Spacer()
 
                         Button(action: {}) {
                             Text("Add Fund")
-                                .font(.caption)
-                                .foregroundColor(AppTheme.primary)
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.blue)
                         }
                     }
 
                     if goal.linkedFunds.isEmpty {
                         Text("No funds linked to this goal yet")
-                            .font(.subheadline)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .font(.system(size: 14, weight: .light))
+                            .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding()
                     } else {
@@ -169,7 +163,7 @@ struct GoalDetailView: View {
                             Image(systemName: "plus")
                             Text("Add Investment")
                         }
-                        .fontWeight(.semibold)
+                        .font(.system(size: 15, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(AppTheme.primaryGradient)
@@ -182,11 +176,11 @@ struct GoalDetailView: View {
                             Image(systemName: "pencil")
                             Text("Edit Goal")
                         }
-                        .fontWeight(.semibold)
+                        .font(.system(size: 15, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .glassCardStyle(cornerRadius: AppTheme.CornerRadius.medium)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .foregroundColor(.primary)
                     }
                 }
                 .padding(.horizontal)
@@ -209,35 +203,32 @@ struct LinkedFundRow: View {
     var body: some View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 8)
-                .fill(AppTheme.primary.opacity(0.1))
+                .fill(Color.blue.opacity(0.1))
                 .frame(width: 40, height: 40)
                 .overlay(
                     Text("PP")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.blue)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Parag Parikh Flexi Cap")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.primary)
                 Text("Flexi Cap")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.secondary)
             }
 
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text("+18.7%")
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppTheme.success)
+                    .font(.system(size: 14, weight: .light, design: .rounded))
+                    .foregroundColor(.green)
                 Text("3Y")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.secondary)
             }
         }
         .padding()
@@ -253,6 +244,7 @@ struct EditGoalView: View {
         NavigationStack {
             VStack {
                 Text("Edit Goal")
+                    .font(.system(size: 16, weight: .regular))
                 // Form fields would go here
                 Spacer()
             }
@@ -261,9 +253,11 @@ struct EditGoalView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
+                        .font(.system(size: 15, weight: .regular))
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") { dismiss() }
+                        .font(.system(size: 15, weight: .medium))
                 }
             }
         }

@@ -59,14 +59,13 @@ struct QuickInvestView: View {
                 // Recommended for Quick Investment
                 VStack(alignment: .leading, spacing: 12) {
                     Text("QUICK PICKS")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.blue)
                         .tracking(1)
 
                     Text("Top performing funds for you")
-                        .font(.subheadline)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
 
                     // Placeholder for fund cards
                     ForEach(0..<3, id: \.self) { _ in
@@ -93,9 +92,8 @@ struct MySIPsView: View {
                 // Active SIPs
                 VStack(alignment: .leading, spacing: 12) {
                     Text("ACTIVE SIPs")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.blue)
                         .tracking(1)
 
                     if portfolioStore.activeSIPs.isEmpty {
@@ -110,9 +108,8 @@ struct MySIPsView: View {
                 // Upcoming SIPs
                 VStack(alignment: .leading, spacing: 12) {
                     Text("UPCOMING DEBITS")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.blue)
                         .tracking(1)
 
                     UpcomingSIPCalendar()
@@ -138,23 +135,23 @@ struct InvestOptionCard: View {
                         .fill(color.opacity(0.1))
                         .frame(width: 50, height: 50)
                     Image(systemName: icon)
-                        .font(.title2)
+                        .font(.system(size: 20))
                         .foregroundColor(color)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.headline)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 16, weight: .light))
+                        .foregroundColor(.primary)
                     Text(subtitle)
-                        .font(.caption)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.secondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .foregroundColor(AppTheme.textTertiary)
+                    .foregroundColor(Color(uiColor: .tertiaryLabel))
             }
             .padding()
             .glassCardStyle(cornerRadius: AppTheme.CornerRadius.large)
@@ -167,35 +164,32 @@ struct QuickPickFundCard: View {
     var body: some View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 8)
-                .fill(AppTheme.primary.opacity(0.1))
+                .fill(Color.blue.opacity(0.1))
                 .frame(width: 44, height: 44)
                 .overlay(
                     Text("PP")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.blue)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Parag Parikh Flexi Cap")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.primary)
                 Text("Equity - Flexi Cap")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.secondary)
             }
 
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text("+18.7%")
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppTheme.success)
+                    .font(.system(size: 14, weight: .light, design: .rounded))
+                    .foregroundColor(.green)
                 Text("3Y")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.secondary)
             }
         }
         .padding()
@@ -209,33 +203,29 @@ struct SIPSummaryCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("MONTHLY SIP")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.blue)
                         .tracking(1)
                     Text("25,000".currencyFormatted)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 22, weight: .light, design: .rounded))
+                        .foregroundColor(.primary)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("ACTIVE SIPs")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppTheme.primary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.blue)
                         .tracking(1)
                     Text("5")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 22, weight: .light, design: .rounded))
+                        .foregroundColor(.primary)
                 }
             }
         }
         .padding()
         .background(
             LinearGradient(
-                colors: [AppTheme.primary.opacity(0.1), AppTheme.secondary.opacity(0.05)],
+                colors: [Color.blue.opacity(0.1), Color.cyan.opacity(0.05)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -248,14 +238,14 @@ struct EmptySIPsView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "calendar.badge.plus")
-                .font(.largeTitle)
-                .foregroundColor(AppTheme.textTertiary)
+                .font(.system(size: 32))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
             Text("No active SIPs")
-                .font(.headline)
-                .foregroundColor(AppTheme.textSecondary)
+                .font(.system(size: 16, weight: .regular))
+                .foregroundColor(.secondary)
             Text("Start your first SIP today")
-                .font(.caption)
-                .foregroundColor(AppTheme.textTertiary)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(Color(uiColor: .tertiaryLabel))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 40)
@@ -270,18 +260,16 @@ struct SIPCard: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(sip.fundName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(AppTheme.textPrimary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.primary)
                 Text("Next: \(sip.nextDate.formatted(date: .abbreviated, time: .omitted))")
-                    .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(.secondary)
             }
             Spacer()
             Text(sip.amount.currencyFormatted)
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundColor(AppTheme.primary)
+                .font(.system(size: 16, weight: .light, design: .rounded))
+                .foregroundColor(.blue)
         }
         .padding()
         .listItemCardStyle(cornerRadius: AppTheme.CornerRadius.medium)
@@ -293,12 +281,12 @@ struct UpcomingSIPCalendar: View {
         VStack(spacing: 8) {
             HStack {
                 Text("Jan 15")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.primary)
                 Spacer()
                 Text("3 SIPs - 15,000".currencyFormatted)
-                    .font(.subheadline)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundColor(.secondary)
             }
             .padding()
             .listItemCardStyle(cornerRadius: AppTheme.CornerRadius.small)

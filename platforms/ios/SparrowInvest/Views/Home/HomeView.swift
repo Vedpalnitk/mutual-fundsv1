@@ -262,12 +262,12 @@ struct ProfileCompletionCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(isGuest ? "Complete your profile" : "Profile \(completion)% complete")
-                        .font(AppTheme.Typography.headline(16))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(.primary)
 
                     Text(isGuest ? "Add your details to unlock all features" : "Complete your profile to get personalized recommendations")
-                        .font(AppTheme.Typography.caption(12))
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(.secondary)
                         .lineLimit(2)
                 }
 
@@ -293,7 +293,7 @@ struct ProfileCompletionCard: View {
                 } else {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppTheme.textTertiary)
+                        .foregroundColor(Color(uiColor: .tertiaryLabel))
                 }
             }
             .padding(AppTheme.Spacing.medium)
@@ -369,12 +369,12 @@ struct ProfileCompletionSheet: View {
                     }
 
                     Text("Complete Your Profile")
-                        .font(AppTheme.Typography.headline(20))
-                        .foregroundColor(AppTheme.textPrimary)
+                        .font(.system(size: 20, weight: .regular))
+                        .foregroundColor(.primary)
 
                     Text("Fill in these details to unlock personalized recommendations and full app features.")
-                        .font(AppTheme.Typography.body())
-                        .foregroundColor(AppTheme.textSecondary)
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                 }
@@ -384,11 +384,11 @@ struct ProfileCompletionSheet: View {
                 VStack(spacing: 8) {
                     HStack {
                         Text("Profile Completion")
-                            .font(AppTheme.Typography.caption())
-                            .foregroundColor(AppTheme.textSecondary)
+                            .font(.system(size: 12, weight: .regular))
+                            .foregroundColor(.secondary)
                         Spacer()
                         Text("\(authManager.profileCompletion)%")
-                            .font(AppTheme.Typography.accent(14))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.orange)
                     }
 
@@ -519,8 +519,8 @@ struct ProfileCheckItem: View {
             }
 
             Text(title)
-                .font(AppTheme.Typography.body())
-                .foregroundColor(AppTheme.textPrimary)
+                .font(.system(size: 14, weight: .light))
+                .foregroundColor(.primary)
 
             Spacer()
 

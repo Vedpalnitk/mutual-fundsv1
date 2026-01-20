@@ -10,55 +10,133 @@ import SwiftUI
 struct AIAnalysisView: View {
     @EnvironmentObject var portfolioStore: PortfolioStore
     @EnvironmentObject var fundsStore: FundsStore
+    @EnvironmentObject var familyStore: FamilyStore
     @Environment(AnalysisProfileStore.self) var analysisStore
     @State private var isAnalyzing = false
     @State private var selectedTab = 0
     @State private var showProfileSetup = false
     @State private var showPortfolioInput = false
 
+    // Portfolio selection state
+    @State private var viewMode: PortfolioViewMode = .individual
+    @State private var selectedFamilyMember: FamilyMember? = nil
+
+    // MARK: - Computed Properties
+
+    /// Current investor profile based on selection
+    private var currentProfile: InvestorProfile? {
+        if viewMode == .individual {
+            return analysisStore.investorProfile
+        } else if let member = selectedFamilyMember {
+            return familyStore.getProfile(for: member.id)
+        }
+        return nil
+    }
+
+    /// Check if current selection has a profile
+    private var hasProfile: Bool {
+        currentProfile != nil
+    }
+
+    /// Current portfolio holdings based on selection
+    private var currentHoldings: [Holding] {
+        if viewMode == .individual {
+            return portfolioStore.holdings
+        } else if let member = selectedFamilyMember {
+            return familyStore.getHoldings(for: member.id)
+        }
+        return []
+    }
+
+    /// Check if current selection has holdings
+    private var hasHoldings: Bool {
+        !currentHoldings.isEmpty
+    }
+
+    /// Portfolio value for selected portfolio
+    private var currentPortfolioValue: Double {
+        if viewMode == .individual {
+            return portfolioStore.portfolio.totalValue
+        } else if let member = selectedFamilyMember {
+            return member.portfolioValue
+        }
+        return 0
+    }
+
+    /// Check if ready for analysis (has both profile and holdings)
+    private var isReadyForAnalysis: Bool {
+        hasProfile && hasHoldings
+    }
+
+    /// Selected portfolio name for display
+    private var selectedPortfolioName: String {
+        if viewMode == .individual {
+            return "My Portfolio"
+        } else if let member = selectedFamilyMember {
+            return member.name
+        }
+        return "Select Portfolio"
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppTheme.Spacing.large) {
-                    // AI Header
-                    AIHeaderCard(isAnalyzing: $isAnalyzing, lastAnalysisDate: analysisStore.lastAnalysisDate)
+                    // Portfolio Selector
+                    AnalysisPortfolioSelector(
+                        viewMode: $viewMode,
+                        selectedFamilyMember: $selectedFamilyMember,
+                        familyMembers: familyStore.familyPortfolio.members,
+                        onSelectionChange: {
+                            // Reset analysis state when portfolio changes
+                        }
+                    )
 
-                    // Profile & Portfolio Setup Section (shows when setup needed)
-                    if !analysisStore.isReadyForAnalysis {
-                        AnalysisSetupSection(
-                            showProfileSetup: $showProfileSetup,
-                            showPortfolioInput: $showPortfolioInput
-                        )
-                    } else {
-                        // Quick Status Cards when setup is complete
-                        ProfilePortfolioStatusSection(
-                            analysisStore: analysisStore,
-                            showProfileSetup: $showProfileSetup,
-                            showPortfolioInput: $showPortfolioInput
-                        )
-                    }
+                    // AI Header with Analyze Button
+                    AIHeaderCardWithAnalyze(
+                        isAnalyzing: $isAnalyzing,
+                        lastAnalysisDate: analysisStore.lastAnalysisDate,
+                        isReadyForAnalysis: isReadyForAnalysis,
+                        portfolioName: selectedPortfolioName,
+                        onAnalyze: runAnalysis
+                    )
 
-                    // AI Recommendations Section (moved from Explore)
-                    AIRecommendationsSection()
+                    // Profile & Holdings Status
+                    AnalysisRequirementsCard(
+                        hasProfile: hasProfile,
+                        hasHoldings: hasHoldings,
+                        profileName: currentProfile?.name,
+                        holdingsCount: currentHoldings.count,
+                        portfolioValue: currentPortfolioValue,
+                        isIndividual: viewMode == .individual,
+                        showProfileSetup: $showProfileSetup,
+                        showPortfolioInput: $showPortfolioInput
+                    )
 
-                    // Analysis Tabs
-                    Picker("Analysis", selection: $selectedTab) {
-                        Text("Analysis").tag(0)
-                        Text("Optimize").tag(1)
-                        Text("Alerts").tag(2)
-                    }
-                    .pickerStyle(.segmented)
+                    // Only show analysis content if ready
+                    if isReadyForAnalysis {
+                        // AI Recommendations Section
+                        AIRecommendationsSection()
 
-                    // Content based on tab
-                    switch selectedTab {
-                    case 0:
-                        InsightsSection(healthScore: analysisStore.portfolioHealthScore)
-                    case 1:
-                        OptimizationSection()
-                    case 2:
-                        AlertsSection()
-                    default:
-                        EmptyView()
+                        // Analysis Tabs
+                        Picker("Analysis", selection: $selectedTab) {
+                            Text("Analysis").tag(0)
+                            Text("Optimize").tag(1)
+                            Text("Alerts").tag(2)
+                        }
+                        .pickerStyle(.segmented)
+
+                        // Content based on tab
+                        switch selectedTab {
+                        case 0:
+                            InsightsSection(healthScore: calculateHealthScore())
+                        case 1:
+                            OptimizationSection()
+                        case 2:
+                            AlertsSection()
+                        default:
+                            EmptyView()
+                        }
                     }
                 }
                 .padding(AppTheme.Spacing.medium)
@@ -67,12 +145,52 @@ struct AIAnalysisView: View {
             .navigationTitle("Insights")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showProfileSetup) {
-                InvestorProfileSetupView()
+                if viewMode == .individual {
+                    InvestorProfileSetupView()
+                } else if let member = selectedFamilyMember {
+                    InvestorProfileSetupView(familyMemberId: member.id, familyMemberName: member.name)
+                }
             }
             .sheet(isPresented: $showPortfolioInput) {
                 PortfolioInputView()
             }
         }
+    }
+
+    // MARK: - Actions
+
+    private func runAnalysis() {
+        guard isReadyForAnalysis else { return }
+        isAnalyzing = true
+
+        // Simulate analysis
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            isAnalyzing = false
+            analysisStore.lastAnalysisDate = Date()
+        }
+    }
+
+    private func calculateHealthScore() -> Int {
+        // Calculate health score based on current holdings
+        let holdings = currentHoldings
+        guard !holdings.isEmpty else { return 0 }
+
+        var score = 50
+
+        // Diversification bonus
+        let uniqueCategories = Set(holdings.map { $0.assetClass }).count
+        if uniqueCategories >= 3 { score += 15 }
+        else if uniqueCategories >= 2 { score += 10 }
+
+        // Holdings count bonus
+        if holdings.count >= 5 { score += 10 }
+        else if holdings.count >= 3 { score += 5 }
+
+        // Returns bonus
+        let totalReturns = holdings.reduce(0) { $0 + $1.returns }
+        if totalReturns > 0 { score += 15 }
+
+        return min(100, max(0, score))
     }
 }
 
@@ -1018,11 +1136,622 @@ struct StatusCard: View {
     }
 }
 
+// MARK: - Analysis Portfolio Selector
+
+struct AnalysisPortfolioSelector: View {
+    @Binding var viewMode: PortfolioViewMode
+    @Binding var selectedFamilyMember: FamilyMember?
+    let familyMembers: [FamilyMember]
+    let onSelectionChange: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: AppTheme.Spacing.compact) {
+            // Section Header
+            HStack {
+                Image(systemName: "briefcase")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.blue)
+                Text("ANALYZING PORTFOLIO")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundColor(.blue)
+                    .tracking(1)
+                Spacer()
+            }
+
+            // Individual/Family Toggle
+            HStack(spacing: 4) {
+                ForEach(PortfolioViewMode.allCases, id: \.self) { mode in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            viewMode = mode
+                            if mode == .individual {
+                                selectedFamilyMember = nil
+                            } else if selectedFamilyMember == nil && !familyMembers.isEmpty {
+                                // Auto-select first family member when switching to family
+                                selectedFamilyMember = familyMembers.first
+                            }
+                            onSelectionChange()
+                        }
+                    } label: {
+                        Text(mode.rawValue)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundColor(viewMode == mode ? .white : .secondary)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .background {
+                                if viewMode == mode {
+                                    Capsule()
+                                        .fill(Color.blue)
+                                }
+                            }
+                    }
+                }
+            }
+            .padding(4)
+            .background(toggleBackground)
+            .overlay(toggleBorder)
+            .shadow(color: toggleShadow, radius: 8, x: 0, y: 2)
+
+            // Family Member Chips (when Family mode)
+            if viewMode == .family {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: AppTheme.Spacing.small) {
+                        ForEach(familyMembers) { member in
+                            AnalysisMemberChip(
+                                member: member,
+                                isSelected: selectedFamilyMember?.id == member.id,
+                                onTap: {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        selectedFamilyMember = member
+                                        onSelectionChange()
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                }
+                .padding(.top, AppTheme.Spacing.small)
+            }
+        }
+        .padding(AppTheme.Spacing.medium)
+        .background(cardBackground)
+        .overlay(cardBorder)
+        .shadow(color: cardShadow, radius: 12, x: 0, y: 4)
+    }
+
+    // MARK: - Styling
+
+    private var toggleShadow: Color {
+        colorScheme == .dark ? .clear : .black.opacity(0.04)
+    }
+
+    private var cardShadow: Color {
+        colorScheme == .dark ? .clear : .black.opacity(0.08)
+    }
+
+    @ViewBuilder
+    private var toggleBackground: some View {
+        if colorScheme == .dark {
+            Capsule()
+                .fill(Color.black.opacity(0.4))
+                .background(Capsule().fill(.ultraThinMaterial))
+        } else {
+            Capsule().fill(Color.white)
+        }
+    }
+
+    private var toggleBorder: some View {
+        Capsule()
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .fill(Color.white)
+        }
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.08), location: 0),
+                            .init(color: .black.opacity(0.04), location: 0.3),
+                            .init(color: .black.opacity(0.02), location: 0.7),
+                            .init(color: .black.opacity(0.06), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+// MARK: - Analysis Member Chip
+
+struct AnalysisMemberChip: View {
+    let member: FamilyMember
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var displayName: String {
+        let components = member.name.components(separatedBy: " ")
+        return components.first ?? member.name
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 6) {
+                Text(displayName.prefix(1).uppercased())
+                    .font(.system(size: 12, weight: .medium))
+
+                Text(displayName)
+                    .font(.system(size: 13, weight: .regular))
+            }
+            .foregroundColor(isSelected ? .white : (colorScheme == .dark ? .primary : member.relationship.color))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(chipBackground)
+            .overlay(chipBorder)
+            .shadow(color: chipShadow, radius: 6, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var chipShadow: Color {
+        if isSelected { return .clear }
+        return colorScheme == .dark ? .clear : .black.opacity(0.04)
+    }
+
+    @ViewBuilder
+    private var chipBackground: some View {
+        if isSelected {
+            Capsule().fill(member.relationship.color)
+        } else if colorScheme == .dark {
+            Capsule()
+                .fill(Color.black.opacity(0.4))
+                .background(Capsule().fill(.ultraThinMaterial))
+        } else {
+            Capsule().fill(Color.white)
+        }
+    }
+
+    @ViewBuilder
+    private var chipBorder: some View {
+        if isSelected {
+            Capsule().stroke(Color.clear, lineWidth: 0)
+        } else {
+            Capsule()
+                .stroke(
+                    colorScheme == .dark
+                        ? LinearGradient(
+                            stops: [
+                                .init(color: .white.opacity(0.4), location: 0),
+                                .init(color: .white.opacity(0.15), location: 0.3),
+                                .init(color: .white.opacity(0.05), location: 0.7),
+                                .init(color: .white.opacity(0.1), location: 1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                          )
+                        : LinearGradient(
+                            stops: [
+                                .init(color: .black.opacity(0.1), location: 0),
+                                .init(color: .black.opacity(0.05), location: 0.3),
+                                .init(color: .black.opacity(0.03), location: 0.7),
+                                .init(color: .black.opacity(0.07), location: 1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                          ),
+                    lineWidth: 1
+                )
+        }
+    }
+}
+
+// MARK: - AI Header Card with Analyze Button
+
+struct AIHeaderCardWithAnalyze: View {
+    @Binding var isAnalyzing: Bool
+    var lastAnalysisDate: Date?
+    var isReadyForAnalysis: Bool
+    var portfolioName: String
+    var onAnalyze: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var lastAnalysisText: String {
+        guard let date = lastAnalysisDate else {
+            return "Not analyzed yet"
+        }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return "Analyzed \(formatter.localizedString(for: date, relativeTo: Date()))"
+    }
+
+    var body: some View {
+        VStack(spacing: AppTheme.Spacing.medium) {
+            HStack(spacing: AppTheme.Spacing.compact) {
+                // AI Icon
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [.blue, .cyan],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 52, height: 52)
+
+                    Image(systemName: "brain.head.profile")
+                        .font(.system(size: 22, weight: .light))
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Sparrow AI")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundColor(.primary)
+
+                    Text(portfolioName)
+                        .font(.system(size: 12, weight: .light))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                // Status Badge
+                if isAnalyzing {
+                    HStack(spacing: 4) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                        Text("Analyzing...")
+                            .font(.system(size: 11, weight: .light))
+                            .foregroundColor(.blue)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.blue.opacity(0.1), in: Capsule())
+                } else if isReadyForAnalysis {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 6, height: 6)
+                        Text("Ready")
+                            .font(.system(size: 11, weight: .light))
+                            .foregroundColor(.green)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.green.opacity(0.1), in: Capsule())
+                } else {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.orange)
+                            .frame(width: 6, height: 6)
+                        Text("Setup Required")
+                            .font(.system(size: 11, weight: .light))
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.orange.opacity(0.1), in: Capsule())
+                }
+            }
+
+            // Last Analysis & Analyze Button
+            HStack {
+                Image(systemName: "clock")
+                    .font(.system(size: 11, weight: .light))
+                    .foregroundColor(Color(uiColor: .tertiaryLabel))
+                Text(lastAnalysisText)
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(Color(uiColor: .tertiaryLabel))
+
+                Spacer()
+
+                Button(action: onAnalyze) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 12, weight: .light))
+                        Text("Analyze")
+                            .font(.system(size: 13, weight: .regular))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        LinearGradient(
+                            colors: isReadyForAnalysis ? [.blue, .cyan] : [.gray, .gray.opacity(0.8)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        in: Capsule()
+                    )
+                }
+                .disabled(!isReadyForAnalysis || isAnalyzing)
+            }
+        }
+        .padding(AppTheme.Spacing.large)
+        .background(cardBackground)
+        .overlay(cardBorder)
+        .shadow(color: cardShadow, radius: 12, x: 0, y: 4)
+    }
+
+    private var cardShadow: Color {
+        colorScheme == .dark ? .clear : .black.opacity(0.08)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .fill(Color.white)
+        }
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.15), location: 0),
+                            .init(color: .black.opacity(0.08), location: 0.3),
+                            .init(color: .black.opacity(0.05), location: 0.7),
+                            .init(color: .black.opacity(0.12), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+// MARK: - Analysis Requirements Card
+
+struct AnalysisRequirementsCard: View {
+    let hasProfile: Bool
+    let hasHoldings: Bool
+    let profileName: String?
+    let holdingsCount: Int
+    let portfolioValue: Double
+    let isIndividual: Bool
+    @Binding var showProfileSetup: Bool
+    @Binding var showPortfolioInput: Bool
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.medium) {
+            // Header
+            HStack {
+                Image(systemName: hasProfile && hasHoldings ? "checkmark.shield" : "exclamationmark.triangle")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(hasProfile && hasHoldings ? .green : .orange)
+                Text(hasProfile && hasHoldings ? "READY FOR ANALYSIS" : "SETUP REQUIRED")
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundColor(hasProfile && hasHoldings ? .green : .orange)
+                    .tracking(1)
+                Spacer()
+            }
+
+            // Status Cards
+            HStack(spacing: AppTheme.Spacing.compact) {
+                // Profile Status
+                RequirementStatusCard(
+                    icon: "person.text.rectangle",
+                    iconColor: hasProfile ? .blue : .gray,
+                    title: "Risk Profile",
+                    status: hasProfile ? (profileName ?? "Set up") : "Not set",
+                    isComplete: hasProfile,
+                    action: { showProfileSetup = true }
+                )
+
+                // Holdings Status
+                RequirementStatusCard(
+                    icon: "briefcase",
+                    iconColor: hasHoldings ? .green : .gray,
+                    title: "Holdings",
+                    status: hasHoldings ? "\(holdingsCount) funds • \(portfolioValue.currencyFormatted)" : "No holdings",
+                    isComplete: hasHoldings,
+                    action: { showPortfolioInput = true }
+                )
+            }
+
+            // Help text
+            if !hasProfile || !hasHoldings {
+                Text("Complete both profile and holdings to enable AI analysis")
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(AppTheme.Spacing.medium)
+        .background(cardBackground)
+        .overlay(cardBorder)
+        .shadow(color: cardShadow, radius: 12, x: 0, y: 4)
+    }
+
+    private var cardShadow: Color {
+        colorScheme == .dark ? .clear : .black.opacity(0.08)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+                .fill(Color.white)
+        }
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.xLarge, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.08), location: 0),
+                            .init(color: .black.opacity(0.04), location: 0.3),
+                            .init(color: .black.opacity(0.02), location: 0.7),
+                            .init(color: .black.opacity(0.06), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+// MARK: - Requirement Status Card
+
+struct RequirementStatusCard: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let status: String
+    let isComplete: Bool
+    let action: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.small) {
+                HStack {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.small, style: .continuous)
+                            .fill(iconColor.opacity(0.15))
+                            .frame(width: 32, height: 32)
+
+                        Image(systemName: icon)
+                            .font(.system(size: 14, weight: .light))
+                            .foregroundColor(iconColor)
+                    }
+
+                    Spacer()
+
+                    if isComplete {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(.green)
+                    } else {
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
+                    }
+                }
+
+                Text(title)
+                    .font(.system(size: 12, weight: .light))
+                    .foregroundColor(.secondary)
+
+                Text(status)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+            }
+            .padding(AppTheme.Spacing.compact)
+            .frame(maxWidth: .infinity)
+            .listItemCardStyle(cornerRadius: AppTheme.CornerRadius.medium)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
     AIAnalysisView()
         .environmentObject(PortfolioStore())
         .environmentObject(FundsStore())
+        .environmentObject(FamilyStore())
         .environment(AnalysisProfileStore())
 }

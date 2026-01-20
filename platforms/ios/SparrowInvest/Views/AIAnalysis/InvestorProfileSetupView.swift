@@ -11,16 +11,28 @@ struct InvestorProfileSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @Environment(AnalysisProfileStore.self) var analysisStore
+    @EnvironmentObject var familyStore: FamilyStore
     @State private var profile: InvestorProfile = InvestorProfile.empty
     @State private var currentStep = 0
     var onComplete: ((InvestorProfile) -> Void)?
 
+    // Optional family member context (when creating profile for a family member)
+    var familyMemberId: String?
+    var familyMemberName: String?
+
     private let totalSteps = 4
 
-    init(existingProfile: InvestorProfile? = nil, onComplete: ((InvestorProfile) -> Void)? = nil) {
+    init(existingProfile: InvestorProfile? = nil, familyMemberId: String? = nil, familyMemberName: String? = nil, onComplete: ((InvestorProfile) -> Void)? = nil) {
         if let existing = existingProfile {
             self._profile = State(initialValue: existing)
+        } else if let memberName = familyMemberName {
+            // Pre-fill name with family member's name
+            var newProfile = InvestorProfile.empty
+            newProfile.name = memberName
+            self._profile = State(initialValue: newProfile)
         }
+        self.familyMemberId = familyMemberId
+        self.familyMemberName = familyMemberName
         self.onComplete = onComplete
     }
 
@@ -94,7 +106,7 @@ struct InvestorProfileSetupView: View {
                 .padding(AppTheme.Spacing.medium)
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("Create Profile")
+            .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -113,9 +125,25 @@ struct InvestorProfileSetupView: View {
 
     private func saveProfile() {
         profile.updatedAt = Date()
-        analysisStore.createProfile(profile)
+
+        // Save to appropriate store based on context
+        if let memberId = familyMemberId {
+            // Save to FamilyStore for family member
+            familyStore.setProfile(profile, for: memberId)
+        } else {
+            // Save to AnalysisProfileStore for individual
+            analysisStore.createProfile(profile)
+        }
+
         onComplete?(profile)
         dismiss()
+    }
+
+    private var navigationTitle: String {
+        if let memberName = familyMemberName {
+            return "\(memberName)'s Profile"
+        }
+        return "Create Profile"
     }
 
     @ViewBuilder
