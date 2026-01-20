@@ -69,20 +69,35 @@ import com.sparrowinvest.app.data.model.User
 import com.sparrowinvest.app.ui.components.Avatar
 import com.sparrowinvest.app.ui.components.formatCompactCurrency
 import com.sparrowinvest.app.ui.theme.CardBackgroundDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.CardBackgroundLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.CornerRadius
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Error
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderEndDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderEndLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderMidDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderMidLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderStartDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderStartLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Primary
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.ShadowColor
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Spacing
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Success
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Warning
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun ProfileScreen(
@@ -246,7 +261,7 @@ private fun UserInfoCard(
     profileCompletion: Int,
     onEditClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.xLarge)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
@@ -351,7 +366,7 @@ private fun PointsCard(
     points: UserPoints,
     onViewRewards: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.xLarge)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
@@ -423,7 +438,7 @@ private fun PointsCard(
 private fun PremiumUpgradeCard(
     onUpgrade: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.xLarge)
 
     val gradientBrush = Brush.linearGradient(
@@ -480,7 +495,7 @@ private fun AdvisorCard(
     onChat: () -> Unit,
     onCall: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.xLarge)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
@@ -566,7 +581,7 @@ private fun AdvisorCard(
 private fun FindAdvisorCard(
     onFindAdvisor: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.xLarge)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
@@ -655,7 +670,7 @@ private fun FamilyMembersCard(
     members: List<FamilyMember>,
     onMemberClick: (FamilyMember) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
 
@@ -702,7 +717,7 @@ private fun FamilyMemberChip(
     member: FamilyMember,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
     val relationColor = Color(member.relationship.color)
@@ -742,7 +757,7 @@ private fun ConnectedAccountsCard(
     onConnect: (TradingPlatform) -> Unit,
     onDisconnect: (String) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
 
@@ -835,7 +850,7 @@ private fun LinkedBanksCard(
     banks: List<LinkedBank>,
     onBankClick: (LinkedBank) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
 
@@ -908,7 +923,7 @@ private fun DocumentsCard(
     documents: List<Document>,
     onDocumentClick: (Document) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
 
@@ -982,7 +997,7 @@ private fun SettingsCard(
     onNavigateToGoals: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
 
@@ -1029,7 +1044,7 @@ private fun SettingsCard(
 
 @Composable
 private fun SupportCard() {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
 
@@ -1125,7 +1140,7 @@ private fun ProfileMenuItem(
 
 @Composable
 private fun LogoutButton(onLogout: () -> Unit) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
 

@@ -71,21 +71,37 @@ import com.sparrowinvest.app.ui.components.ReturnBadge
 import com.sparrowinvest.app.ui.components.SegmentedControl
 import com.sparrowinvest.app.ui.components.formatCompactCurrency
 import com.sparrowinvest.app.ui.theme.AppColors
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.CardBackgroundDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.CardBackgroundLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.CornerRadius
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Error
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderEndDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderEndLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderMidDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderMidLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderStartDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderStartLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Primary
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.ShadowColor
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Spacing
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Success
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Warning
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun InvestmentsScreen(
@@ -259,7 +275,7 @@ private fun FamilyMemberSelector(
     selectedMember: FamilyMember?,
     onMemberSelected: (FamilyMember?) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
 
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
@@ -298,7 +314,7 @@ private fun FamilyMemberChip(
     color: Color,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelected) color else if (isDark) CardBackgroundDark else CardBackgroundLight,
         label = "chipBackground"
@@ -329,7 +345,7 @@ private fun PortfolioSummaryCard(
     isFamily: Boolean,
     memberCount: Int
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.xLarge)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
@@ -513,7 +529,7 @@ private fun AssetClassFilter(
     assetCounts: Map<AssetClass, Int>,
     onFilterSelected: (AssetClass?) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
 
     Row(
         modifier = Modifier
@@ -555,7 +571,7 @@ private fun FilterChip(
     color: Color,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelected) color else if (isDark) CardBackgroundDark else CardBackgroundLight,
         label = "filterBackground"
@@ -618,7 +634,7 @@ private fun HoldingItem(
     holding: Holding,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
@@ -747,7 +763,7 @@ private fun SipItem(
     sip: Sip,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
@@ -883,7 +899,7 @@ private fun TransactionItem(
     transaction: Transaction,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight

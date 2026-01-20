@@ -33,11 +33,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.sparrowinvest.app.ui.theme.CornerRadius
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Error
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Primary
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Spacing
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.TertiaryFillDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.TertiaryFillLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun GlassTextField(
@@ -57,7 +63,7 @@ fun GlassTextField(
     singleLine: Boolean = true,
     visualTransformation: VisualTransformation = VisualTransformation.None
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     var isFocused by remember { mutableStateOf(false) }
 
     val backgroundColor = if (isDark) TertiaryFillDark else TertiaryFillLight

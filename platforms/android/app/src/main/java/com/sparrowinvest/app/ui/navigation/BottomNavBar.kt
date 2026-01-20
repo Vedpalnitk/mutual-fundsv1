@@ -37,8 +37,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.sparrowinvest.app.ui.theme.CornerRadius
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Primary
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Spacing
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 
 data class BottomNavItem(
     val route: String,
@@ -86,7 +89,7 @@ fun BottomNavBar(
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val backgroundColor = if (isDark) {
         MaterialTheme.colorScheme.surface
     } else {

@@ -30,10 +30,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sparrowinvest.app.ui.theme.CornerRadius
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Error
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Primary
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.TertiaryFillDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.TertiaryFillLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun OtpTextField(
@@ -44,7 +49,7 @@ fun OtpTextField(
 ) {
     var otpValue by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -141,7 +146,7 @@ fun OtpInput(
     isError: Boolean = false
 ) {
     val focusRequester = remember { FocusRequester() }
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()

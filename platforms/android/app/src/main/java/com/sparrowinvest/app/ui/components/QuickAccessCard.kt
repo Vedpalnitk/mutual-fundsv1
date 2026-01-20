@@ -26,9 +26,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.sparrowinvest.app.ui.theme.CornerRadius
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Primary
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.ShadowColor
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Spacing
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun QuickAccessCard(
@@ -40,7 +44,7 @@ fun QuickAccessCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
 
     val backgroundColor = if (isDark) {

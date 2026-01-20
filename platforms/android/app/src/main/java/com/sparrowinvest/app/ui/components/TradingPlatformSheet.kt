@@ -46,19 +46,33 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sparrowinvest.app.ui.theme.CardBackgroundDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.CardBackgroundLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.CornerRadius
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderEndDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderEndLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderMidDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderMidLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderStartDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderStartLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Primary
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Secondary
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.ShadowColor
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Spacing
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Success
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 
 enum class QuickActionType(
     val title: String,
@@ -144,7 +158,7 @@ fun TradingPlatformSheet(
 ) {
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState()
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -250,7 +264,7 @@ private fun PlatformCard(
     platform: TradingPlatform,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight

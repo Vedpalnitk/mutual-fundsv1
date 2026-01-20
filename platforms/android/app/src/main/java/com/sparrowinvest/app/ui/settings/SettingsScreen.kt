@@ -44,8 +44,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sparrowinvest.app.core.storage.ThemeMode
-import com.sparrowinvest.app.ui.theme.CardBackgroundDark
-import com.sparrowinvest.app.ui.theme.CardBackgroundLight
 import com.sparrowinvest.app.ui.theme.CornerRadius
 import com.sparrowinvest.app.ui.theme.Primary
 import com.sparrowinvest.app.ui.theme.Spacing
@@ -195,8 +193,7 @@ private fun SettingsToggleItem(
     isEnabled: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-    val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
+    val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
 
     Row(
         modifier = Modifier
@@ -262,8 +259,7 @@ private fun SettingsNavigationItem(
     subtitle: String,
     onClick: () -> Unit = {}
 ) {
-    val isDark = isSystemInDarkTheme()
-    val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
+    val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
 
     Row(
         modifier = Modifier

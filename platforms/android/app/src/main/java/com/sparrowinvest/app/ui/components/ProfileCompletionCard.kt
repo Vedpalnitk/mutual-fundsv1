@@ -32,11 +32,17 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.sparrowinvest.app.ui.theme.CardBackgroundDark
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.CardBackgroundLight
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.CornerRadius
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.ShadowColor
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Spacing
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Warning
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 
 @Composable
 fun ProfileCompletionCard(
@@ -45,7 +51,7 @@ fun ProfileCompletionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(CornerRadius.large)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight

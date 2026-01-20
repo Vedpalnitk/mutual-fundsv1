@@ -81,11 +81,17 @@ import com.sparrowinvest.app.ui.components.SectionHeader
 import com.sparrowinvest.app.ui.components.TopBar
 import com.sparrowinvest.app.ui.components.formatCompactCurrency
 import com.sparrowinvest.app.ui.theme.CornerRadius
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Error
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Primary
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Spacing
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Success
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.Warning
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -295,7 +301,7 @@ fun GoalDetailScreen(
 
 @Composable
 private fun GoalProgressHeader(goal: Goal) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val goalColor = Color(goal.category.color)
 
     GlassCard(
@@ -565,7 +571,7 @@ private fun SummaryItem(
 
 @Composable
 private fun ProjectionCard(projection: GoalProjection, goal: Goal) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val goalColor = Color(goal.category.color)
 
     GlassCard(modifier = Modifier.padding(horizontal = Spacing.medium)) {

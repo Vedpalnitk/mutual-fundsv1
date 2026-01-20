@@ -2,7 +2,6 @@ package com.sparrowinvest.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.sparrowinvest.app.ui.theme.CardBackgroundDark
 import com.sparrowinvest.app.ui.theme.CardBackgroundLight
 import com.sparrowinvest.app.ui.theme.CornerRadius
+import com.sparrowinvest.app.ui.theme.LocalIsDarkTheme
 import com.sparrowinvest.app.ui.theme.GlassBorderEndDark
 import com.sparrowinvest.app.ui.theme.GlassBorderEndLight
 import com.sparrowinvest.app.ui.theme.GlassBorderMidDark
@@ -36,7 +36,7 @@ fun GlassCard(
     contentPadding: Dp = Spacing.medium,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(cornerRadius)
 
     val backgroundColor = if (isDark) CardBackgroundDark else CardBackgroundLight
@@ -90,7 +90,7 @@ fun ListItemCard(
     contentPadding: Dp = Spacing.compact,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val shape = RoundedCornerShape(cornerRadius)
 
     val backgroundColor = if (isDark) {
