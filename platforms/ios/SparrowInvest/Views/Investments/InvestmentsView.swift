@@ -53,27 +53,40 @@ struct InvestmentsView: View {
     @EnvironmentObject var navigationStore: NavigationStore
     @State private var selectedTab: InvestmentTab = .portfolio
     @State private var selectedMode: PortfolioSelectionMode = .myPortfolio
-    @State private var showPortfolioPicker = false
+    @State private var viewMode: PortfolioViewMode = .individual
+    @State private var selectedFamilyMember: FamilyMember? = nil // nil = All (combined family)
     @State private var showAddHolding = false
     @State private var showAddFamilyMember = false
     @State private var showAddFundToMyPortfolio = false
     @State private var selectedFilter: Holding.AssetClass? = nil
 
     private var currentPortfolioValue: Double {
-        switch selectedMode {
-        case .myPortfolio:
+        if viewMode == .individual {
             return portfolioStore.portfolio.totalValue
-        case .familyMember(let member):
-            return member.portfolioValue
+        } else {
+            // Family mode
+            if let member = selectedFamilyMember {
+                return member.portfolioValue
+            } else {
+                // All family combined
+                return familyStore.familyPortfolio.totalValue
+            }
         }
     }
 
     private var currentHoldings: [Holding] {
-        switch selectedMode {
-        case .myPortfolio:
+        if viewMode == .individual {
             return portfolioStore.holdings
-        case .familyMember(let member):
-            return familyStore.getHoldings(for: member.id)
+        } else {
+            // Family mode
+            if let member = selectedFamilyMember {
+                return familyStore.getHoldings(for: member.id)
+            } else {
+                // All family combined - get holdings from all members
+                return familyStore.familyPortfolio.members.flatMap { member in
+                    familyStore.getHoldings(for: member.id)
+                }
+            }
         }
     }
 
@@ -85,38 +98,68 @@ struct InvestmentsView: View {
     }
 
     private var currentPortfolio: Portfolio {
-        switch selectedMode {
-        case .myPortfolio:
+        if viewMode == .individual {
             return portfolioStore.portfolio
-        case .familyMember(let member):
-            let holdings = familyStore.getHoldings(for: member.id)
-            let totalValue = holdings.reduce(0) { $0 + $1.currentValue }
-            let totalInvested = holdings.reduce(0) { $0 + $1.investedAmount }
-            let totalReturns = totalValue - totalInvested
-            let returnsPercentage = totalInvested > 0 ? (totalReturns / totalInvested) * 100 : 0
+        } else {
+            // Family mode
+            if let member = selectedFamilyMember {
+                // Individual family member
+                let holdings = familyStore.getHoldings(for: member.id)
+                let totalValue = holdings.reduce(0) { $0 + $1.currentValue }
+                let totalInvested = holdings.reduce(0) { $0 + $1.investedAmount }
+                let totalReturns = totalValue - totalInvested
+                let returnsPercentage = totalInvested > 0 ? (totalReturns / totalInvested) * 100 : 0
 
-            return Portfolio(
-                totalValue: totalValue,
-                totalInvested: totalInvested,
-                totalReturns: totalReturns,
-                returnsPercentage: returnsPercentage,
-                todayChange: 0,
-                todayChangePercentage: 0,
-                xirr: member.xirr,
-                assetAllocation: familyStore.memberAssetAllocations[member.id] ?? AssetAllocation(equity: 0, debt: 0, hybrid: 0, gold: 0, other: 0),
-                holdings: holdings
-            )
+                return Portfolio(
+                    totalValue: totalValue,
+                    totalInvested: totalInvested,
+                    totalReturns: totalReturns,
+                    returnsPercentage: returnsPercentage,
+                    todayChange: 0,
+                    todayChangePercentage: 0,
+                    xirr: member.xirr,
+                    assetAllocation: familyStore.memberAssetAllocations[member.id] ?? AssetAllocation(equity: 0, debt: 0, hybrid: 0, gold: 0, other: 0),
+                    holdings: holdings
+                )
+            } else {
+                // Combined family portfolio
+                let familyPortfolio = familyStore.familyPortfolio
+                let allHoldings = familyPortfolio.members.flatMap { member in
+                    familyStore.getHoldings(for: member.id)
+                }
+                return Portfolio(
+                    totalValue: familyPortfolio.totalValue,
+                    totalInvested: familyPortfolio.totalInvested,
+                    totalReturns: familyPortfolio.totalReturns,
+                    returnsPercentage: familyPortfolio.returnsPercentage,
+                    todayChange: 0,
+                    todayChangePercentage: 0,
+                    xirr: familyPortfolio.familyXIRR,
+                    assetAllocation: AssetAllocation(equity: 60, debt: 25, hybrid: 10, gold: 5, other: 0),
+                    holdings: allHoldings
+                )
+            }
         }
+    }
+
+    // Helper to check if viewing a specific family member (for edit mode)
+    private var isViewingFamilyMember: Bool {
+        viewMode == .family && selectedFamilyMember != nil
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Portfolio Selector
-                PortfolioMemberSelectorButton(
-                    selectedMode: selectedMode,
-                    portfolioValue: currentPortfolioValue,
-                    onTap: { showPortfolioPicker = true }
+                // Portfolio View Selector (Individual/Family toggle + family member chips)
+                PortfolioViewSelector(
+                    viewMode: $viewMode,
+                    selectedFamilyMember: $selectedFamilyMember,
+                    familyMembers: familyStore.familyPortfolio.members,
+                    familyPortfolioValue: familyStore.familyPortfolio.totalValue,
+                    onMemberChange: {
+                        // Reset filter when changing member
+                        selectedFilter = nil
+                    }
                 )
                 .padding(.horizontal, AppTheme.Spacing.medium)
                 .padding(.top, AppTheme.Spacing.small)
@@ -135,8 +178,8 @@ struct InvestmentsView: View {
                                 portfolio: currentPortfolio,
                                 holdings: filteredHoldings,
                                 selectedFilter: $selectedFilter,
-                                canEdit: selectedMode != .myPortfolio,
-                                isMyPortfolio: selectedMode == .myPortfolio,
+                                canEdit: isViewingFamilyMember,
+                                isMyPortfolio: viewMode == .individual,
                                 onAddHolding: {
                                     showAddHolding = true
                                 },
@@ -144,7 +187,7 @@ struct InvestmentsView: View {
                                     showAddFundToMyPortfolio = true
                                 },
                                 onDeleteHolding: { holding in
-                                    if case .familyMember(let member) = selectedMode {
+                                    if let member = selectedFamilyMember {
                                         familyStore.removeHolding(holding.id, from: member.id)
                                     }
                                 }
@@ -163,35 +206,14 @@ struct InvestmentsView: View {
             .navigationTitle("Investments")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if case .familyMember = selectedMode, selectedTab == .portfolio {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button {
-                            showAddHolding = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                    }
-                }
+                // Toolbar intentionally empty - Buy More button is shown inline
             }
             .refreshable {
                 await portfolioStore.fetchPortfolio()
                 await familyStore.refreshData()
             }
-            .sheet(isPresented: $showPortfolioPicker) {
-                FamilyPortfolioPickerSheet(
-                    familyMembers: familyStore.familyPortfolio.members,
-                    selectedMode: $selectedMode,
-                    isPresented: $showPortfolioPicker,
-                    onAddMember: {
-                        showPortfolioPicker = false
-                        showAddFamilyMember = true
-                    }
-                )
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-            }
             .sheet(isPresented: $showAddHolding) {
-                if case .familyMember(let member) = selectedMode {
+                if let member = selectedFamilyMember {
                     AddHoldingSheet(memberId: member.id)
                 }
             }
@@ -651,7 +673,248 @@ struct FundSuggestionRow: View {
     }
 }
 
-// MARK: - Portfolio Member Selector Button
+// MARK: - Portfolio View Selector (Pill Toggle + Family Member Chips)
+
+struct PortfolioViewSelector: View {
+    @Binding var viewMode: PortfolioViewMode
+    @Binding var selectedFamilyMember: FamilyMember?
+    let familyMembers: [FamilyMember]
+    let familyPortfolioValue: Double
+    let onMemberChange: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: AppTheme.Spacing.compact) {
+            // Individual/Family Toggle (pill style)
+            viewModeToggle
+
+            // Family Member Selector (when Family mode)
+            if viewMode == .family {
+                familyMemberScroll
+            }
+        }
+    }
+
+    // MARK: - View Mode Toggle
+
+    private var viewModeToggle: some View {
+        HStack(spacing: 4) {
+            ForEach(PortfolioViewMode.allCases, id: \.self) { mode in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        viewMode = mode
+                        if mode == .individual {
+                            selectedFamilyMember = nil
+                        }
+                        onMemberChange()
+                    }
+                } label: {
+                    Text(mode.rawValue)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundColor(viewMode == mode ? .white : .secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background {
+                            if viewMode == mode {
+                                Capsule()
+                                    .fill(Color.blue)
+                            }
+                        }
+                }
+            }
+        }
+        .padding(4)
+        .background(toggleBackground)
+        .overlay(toggleBorder)
+        .shadow(color: toggleShadow, radius: 8, x: 0, y: 2)
+    }
+
+    // MARK: - Family Member Scroll
+
+    private var familyMemberScroll: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: AppTheme.Spacing.small) {
+                // "All" option (combined family portfolio)
+                FamilyMemberChip(
+                    member: nil,
+                    isSelected: selectedFamilyMember == nil,
+                    onTap: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedFamilyMember = nil
+                            onMemberChange()
+                        }
+                    }
+                )
+
+                // Individual family members
+                ForEach(familyMembers) { member in
+                    FamilyMemberChip(
+                        member: member,
+                        isSelected: selectedFamilyMember?.id == member.id,
+                        onTap: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                selectedFamilyMember = member
+                                onMemberChange()
+                            }
+                        }
+                    )
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+        .padding(.top, AppTheme.Spacing.small)
+    }
+
+    // MARK: - Toggle Styling
+
+    private var toggleShadow: Color {
+        colorScheme == .dark ? .clear : .black.opacity(0.04)
+    }
+
+    @ViewBuilder
+    private var toggleBackground: some View {
+        if colorScheme == .dark {
+            Capsule()
+                .fill(Color.black.opacity(0.4))
+                .background(Capsule().fill(.ultraThinMaterial))
+        } else {
+            Capsule().fill(Color.white)
+        }
+    }
+
+    private var toggleBorder: some View {
+        Capsule()
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
+    }
+}
+
+// MARK: - Family Member Chip
+
+struct FamilyMemberChip: View {
+    let member: FamilyMember? // nil = "All"
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var chipColor: Color {
+        if let member = member {
+            return member.relationship.color
+        }
+        return .purple // Color for "All" option
+    }
+
+    private var displayName: String {
+        if let member = member {
+            // Use short name (first name or nickname)
+            let components = member.name.components(separatedBy: " ")
+            return components.first ?? member.name
+        }
+        return "All"
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 6) {
+                // Icon or initial
+                if member == nil {
+                    Image(systemName: "person.3.fill")
+                        .font(.system(size: 12, weight: .regular))
+                } else {
+                    Text(displayName.prefix(1).uppercased())
+                        .font(.system(size: 12, weight: .medium))
+                }
+
+                Text(displayName)
+                    .font(.system(size: 13, weight: .regular))
+            }
+            .foregroundColor(isSelected ? .white : (colorScheme == .dark ? .primary : chipColor))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(chipBackground)
+            .overlay(chipBorder)
+            .shadow(color: chipShadow, radius: 6, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var chipShadow: Color {
+        if isSelected { return .clear }
+        return colorScheme == .dark ? .clear : .black.opacity(0.04)
+    }
+
+    @ViewBuilder
+    private var chipBackground: some View {
+        if isSelected {
+            Capsule().fill(chipColor)
+        } else if colorScheme == .dark {
+            Capsule()
+                .fill(Color.black.opacity(0.4))
+                .background(Capsule().fill(.ultraThinMaterial))
+        } else {
+            Capsule().fill(Color.white)
+        }
+    }
+
+    @ViewBuilder
+    private var chipBorder: some View {
+        if isSelected {
+            Capsule().stroke(Color.clear, lineWidth: 0)
+        } else {
+            Capsule()
+                .stroke(
+                    colorScheme == .dark
+                        ? LinearGradient(
+                            stops: [
+                                .init(color: .white.opacity(0.4), location: 0),
+                                .init(color: .white.opacity(0.15), location: 0.3),
+                                .init(color: .white.opacity(0.05), location: 0.7),
+                                .init(color: .white.opacity(0.1), location: 1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                          )
+                        : LinearGradient(
+                            stops: [
+                                .init(color: .black.opacity(0.1), location: 0),
+                                .init(color: .black.opacity(0.05), location: 0.3),
+                                .init(color: .black.opacity(0.03), location: 0.7),
+                                .init(color: .black.opacity(0.07), location: 1)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                          ),
+                    lineWidth: 1
+                )
+        }
+    }
+}
+
+// MARK: - Portfolio Member Selector Button (Legacy - kept for reference)
 
 struct PortfolioMemberSelectorButton: View {
     let selectedMode: PortfolioSelectionMode
@@ -925,9 +1188,15 @@ struct PortfolioTabContent: View {
                 }
             }
 
-            // Buy More Button for My Portfolio
-            if isMyPortfolio && !holdings.isEmpty {
-                Button(action: { onAddToMyPortfolio?() }) {
+            // Buy More Button for My Portfolio or Family Member
+            if (isMyPortfolio || canEdit) && !holdings.isEmpty {
+                Button(action: {
+                    if canEdit {
+                        onAddHolding?()
+                    } else {
+                        onAddToMyPortfolio?()
+                    }
+                }) {
                     HStack {
                         Image(systemName: "plus.circle.fill")
                             .font(.system(size: 18, weight: .light))
