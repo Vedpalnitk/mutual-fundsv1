@@ -3,7 +3,9 @@ package com.sparrowinvest.app.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sparrowinvest.app.core.network.ApiResult
+import com.sparrowinvest.app.data.model.AdvisorInfo
 import com.sparrowinvest.app.data.model.AssetAllocation
+import com.sparrowinvest.app.data.model.ClientType
 import com.sparrowinvest.app.data.model.Goal
 import com.sparrowinvest.app.data.model.Holding
 import com.sparrowinvest.app.data.model.Portfolio
@@ -42,6 +44,16 @@ class HomeViewModel @Inject constructor(
     val currentUser: StateFlow<User?> = authRepository.currentUser
     val isGuest: StateFlow<Boolean> = authRepository.isGuestUser
 
+    // Client type and advisor info from portfolio repository
+    val clientType: StateFlow<ClientType> = portfolioRepository.clientType
+    val advisor: StateFlow<AdvisorInfo?> = portfolioRepository.advisor
+
+    /**
+     * Check if user is a managed client (has FA advisor)
+     */
+    val isManagedClient: Boolean
+        get() = portfolioRepository.isManagedClient
+
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
@@ -78,17 +90,39 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = HomeUiState.Loading
 
-            // Load portfolio
-            val portfolioResult = portfolioRepository.getPortfolio()
-            when (portfolioResult) {
+            // Load portfolio with clientType and advisor info
+            val myPortfolioResult = portfolioRepository.getMyPortfolio()
+            when (myPortfolioResult) {
                 is ApiResult.Success -> {
-                    _portfolio.value = portfolioResult.data
+                    // Convert PortfolioResponse to Portfolio for UI
+                    val response = myPortfolioResult.data
+                    _portfolio.value = Portfolio(
+                        totalValue = response.portfolio.totalValue,
+                        totalInvested = response.portfolio.totalInvested,
+                        totalReturns = response.portfolio.totalReturns,
+                        returnsPercentage = response.portfolio.returnsPercentage,
+                        todayChange = 0.0,
+                        todayChangePercentage = 0.0,
+                        xirr = null,
+                        assetAllocation = AssetAllocation(),
+                        holdings = emptyList(),
+                        sips = emptyList()
+                    )
                 }
                 is ApiResult.Error -> {
-                    // Use mock data for demo
-                    _portfolio.value = createMockPortfolio()
+                    // Fall back to old endpoint
+                    val portfolioResult = portfolioRepository.getPortfolio()
+                    when (portfolioResult) {
+                        is ApiResult.Success -> {
+                            _portfolio.value = portfolioResult.data
+                        }
+                        is ApiResult.Error -> {
+                            // Use mock data for demo
+                            _portfolio.value = createMockPortfolio()
+                        }
+                        else -> {}
+                    }
                 }
-                else -> {}
             }
 
             // Load goals

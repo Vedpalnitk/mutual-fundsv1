@@ -7,11 +7,15 @@ import com.sparrowinvest.app.data.model.FundDetail
 import com.sparrowinvest.app.data.model.Goal
 import com.sparrowinvest.app.data.model.LoginRequest
 import com.sparrowinvest.app.data.model.LoginResponse
+import com.sparrowinvest.app.data.model.MyTradeRequest
 import com.sparrowinvest.app.data.model.Portfolio
+import com.sparrowinvest.app.data.model.PortfolioResponse
 import com.sparrowinvest.app.data.model.RecommendationsRequest
 import com.sparrowinvest.app.data.model.RecommendationsResponse
 import com.sparrowinvest.app.data.model.RegisterRequest
 import com.sparrowinvest.app.data.model.RegisterResponse
+import com.sparrowinvest.app.data.model.TradeRequest
+import com.sparrowinvest.app.data.model.TradeRequestResponse
 import com.sparrowinvest.app.data.model.User
 import retrofit2.Response
 import retrofit2.http.Body
@@ -63,6 +67,17 @@ interface ApiService {
 
     @GET("portfolio/transactions")
     suspend fun getTransactions(): Response<List<com.sparrowinvest.app.data.model.Transaction>>
+
+    // Portfolio with clientType and advisor info
+    @GET("auth/me/portfolio")
+    suspend fun getMyPortfolio(): Response<PortfolioResponse>
+
+    // Trade request endpoints (for FA-managed clients)
+    @POST("transactions/trade-request")
+    suspend fun submitTradeRequest(@Body request: TradeRequest): Response<TradeRequestResponse>
+
+    @GET("transactions/my-requests")
+    suspend fun getMyTradeRequests(): Response<List<MyTradeRequest>>
 
     // Goals endpoints
     @GET("goals")

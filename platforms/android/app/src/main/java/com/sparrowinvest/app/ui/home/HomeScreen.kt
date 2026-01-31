@@ -52,6 +52,7 @@ import com.sparrowinvest.app.ui.components.FullScreenLoading
 import com.sparrowinvest.app.ui.components.GlassCard
 import com.sparrowinvest.app.ui.components.ProfileCompletionCard
 import com.sparrowinvest.app.ui.components.QuickActionType
+import com.sparrowinvest.app.ui.components.ManagedQuickActionSheet
 import com.sparrowinvest.app.ui.components.RecentTransactionsCard
 import com.sparrowinvest.app.ui.components.ReturnBadge
 import com.sparrowinvest.app.ui.components.SIPDashboardCard
@@ -60,6 +61,7 @@ import com.sparrowinvest.app.ui.components.SegmentedControl
 import com.sparrowinvest.app.ui.components.TradingPlatformSheet
 import com.sparrowinvest.app.ui.components.UpcomingActionsCard
 import com.sparrowinvest.app.ui.components.formatCompactCurrency
+import com.sparrowinvest.app.ui.components.AvyaHomeCard
 import com.sparrowinvest.app.ui.theme.AppColors
 import com.sparrowinvest.app.ui.theme.CornerRadius
 import com.sparrowinvest.app.ui.theme.Primary
@@ -74,7 +76,9 @@ fun HomeScreen(
     onNavigateToInvestments: () -> Unit,
     onNavigateToFund: (Int) -> Unit,
     onNavigateToGoals: () -> Unit,
-    onNavigateToAnalysis: () -> Unit
+    onNavigateToAnalysis: () -> Unit,
+    onNavigateToAvya: () -> Unit = {},
+    onNavigateToExplore: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
@@ -86,8 +90,14 @@ fun HomeScreen(
     val upcomingActions by viewModel.upcomingActions.collectAsState()
     val portfolioViewMode by viewModel.portfolioViewMode.collectAsState()
     val profileCompletion by viewModel.profileCompletion.collectAsState()
+    val advisor by viewModel.advisor.collectAsState()
+    val clientType by viewModel.clientType.collectAsState()
+
+    // Determine if user is managed by FA
+    val isManagedClient = viewModel.isManagedClient
 
     var showTradingSheet by remember { mutableStateOf(false) }
+    var showManagedSheet by remember { mutableStateOf(false) }
     var selectedActionType by remember { mutableStateOf(QuickActionType.INVEST) }
 
     when (uiState) {
@@ -120,6 +130,13 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.height(Spacing.medium))
                 }
 
+                // Avya AI Assistant Card
+                AvyaHomeCard(
+                    onStartChat = onNavigateToAvya,
+                    modifier = Modifier.padding(horizontal = Spacing.medium)
+                )
+                Spacer(modifier = Modifier.height(Spacing.medium))
+
                 // Portfolio View Mode Toggle
                 Row(
                     modifier = Modifier
@@ -147,19 +164,31 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(Spacing.medium))
 
-                // Quick Actions
+                // Quick Actions - show different sheet based on user type
                 QuickActionsRow(
                     onInvest = {
                         selectedActionType = QuickActionType.INVEST
-                        showTradingSheet = true
+                        if (isManagedClient) {
+                            showManagedSheet = true
+                        } else {
+                            showTradingSheet = true
+                        }
                     },
                     onWithdraw = {
                         selectedActionType = QuickActionType.WITHDRAW
-                        showTradingSheet = true
+                        if (isManagedClient) {
+                            showManagedSheet = true
+                        } else {
+                            showTradingSheet = true
+                        }
                     },
                     onSip = {
                         selectedActionType = QuickActionType.SIP
-                        showTradingSheet = true
+                        if (isManagedClient) {
+                            showManagedSheet = true
+                        } else {
+                            showTradingSheet = true
+                        }
                     }
                 )
 
@@ -237,11 +266,24 @@ fun HomeScreen(
         }
     }
 
-    // Trading Platform Sheet
+    // Trading Platform Sheet (for self-service users)
     if (showTradingSheet) {
         TradingPlatformSheet(
             actionType = selectedActionType,
             onDismiss = { showTradingSheet = false }
+        )
+    }
+
+    // Managed Quick Action Sheet (for FA-managed users)
+    if (showManagedSheet) {
+        ManagedQuickActionSheet(
+            actionType = selectedActionType,
+            advisor = advisor,
+            onBrowseFunds = {
+                showManagedSheet = false
+                onNavigateToExplore()
+            },
+            onDismiss = { showManagedSheet = false }
         )
     }
 }
