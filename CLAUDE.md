@@ -106,6 +106,12 @@ Uses SwiftUI with standard Swift package structure in `platforms/ios/SparrowInve
 - `platforms/ios/SparrowInvest/App/ContentView.swift` - Main content view
 - `platforms/ios/SparrowInvest/Services/APIService.swift` - API integration
 - `platforms/ios/SparrowInvest/Services/AuthManager.swift` - Authentication
+- `platforms/ios/SparrowInvest/Services/FamilyStore.swift` - Family portfolio & client type
+- `platforms/ios/SparrowInvest/Services/AdvisorStore.swift` - Advisor assignment management
+- `platforms/ios/SparrowInvest/Views/Common/MainTabView.swift` - Main tab container, data loading
+- `platforms/ios/SparrowInvest/Views/Home/HomeView.swift` - Dashboard with quick actions
+- `platforms/ios/SparrowInvest/Views/Invest/ManagedInvestmentView.swift` - FA trade request form
+- `platforms/ios/SparrowInvest/Models/TradeRequest.swift` - Trade request models
 - `platforms/ios/SparrowInvest/Utilities/AppTheme.swift` - Theme management
 
 ## External APIs
@@ -115,6 +121,92 @@ Uses SwiftUI with standard Swift package structure in `platforms/ios/SparrowInve
 - Get all funds: `GET /mf`
 - Get fund details: `GET /mf/{schemeCode}`
 - Returns NAV history for CAGR calculations
+
+---
+
+## Demo Users for Testing
+
+All demo users use the format `firstname.lastname@demo.com` with password `Demo@123`:
+
+| Email | Password | Name | Type | Description |
+|-------|----------|------|------|-------------|
+| `amit.verma@demo.com` | `Demo@123` | Amit Verma | **Self-service** | No FA, uses brokerage platforms |
+| `priya.patel@demo.com` | `Demo@123` | Priya Patel | **Managed** | Patel Family head, has FA advisor |
+| `rajesh.sharma@demo.com` | `Demo@123` | Rajesh Sharma | **Managed** | Sharma Family head, has FA advisor |
+
+### User Types
+
+1. **Self-service Users** (`clientType: "self"`)
+   - Not linked to any Financial Advisor (FA)
+   - Quick actions (Invest/Withdraw/SIP) show brokerage platform selection (Zerodha, Groww, etc.)
+   - Can browse and research funds independently
+
+2. **Managed Users** (`clientType: "managed"`)
+   - Linked to an FA via `FAClient` record with `userId` field
+   - Quick actions show `ManagedQuickActionSheet` directing to fund selection
+   - Trade requests submitted to FA for execution via `ManagedInvestmentView`
+   - Family members visible in portfolio view
+
+### FA Client Families (Database)
+
+**Patel Family:**
+- SELF: Priya Patel (linked to `priya.patel@demo.com`)
+- SPOUSE: Vikram Patel
+- CHILD: Ananya Patel
+- PARENT: Harish Patel
+
+**Sharma Family:**
+- SELF: Rajesh Sharma (linked to `rajesh.sharma@demo.com`)
+- SPOUSE: Sunita Sharma
+- CHILD: Arjun Sharma
+- PARENT: Kamla Devi Sharma
+
+---
+
+## iOS App - User Flow Architecture
+
+### Login & Data Loading Flow
+
+1. User logs in via `AuthManager.loginWithEmail()`
+2. `MainTabView.task` triggers `familyStore.loadFromAPI()`
+3. API returns `clientType` ("self" or "managed") and optional `advisor` info
+4. `FamilyStore` sets/clears `advisor` based on response
+5. `MainTabView` calls `advisorStore.setAssignedAdvisor()` or `removeAssignedAdvisor()`
+
+### Key Files for User Type Detection
+
+| File | Purpose |
+|------|---------|
+| `Services/FamilyStore.swift` | Stores `clientType` and `advisor` info from API |
+| `Services/AdvisorStore.swift` | Manages `assignedAdvisorId` and `hasAssignedAdvisor` |
+| `Views/Common/MainTabView.swift` | Orchestrates data loading on app launch |
+| `Views/Home/HomeView.swift` | `QuickActionsRow` checks `isManagedClient` for flow routing |
+
+### Managed User Investment Flow
+
+1. **HomeView** → Quick action button (Invest/Withdraw/SIP)
+2. **ManagedQuickActionSheet** → Shows advisor info, "Browse Funds" button
+3. **ExploreView** → User selects a fund
+4. **ManagedInvestmentView** → User enters amount, submits trade request
+5. **API** → `POST /api/v1/transactions/trade-request` creates `FATransaction` with PENDING status
+6. **Confirmation** → User sees success message that request sent to advisor
+
+### Key iOS Files for FA Trade Flow
+
+| File | Purpose |
+|------|---------|
+| `Models/TradeRequest.swift` | `TradeRequest` and `TradeRequestResponse` models |
+| `Services/APIService.swift` | `submitTradeRequest()` and `getMyTradeRequests()` methods |
+| `Views/Invest/ManagedInvestmentView.swift` | Investment form for managed users |
+| `Views/Home/HomeView.swift` | `ManagedQuickActionSheet` component |
+
+### Backend Endpoints for Trade Requests
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/transactions/trade-request` | POST | Submit trade request to FA |
+| `/api/v1/transactions/my-requests` | GET | Get user's trade request history |
+| `/api/v1/auth/me/portfolio` | GET | Returns `clientType`, `advisor`, `family` data |
 
 ## Additional Context
 @docs/design/design-guidelines.md

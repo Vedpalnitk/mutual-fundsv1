@@ -11,7 +11,7 @@ paths:
 ### API Client Pattern
 ```typescript
 // services/api.ts
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3501'
 
 async function request<T>(endpoint: string, options?: RequestOptions): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -87,3 +87,62 @@ try {
 - Cache fund list for 5 minutes (mobile: AsyncStorage)
 - Cache individual fund data for 1 hour
 - Invalidate cache on pull-to-refresh
+
+## Backend API Endpoints (NestJS)
+
+Base URL: `http://localhost:3501/api/v1`
+
+### Authentication
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/auth/login` | POST | Login with email/password |
+| `/auth/register` | POST | Register new user |
+| `/auth/logout` | POST | Logout current session |
+| `/auth/me` | GET | Current user profile |
+| `/auth/me/portfolio` | GET | Portfolio with clientType, advisor, family |
+
+### Transactions (FA Trade Requests)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/transactions/trade-request` | POST | Submit trade request to FA (managed users) |
+| `/transactions/my-requests` | GET | Get user's trade request history |
+
+### Trade Request DTO
+```typescript
+interface CreateTradeRequestDto {
+  fundName: string        // "Axis Bluechip Fund - Direct Growth"
+  fundSchemeCode: string  // "120503"
+  fundCategory: string    // "Large Cap Fund"
+  type: 'BUY' | 'SELL' | 'SIP'
+  amount: number
+  remarks?: string
+}
+```
+
+### Portfolio Response
+```typescript
+interface PortfolioResponse {
+  clientType: 'self' | 'managed'
+  portfolio: {
+    totalValue: number
+    totalInvested: number
+    totalReturns: number
+    returnsPercentage: number
+    holdings: HoldingData[]
+  }
+  advisor?: {
+    id: string
+    name: string
+    email: string
+  }
+  family?: {
+    members: FamilyMemberData[]
+    totalValue: number
+    // ...
+  }
+}
+```
+
+### User Types
+- `clientType: "self"` - Self-service user, no FA
+- `clientType: "managed"` - User linked to FAClient with advisor

@@ -7,6 +7,9 @@
 
 import Foundation
 import SwiftUI
+import os.log
+
+private let logger = Logger(subsystem: "com.sparrowinvest.app", category: "FamilyStore")
 
 @MainActor
 class FamilyStore: ObservableObject {
@@ -15,9 +18,193 @@ class FamilyStore: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var memberHoldings: [String: [Holding]] = [:]
     @Published var memberProfiles: [String: InvestorProfile] = [:] // Investor profiles per family member
+    @Published var advisor: AdvisorInfo?
+    @Published var clientType: String = "self"
+
+    private let apiService = APIService.shared
+
+    struct AdvisorInfo {
+        let id: String
+        let name: String
+        let email: String
+    }
 
     init() {
+        // Load mock data initially, then refresh with real data
         loadMockData()
+    }
+
+    // MARK: - API Data Loading
+
+    func loadFromAPI() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        logger.info("Loading portfolio from API...")
+
+        do {
+            let response: PortfolioResponse = try await apiService.get("/auth/me/portfolio")
+            logger.info("Got response - clientType: \(response.clientType), family members: \(response.family?.members.count ?? 0)")
+
+            // Update client type and advisor
+            clientType = response.clientType
+            if let adv = response.advisor {
+                advisor = AdvisorInfo(id: adv.id, name: adv.name, email: adv.email)
+            } else {
+                // Clear advisor for self-service users
+                advisor = nil
+            }
+
+            // If we have family data, use it
+            if let family = response.family {
+                var currentUserId: String? = nil
+
+                let members = family.members.map { member in
+                    // Map API role (SELF, SPOUSE, etc.) to FamilyRelationship
+                    let relationship: FamilyRelationship = {
+                        switch member.role?.uppercased() {
+                        case "SELF": return .myself
+                        case "SPOUSE": return .spouse
+                        case "CHILD": return .child
+                        case "PARENT": return .parent
+                        case "SIBLING": return .sibling
+                        default: return .other
+                        }
+                    }()
+
+                    // Track current user's ID
+                    if member.isCurrentUser {
+                        currentUserId = member.id
+                    }
+
+                    // Store holdings for this family member
+                    let memberHoldingsList = convertMemberHoldings(member.portfolio.holdings)
+                    memberHoldings[member.id] = memberHoldingsList
+                    logger.info("Stored \(memberHoldingsList.count) holdings for \(member.name)")
+
+                    // Head of family is the member with role "SELF"
+                    let isHead = member.role?.uppercased() == "SELF"
+
+                    return FamilyMember(
+                        id: member.id,
+                        name: member.name,
+                        relationship: relationship,
+                        email: nil,
+                        phone: nil,
+                        panNumber: nil,
+                        portfolioValue: member.portfolio.totalValue,
+                        investedAmount: member.portfolio.totalInvested,
+                        returns: member.portfolio.totalReturns,
+                        returnsPercentage: member.portfolio.returnsPercentage,
+                        xirr: 0,
+                        contribution: family.totalValue > 0 ? (member.portfolio.totalValue / family.totalValue) * 100 : 0,
+                        holdings: member.portfolio.holdingsCount,
+                        activeSIPs: member.portfolio.activeSIPs,
+                        isLinked: member.isCurrentUser,
+                        isHead: isHead
+                    )
+                }
+
+                familyPortfolio = FamilyPortfolio(
+                    members: members,
+                    totalValue: family.totalValue,
+                    totalInvested: family.totalInvested,
+                    totalReturns: family.totalReturns,
+                    returnsPercentage: family.returnsPercentage,
+                    familyXIRR: 0
+                )
+
+                // Select current user's member entry
+                if let currentMember = members.first(where: { $0.isLinked }) {
+                    selectedMemberId = currentMember.id
+                } else {
+                    selectedMemberId = members.first?.id
+                }
+            } else {
+                // Single user portfolio (no family)
+                let memberId = UUID().uuidString
+                let member = FamilyMember(
+                    id: memberId,
+                    name: "My Portfolio",
+                    relationship: .myself,
+                    portfolioValue: response.portfolio.totalValue,
+                    investedAmount: response.portfolio.totalInvested,
+                    returns: response.portfolio.totalReturns,
+                    returnsPercentage: response.portfolio.returnsPercentage,
+                    xirr: 0,
+                    contribution: 100,
+                    holdings: response.portfolio.holdingsCount,
+                    activeSIPs: response.portfolio.activeSIPs,
+                    isLinked: true
+                )
+
+                familyPortfolio = FamilyPortfolio(
+                    members: [member],
+                    totalValue: response.portfolio.totalValue,
+                    totalInvested: response.portfolio.totalInvested,
+                    totalReturns: response.portfolio.totalReturns,
+                    returnsPercentage: response.portfolio.returnsPercentage,
+                    familyXIRR: 0
+                )
+
+                // Store holdings for this user
+                memberHoldings[memberId] = convertHoldings(response.portfolio.holdings)
+                selectedMemberId = memberId
+            }
+        } catch {
+            logger.error("Failed to load portfolio from API: \(error.localizedDescription)")
+            // Keep mock data as fallback
+        }
+    }
+
+    // MARK: - Holdings Conversion
+
+    private func convertHoldings(_ holdingsData: [PortfolioResponse.HoldingData]?) -> [Holding] {
+        guard let data = holdingsData else { return [] }
+
+        return data.compactMap { h in
+            // Map asset class string to enum
+            let assetClass: Holding.AssetClass = {
+                switch h.assetClass.lowercased() {
+                case "equity": return .equity
+                case "debt": return .debt
+                case "hybrid": return .hybrid
+                case "gold": return .gold
+                default: return .other
+                }
+            }()
+
+            // Parse numeric values from strings
+            let units = Double(h.units) ?? 0
+            let avgNav = Double(h.avgNav) ?? 0
+            let currentNav = Double(h.currentNav) ?? 0
+            let investedValue = Double(h.investedValue) ?? 0
+            let currentValue = Double(h.currentValue) ?? 0
+            let gain = Double(h.gain) ?? 0
+            let gainPercent = Double(h.gainPercent) ?? 0
+
+            return Holding(
+                id: h.id,
+                fundCode: h.id, // Using ID as fund code
+                fundName: h.fundName,
+                category: h.fundCategory,
+                assetClass: assetClass,
+                units: units,
+                averageNav: avgNav,
+                currentNav: currentNav,
+                investedAmount: investedValue,
+                currentValue: currentValue,
+                returns: gain,
+                returnsPercentage: gainPercent,
+                dayChange: 0,
+                dayChangePercentage: 0
+            )
+        }
+    }
+
+    /// Convert holdings from family member portfolio data
+    private func convertMemberHoldings(_ holdingsData: [PortfolioResponse.HoldingData]?) -> [Holding] {
+        return convertHoldings(holdingsData)
     }
 
     // MARK: - Data Loading
@@ -101,10 +288,7 @@ class FamilyStore: ObservableObject {
     }
 
     func refreshData() async {
-        isLoading = true
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        loadMockData()
-        isLoading = false
+        await loadFromAPI()
     }
 
     // MARK: - Member Management
@@ -241,6 +425,47 @@ class FamilyStore: ObservableObject {
     }
 
     // MARK: - Computed Properties
+
+    /// The current logged-in user's member entry (marked as isLinked/isCurrentUser)
+    var currentUserMember: FamilyMember? {
+        familyPortfolio.members.first { $0.isLinked }
+    }
+
+    /// Portfolio object for the current user's individual holdings
+    var currentUserPortfolio: Portfolio {
+        guard let member = currentUserMember else {
+            return Portfolio(
+                totalValue: 0,
+                totalInvested: 0,
+                totalReturns: 0,
+                returnsPercentage: 0,
+                todayChange: 0,
+                todayChangePercentage: 0,
+                xirr: 0,
+                assetAllocation: AssetAllocation(equity: 0, debt: 0, hybrid: 0, gold: 0),
+                holdings: []
+            )
+        }
+
+        let holdings = getHoldings(for: member.id)
+        return Portfolio(
+            totalValue: member.portfolioValue,
+            totalInvested: member.investedAmount,
+            totalReturns: member.returns,
+            returnsPercentage: member.returnsPercentage,
+            todayChange: 0,
+            todayChangePercentage: 0,
+            xirr: member.xirr,
+            assetAllocation: memberAssetAllocations[member.id] ?? AssetAllocation(equity: 0, debt: 0, hybrid: 0, gold: 0),
+            holdings: holdings
+        )
+    }
+
+    /// Holdings for the current user
+    var currentUserHoldings: [Holding] {
+        guard let member = currentUserMember else { return [] }
+        return getHoldings(for: member.id)
+    }
 
     var linkedMembers: [FamilyMember] {
         familyPortfolio.members.filter { $0.isLinked }

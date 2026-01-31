@@ -9,7 +9,9 @@ class APIService {
     private init() {
         // Configure base URL based on environment
         #if DEBUG
-        self.baseURL = "http://localhost:3501/api/v1"
+        // Backend runs on port 3501 (NestJS)
+        // Use Mac's local IP for iOS Simulator compatibility
+        self.baseURL = "http://192.168.1.247:3501/api/v1"
         #else
         self.baseURL = "https://api.sparrowinvest.com/api/v1"
         #endif
@@ -31,6 +33,13 @@ class APIService {
         let (data, response) = try await session.data(for: request)
         try validateResponse(response)
         return data
+    }
+
+    /// Generic GET that decodes response to specified type
+    func get<T: Decodable>(_ endpoint: String) async throws -> T {
+        let data = try await get(endpoint) as Data
+        let decoder = JSONDecoder()
+        return try decoder.decode(T.self, from: data)
     }
 
     func post(_ endpoint: String, body: Encodable) async throws -> Data {
@@ -65,6 +74,32 @@ class APIService {
 
         let (_, response) = try await session.data(for: request)
         try validateResponse(response)
+    }
+
+    /// Generic POST that decodes response to specified type
+    func post<T: Decodable>(_ endpoint: String, body: Encodable) async throws -> T {
+        let data = try await post(endpoint, body: body)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(T.self, from: data)
+    }
+
+    /// Generic PUT that decodes response to specified type
+    func put<T: Decodable>(_ endpoint: String, body: Encodable) async throws -> T {
+        let data = try await put(endpoint, body: body)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(T.self, from: data)
+    }
+
+    // MARK: - Token Management
+
+    func setAuthToken(_ token: String) {
+        UserDefaults.standard.set(token, forKey: "authToken")
+    }
+
+    func clearAuthToken() {
+        UserDefaults.standard.removeObject(forKey: "authToken")
     }
 
     // MARK: - Helpers
@@ -104,6 +139,20 @@ class APIService {
     private func getAuthToken() -> String? {
         // In real app, retrieve from Keychain
         UserDefaults.standard.string(forKey: "authToken")
+    }
+}
+
+// MARK: - Trade Request Methods
+
+extension APIService {
+    /// Submit a trade request to the advisor (for managed clients)
+    func submitTradeRequest(_ request: TradeRequest) async throws -> TradeRequestResponse {
+        return try await post("/transactions/trade-request", body: request)
+    }
+
+    /// Get my trade requests (for managed clients)
+    func getMyTradeRequests() async throws -> [MyTradeRequest] {
+        return try await get("/transactions/my-requests")
     }
 }
 

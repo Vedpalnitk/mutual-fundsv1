@@ -8,12 +8,14 @@ struct HomeView: View {
     @EnvironmentObject var dashboardStore: DashboardStore
     @EnvironmentObject var familyStore: FamilyStore
     @EnvironmentObject var navigationStore: NavigationStore
+    @EnvironmentObject var advisorStore: AdvisorStore
     @Environment(AnalysisProfileStore.self) private var analysisStore
 
     // Sheet states for AI Analysis
     @State private var showProfileSetup = false
     @State private var showPortfolioInput = false
     @State private var showAddFamilyMember = false
+    @State private var showAvyaChat = false
 
     var body: some View {
         NavigationStack {
@@ -30,9 +32,12 @@ struct HomeView: View {
                         )
                     }
 
+                    // Avya AI Assistant Card
+                    AvyaHomeCard(onStartChat: { showAvyaChat = true })
+
                     // Portfolio Hero Card with Individual/Family Toggle
                     PortfolioHeroCard(
-                        portfolio: portfolioStore.portfolio,
+                        portfolio: currentPortfolio,
                         viewMode: $dashboardStore.viewMode,
                         familyPortfolio: familyStore.familyPortfolio,
                         onTap: {
@@ -179,12 +184,19 @@ struct HomeView: View {
             .sheet(isPresented: $showAddFamilyMember) {
                 AddFamilyMemberSheet()
             }
+            .fullScreenCover(isPresented: $showAvyaChat) {
+                AIChatView()
+            }
         }
     }
 
     // Current portfolio based on view mode
+    // For managed clients, use FamilyStore data; for self-service, use PortfolioStore
     private var currentPortfolio: Portfolio {
-        portfolioStore.portfolio
+        if familyStore.clientType == "managed" {
+            return familyStore.currentUserPortfolio
+        }
+        return portfolioStore.portfolio
     }
 
     private func refreshAllData() async {
@@ -634,8 +646,17 @@ struct TradingPlatform: Identifiable {
 }
 
 struct QuickActionsRow: View {
+    @EnvironmentObject var familyStore: FamilyStore
+    @EnvironmentObject var advisorStore: AdvisorStore
+    @EnvironmentObject var navigationStore: NavigationStore
+
     @State private var selectedAction: QuickActionType?
     @State private var showPlatformSheet = false
+    @State private var showManagedActionSheet = false
+
+    private var isManagedClient: Bool {
+        familyStore.clientType == "managed" || advisorStore.hasAssignedAdvisor
+    }
 
     var body: some View {
         HStack(spacing: AppTheme.Spacing.compact) {
@@ -645,7 +666,11 @@ struct QuickActionsRow: View {
                 color: .blue
             ) {
                 selectedAction = .invest
-                showPlatformSheet = true
+                if isManagedClient {
+                    showManagedActionSheet = true
+                } else {
+                    showPlatformSheet = true
+                }
             }
 
             HomeQuickActionButton(
@@ -654,7 +679,11 @@ struct QuickActionsRow: View {
                 color: .cyan
             ) {
                 selectedAction = .withdraw
-                showPlatformSheet = true
+                if isManagedClient {
+                    showManagedActionSheet = true
+                } else {
+                    showPlatformSheet = true
+                }
             }
 
             HomeQuickActionButton(
@@ -663,7 +692,11 @@ struct QuickActionsRow: View {
                 color: .green
             ) {
                 selectedAction = .sip
-                showPlatformSheet = true
+                if isManagedClient {
+                    showManagedActionSheet = true
+                } else {
+                    showPlatformSheet = true
+                }
             }
         }
         .sheet(isPresented: $showPlatformSheet) {
@@ -671,6 +704,198 @@ struct QuickActionsRow: View {
                 TradingPlatformSheet(actionType: action)
             }
         }
+        .sheet(isPresented: $showManagedActionSheet) {
+            if let action = selectedAction {
+                ManagedQuickActionSheet(actionType: action, onSelectFund: {
+                    showManagedActionSheet = false
+                    // Navigate to Explore tab to select a fund
+                    navigationStore.switchTo(.explore)
+                })
+            }
+        }
+    }
+}
+
+// MARK: - Managed Quick Action Sheet
+
+struct ManagedQuickActionSheet: View {
+    let actionType: QuickActionType
+    let onSelectFund: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject var advisorStore: AdvisorStore
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: AppTheme.Spacing.large) {
+                // Header
+                VStack(spacing: AppTheme.Spacing.medium) {
+                    ZStack {
+                        Circle()
+                            .fill(actionType.color.opacity(0.15))
+                            .frame(width: 72, height: 72)
+                        Image(systemName: actionType.icon)
+                            .font(.system(size: 32, weight: .light))
+                            .foregroundColor(actionType.color)
+                    }
+
+                    Text(actionType.sheetTitle.replacingOccurrences(of: " via", with: ""))
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(.primary)
+
+                    Text("Your advisor will process your request")
+                        .font(.system(size: 15, weight: .light))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, AppTheme.Spacing.large)
+
+                // Advisor Info Card
+                if let advisor = advisorStore.assignedAdvisor {
+                    HStack(spacing: AppTheme.Spacing.compact) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.blue.opacity(0.15))
+                                .frame(width: 48, height: 48)
+                            Text(advisor.name.prefix(1).uppercased())
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(.blue)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Your Advisor")
+                                .font(.system(size: 12, weight: .regular))
+                                .foregroundColor(.secondary)
+                            Text(advisor.name)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.primary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.green)
+                    }
+                    .padding(AppTheme.Spacing.medium)
+                    .background(cardBackground)
+                    .overlay(cardBorder)
+                }
+
+                // Info message
+                HStack(alignment: .top, spacing: AppTheme.Spacing.small) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(.blue)
+
+                    Text("Select a fund to submit your \(actionType == .sip ? "SIP" : "investment") request to your advisor for execution.")
+                        .font(.system(size: 14, weight: .light))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(AppTheme.Spacing.medium)
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.medium, style: .continuous)
+                        .fill(Color.blue.opacity(colorScheme == .dark ? 0.15 : 0.08))
+                )
+
+                Spacer()
+
+                // Action Button
+                Button {
+                    onSelectFund()
+                } label: {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16))
+                        Text("Browse Funds")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [.blue, .cyan],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    )
+                }
+
+                // Skip option
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Cancel")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.bottom, AppTheme.Spacing.medium)
+            }
+            .padding(AppTheme.Spacing.medium)
+            .background(Color(uiColor: .systemGroupedBackground))
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .foregroundColor(Color(uiColor: .tertiaryLabel))
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        if colorScheme == .dark {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color.black.opacity(0.4))
+                .background(
+                    RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+                .fill(Color.white)
+        }
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: AppTheme.CornerRadius.large, style: .continuous)
+            .stroke(
+                colorScheme == .dark
+                    ? LinearGradient(
+                        stops: [
+                            .init(color: .white.opacity(0.4), location: 0),
+                            .init(color: .white.opacity(0.15), location: 0.3),
+                            .init(color: .white.opacity(0.05), location: 0.7),
+                            .init(color: .white.opacity(0.1), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      )
+                    : LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.1), location: 0),
+                            .init(color: .black.opacity(0.05), location: 0.3),
+                            .init(color: .black.opacity(0.03), location: 0.7),
+                            .init(color: .black.opacity(0.07), location: 1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                      ),
+                lineWidth: 1
+            )
     }
 }
 
