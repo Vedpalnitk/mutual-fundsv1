@@ -3,9 +3,11 @@ package com.sparrowinvest.fa.data.repository
 import com.sparrowinvest.fa.core.network.ApiResult
 import com.sparrowinvest.fa.core.network.ApiService
 import com.sparrowinvest.fa.data.model.ApiResponse
+import com.sparrowinvest.fa.data.model.AssetAllocationItem
 import com.sparrowinvest.fa.data.model.Client
 import com.sparrowinvest.fa.data.model.ClientDetail
 import com.sparrowinvest.fa.data.model.CreateClientRequest
+import com.sparrowinvest.fa.data.model.PortfolioHistoryPoint
 import com.sparrowinvest.fa.data.model.UpdateClientRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -84,6 +86,38 @@ class ClientRepository @Inject constructor(
             } else {
                 ApiResult.error(
                     response.errorBody()?.string() ?: "Failed to update client",
+                    response.code()
+                )
+            }
+        } catch (e: Exception) {
+            ApiResult.error(e.message ?: "Network error", exception = e)
+        }
+    }
+
+    suspend fun getAssetAllocation(clientId: String): ApiResult<List<AssetAllocationItem>> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getAssetAllocation(clientId)
+            if (response.isSuccessful) {
+                ApiResult.success(response.body() ?: emptyList())
+            } else {
+                ApiResult.error(
+                    response.errorBody()?.string() ?: "Failed to fetch allocation",
+                    response.code()
+                )
+            }
+        } catch (e: Exception) {
+            ApiResult.error(e.message ?: "Network error", exception = e)
+        }
+    }
+
+    suspend fun getPortfolioHistory(clientId: String, period: String): ApiResult<List<PortfolioHistoryPoint>> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getPortfolioHistory(clientId, period)
+            if (response.isSuccessful) {
+                ApiResult.success(response.body() ?: emptyList())
+            } else {
+                ApiResult.error(
+                    response.errorBody()?.string() ?: "Failed to fetch history",
                     response.code()
                 )
             }

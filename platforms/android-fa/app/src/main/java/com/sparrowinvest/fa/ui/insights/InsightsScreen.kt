@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -796,6 +797,12 @@ private fun PortfolioHealthCard(
         item.score >= 60 -> Warning
         else -> Error
     }
+    val statusLabel = when {
+        item.score >= 80 -> "In-form"
+        item.score >= 60 -> "On-track"
+        item.score >= 40 -> "Off-track"
+        else -> "Out-of-form"
+    }
 
     ListItemCard(
         modifier = Modifier.clickable(onClick = onClick)
@@ -804,17 +811,43 @@ private fun PortfolioHealthCard(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Health Score Circle
+            // Circular progress health score
             Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(scoreColor.copy(alpha = 0.1f)),
+                modifier = Modifier.size(56.dp),
                 contentAlignment = Alignment.Center
             ) {
+                androidx.compose.foundation.Canvas(modifier = Modifier.size(56.dp)) {
+                    val strokeW = 5.dp.toPx()
+                    val r = (size.minDimension - strokeW) / 2
+                    val tl = androidx.compose.ui.geometry.Offset(
+                        (size.width - r * 2) / 2,
+                        (size.height - r * 2) / 2
+                    )
+                    val arcSize = androidx.compose.ui.geometry.Size(r * 2, r * 2)
+                    // Background track
+                    drawArc(
+                        color = scoreColor.copy(alpha = 0.15f),
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        topLeft = tl,
+                        size = arcSize,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    )
+                    // Progress arc
+                    drawArc(
+                        color = scoreColor,
+                        startAngle = -90f,
+                        sweepAngle = (item.score / 100f) * 360f,
+                        useCenter = false,
+                        topLeft = tl,
+                        size = arcSize,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    )
+                }
                 Text(
                     text = "${item.score}",
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = scoreColor
                 )
@@ -823,11 +856,25 @@ private fun PortfolioHealthCard(
             Spacer(modifier = Modifier.width(Spacing.compact))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.clientName,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = item.clientName,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = statusLabel,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = scoreColor,
+                        modifier = Modifier
+                            .background(
+                                color = scoreColor.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
                 if (item.issues.isNotEmpty()) {
                     Text(
                         text = item.issues.first(),
@@ -874,51 +921,135 @@ private fun RebalancingAlertCard(
     alert: RebalancingAlert,
     onClick: () -> Unit
 ) {
+    val actionColor = if (alert.action == "INCREASE") Success else Error
+
     ListItemCard(
         modifier = Modifier.clickable(onClick = onClick)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconContainer(
-                size = 44.dp,
-                backgroundColor = Warning.copy(alpha = 0.1f)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                IconContainer(
+                    size = 44.dp,
+                    backgroundColor = Warning.copy(alpha = 0.1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Balance,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = Warning
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(Spacing.compact))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = alert.clientName,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "${alert.assetClass} • ${alert.action} by ${"%.1f".format(kotlin.math.abs(alert.deviation))}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = actionColor
+                    )
+                }
+
                 Icon(
-                    imageVector = Icons.Default.Balance,
+                    imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    modifier = Modifier.size(22.dp),
-                    tint = Warning
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(modifier = Modifier.width(Spacing.compact))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
+            // Allocation drift bars
+            val maxAlloc = maxOf(alert.currentAllocation, alert.targetAllocation, 1.0).toFloat()
+
+            // Current allocation bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = alert.clientName,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "${alert.assetClass}: ${"%.1f".format(alert.currentAllocation)}% → ${"%.1f".format(alert.targetAllocation)}%",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "${alert.action} by ${"%.1f".format(kotlin.math.abs(alert.deviation))}%",
+                    text = "Current",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (alert.action == "INCREASE") Success else Error
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(52.dp)
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction = (alert.currentAllocation / maxAlloc).toFloat().coerceIn(0f, 1f))
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(actionColor.copy(alpha = 0.7f), actionColor)
+                                )
+                            )
+                    )
+                }
+                Text(
+                    text = "${"%.1f".format(alert.currentAllocation)}%",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = actionColor,
+                    modifier = Modifier.width(42.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
                 )
             }
 
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Target allocation bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Target",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(52.dp)
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction = (alert.targetAllocation / maxAlloc).toFloat().coerceIn(0f, 1f))
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(Primary.copy(alpha = 0.7f), Primary)
+                                )
+                            )
+                    )
+                }
+                Text(
+                    text = "${"%.1f".format(alert.targetAllocation)}%",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = Primary,
+                    modifier = Modifier.width(42.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                )
+            }
         }
     }
 }
@@ -933,52 +1064,98 @@ private fun GoalAlertCard(
         "AT_RISK" -> Warning
         else -> Error
     }
+    val statusLabel = when (alert.status) {
+        "ON_TRACK" -> "On Track"
+        "AT_RISK" -> "At Risk"
+        else -> "Off Track"
+    }
 
     ListItemCard(
         modifier = Modifier.clickable(onClick = onClick)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconContainer(
-                size = 44.dp,
-                backgroundColor = statusColor.copy(alpha = 0.1f)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                IconContainer(
+                    size = 44.dp,
+                    backgroundColor = statusColor.copy(alpha = 0.1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Flag,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = statusColor
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(Spacing.compact))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = alert.clientName,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = statusLabel,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = statusColor,
+                            modifier = Modifier
+                                .background(
+                                    color = statusColor.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Text(
+                        text = alert.goalName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 Icon(
-                    imageVector = Icons.Default.Flag,
+                    imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    modifier = Modifier.size(22.dp),
-                    tint = statusColor
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(modifier = Modifier.width(Spacing.compact))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = alert.clientName,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+            // Message with status-colored left accent
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = statusColor.copy(alpha = 0.05f),
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .height(24.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(statusColor)
                 )
-                Text(
-                    text = alert.goalName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = alert.message,
                     style = MaterialTheme.typography.labelSmall,
-                    color = statusColor
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -991,62 +1168,111 @@ private fun TaxHarvestingCard(
     ListItemCard(
         modifier = Modifier.clickable(onClick = onClick)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconContainer(
-                size = 44.dp,
-                backgroundColor = Success.copy(alpha = 0.1f)
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                IconContainer(
+                    size = 44.dp,
+                    backgroundColor = Success.copy(alpha = 0.1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.TipsAndUpdates,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = Success
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(Spacing.compact))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = opportunity.clientName,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = opportunity.fundName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
                 Icon(
-                    imageVector = Icons.Default.TipsAndUpdates,
+                    imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    modifier = Modifier.size(22.dp),
-                    tint = Success
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(modifier = Modifier.width(Spacing.compact))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = opportunity.clientName,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = opportunity.fundName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row {
+            // Loss and savings visual bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Error)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Loss: ₹${"%,.0f".format(opportunity.unrealizedLoss)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = Error
                     )
-                    Text(
-                        text = " • ",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Success)
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Save: ₹${"%,.0f".format(opportunity.potentialSavings)}",
-                        style = MaterialTheme.typography.labelSmall,
+                        text = "Tax Saved: ₹${"%,.0f".format(opportunity.potentialSavings)}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                         color = Success
                     )
                 }
             }
 
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Savings ratio bar
+            val savingsRatio = if (opportunity.unrealizedLoss > 0)
+                (opportunity.potentialSavings / opportunity.unrealizedLoss).toFloat().coerceIn(0f, 1f)
+            else 0f
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Error.copy(alpha = 0.15f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fraction = savingsRatio)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(Success.copy(alpha = 0.7f), Success)
+                            )
+                        )
+                )
+            }
         }
     }
 }

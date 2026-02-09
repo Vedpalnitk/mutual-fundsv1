@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
-import { clientsApi, portfolioApi, sipsApi, transactionsApi } from '@/services/api'
+import { clientsApi, portfolioApi, sipsApi, transactionsApi, goalsApi, GoalResponse } from '@/services/api'
 import {
   useFATheme,
   formatCurrency,
@@ -24,6 +24,8 @@ import {
   useNotification,
 } from '@/components/advisor/shared'
 import TransactionFormModal from '@/components/advisor/TransactionFormModal'
+import AssetAllocationChart from '@/components/advisor/AssetAllocationChart'
+import PortfolioValueChart from '@/components/advisor/PortfolioValueChart'
 
 // Mock client data
 const mockClient: Client = {
@@ -192,44 +194,6 @@ const mockSIPs: SIP[] = [
   },
 ]
 
-// Mock goals
-const mockGoals: Goal[] = [
-  {
-    id: '1',
-    clientId: '1',
-    name: 'Retirement Fund',
-    type: 'Retirement',
-    targetAmount: 50000000,
-    currentValue: 3200000,
-    targetDate: '2045-06-15',
-    startDate: '2022-04-01',
-    priority: 'High',
-    monthlyRequired: 45000,
-    onTrack: true,
-    progressPercent: 6.4,
-    linkedSIPs: ['1', '2'],
-    linkedHoldings: ['1', '2'],
-    projectedValue: 55000000,
-  },
-  {
-    id: '2',
-    clientId: '1',
-    name: "Child's Education",
-    type: 'Education',
-    targetAmount: 15000000,
-    currentValue: 1300000,
-    targetDate: '2035-04-01',
-    startDate: '2023-01-01',
-    priority: 'High',
-    monthlyRequired: 35000,
-    onTrack: true,
-    progressPercent: 8.7,
-    linkedSIPs: ['3'],
-    linkedHoldings: ['3'],
-    projectedValue: 16000000,
-  },
-]
-
 // Mock transactions
 const mockTransactions: Transaction[] = [
   {
@@ -306,16 +270,17 @@ const ClientDetailPage = () => {
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [sips, setSips] = useState<SIP[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [goals, setGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
+  const [goalsLoading, setGoalsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [allocationData, setAllocationData] = useState<{ assetClass: string; value: number; percentage: number; color: string }[]>([])
 
   // Transaction modal state
   const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionType, setTransactionType] = useState<TransactionType>('Buy')
   const [submitting, setSubmitting] = useState(false)
 
-  // Use mock goals for now (goals API not implemented yet)
-  const goals = mockGoals
 
   // Quick action handlers
   const handleQuickAction = (type: TransactionType) => {
@@ -473,8 +438,15 @@ const ClientDetailPage = () => {
             lastTransactionDate: h.lastTxnDate?.split('T')[0] || '',
           })))
         } catch {
-          // Use empty array if holdings fetch fails
           setHoldings([])
+        }
+
+        // Fetch asset allocation
+        try {
+          const allocData = await portfolioApi.getAssetAllocation(id)
+          setAllocationData(allocData)
+        } catch {
+          setAllocationData([])
         }
 
         // Fetch SIPs
@@ -525,6 +497,31 @@ const ClientDetailPage = () => {
           })))
         } catch {
           setTransactions([])
+        }
+
+        // Fetch goals
+        try {
+          const goalsData = await goalsApi.getByClient(id)
+          setGoals((goalsData || []).map((g: GoalResponse) => ({
+            id: g.id,
+            clientId: g.clientId || id,
+            name: g.name,
+            type: (g.category || 'Other') as Goal['type'],
+            targetAmount: Number(g.targetAmount),
+            currentValue: Number(g.currentAmount) || 0,
+            targetDate: g.targetDate?.split('T')[0] || '',
+            startDate: g.createdAt?.split('T')[0] || '',
+            priority: g.priority === 1 ? 'High' : g.priority === 2 ? 'Medium' : 'Low',
+            monthlyRequired: Number(g.monthlySip) || 0,
+            onTrack: g.status === 'ON_TRACK' || g.progress >= 50,
+            progressPercent: Number(g.progress) || 0,
+            linkedSIPs: [],
+            linkedHoldings: g.linkedFundCodes || [],
+            projectedValue: Number(g.targetAmount) || 0,
+            notes: g.notes || undefined,
+          })))
+        } catch {
+          setGoals([])
         }
 
       } catch (err) {
@@ -824,46 +821,58 @@ const ClientDetailPage = () => {
                     </FAButton>
                   }
                 />
-                <div className="space-y-3">
-                  {goals.map((goal) => (
-                    <FATintedCard key={goal.id} padding="md" accentColor={goal.onTrack ? colors.success : colors.warning}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-base font-semibold" style={{ color: colors.textPrimary }}>{goal.name}</p>
-                            <FAChip size="xs">{goal.type}</FAChip>
-                            <FAChip color={goal.onTrack ? colors.success : colors.warning} size="xs">
-                              {goal.onTrack ? 'On Track' : 'Behind'}
-                            </FAChip>
+                {goals.length === 0 ? (
+                  <FAEmptyState
+                    icon={
+                      <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                      </svg>
+                    }
+                    title="No Goals Set"
+                    description="Create financial goals to help your client plan for the future"
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {goals.map((goal) => (
+                      <FATintedCard key={goal.id} padding="md" accentColor={goal.onTrack ? colors.success : colors.warning}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-base font-semibold" style={{ color: colors.textPrimary }}>{goal.name}</p>
+                              <FAChip size="xs">{goal.type}</FAChip>
+                              <FAChip color={goal.onTrack ? colors.success : colors.warning} size="xs">
+                                {goal.onTrack ? 'On Track' : 'Behind'}
+                              </FAChip>
+                            </div>
+                            <p className="text-sm mt-1" style={{ color: colors.textTertiary }}>
+                              Target: {formatDate(goal.targetDate)}
+                            </p>
                           </div>
-                          <p className="text-sm mt-1" style={{ color: colors.textTertiary }}>
-                            Target: {formatDate(goal.targetDate)}
-                          </p>
+                          <div className="text-right">
+                            <p className="text-base font-bold" style={{ color: colors.textPrimary }}>
+                              {formatCurrency(goal.currentValue)}
+                            </p>
+                            <p className="text-sm" style={{ color: colors.textSecondary }}>
+                              of {formatCurrencyCompact(goal.targetAmount)}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-base font-bold" style={{ color: colors.textPrimary }}>
-                            {formatCurrency(goal.currentValue)}
-                          </p>
-                          <p className="text-sm" style={{ color: colors.textSecondary }}>
-                            of {formatCurrencyCompact(goal.targetAmount)}
-                          </p>
+                        <div className="h-2 rounded-full overflow-hidden" style={{ background: colors.progressBg }}>
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(goal.progressPercent, 100)}%`,
+                              background: `linear-gradient(90deg, ${colors.primary} 0%, ${colors.success} 100%)`,
+                            }}
+                          />
                         </div>
-                      </div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ background: colors.progressBg }}>
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${Math.min(goal.progressPercent, 100)}%`,
-                            background: `linear-gradient(90deg, ${colors.primary} 0%, ${colors.success} 100%)`,
-                          }}
-                        />
-                      </div>
-                      <p className="text-xs mt-2" style={{ color: colors.textTertiary }}>
-                        {goal.progressPercent.toFixed(1)}% achieved • Monthly requirement: {formatCurrency(goal.monthlyRequired)}
-                      </p>
-                    </FATintedCard>
-                  ))}
-                </div>
+                        <p className="text-xs mt-2" style={{ color: colors.textTertiary }}>
+                          {goal.progressPercent.toFixed(1)}% achieved • Monthly requirement: {formatCurrency(goal.monthlyRequired)}
+                        </p>
+                      </FATintedCard>
+                    ))}
+                  </div>
+                )}
               </FACard>
             )}
 
@@ -922,36 +931,48 @@ const ClientDetailPage = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Asset Allocation */}
+            {/* Portfolio Value Chart */}
+            {id && typeof id === 'string' && (
+              <FACard padding="md">
+                <FASectionHeader title="Portfolio Value" />
+                <PortfolioValueChart clientId={id} />
+              </FACard>
+            )}
+
+            {/* Asset Allocation Donut Chart */}
             <FACard padding="md">
               <FASectionHeader title="Asset Allocation" />
-              <div className="space-y-3">
-                {Object.entries(assetAllocation).map(([asset, value]) => {
-                  const percentage = (value / totalCurrent) * 100
-                  return (
-                    <div key={asset}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm" style={{ color: colors.textPrimary }}>{asset}</span>
-                        <span className="text-sm font-medium" style={{ color: colors.textPrimary }}>
-                          {percentage.toFixed(1)}%
-                        </span>
+              {allocationData.length > 0 ? (
+                <AssetAllocationChart allocation={allocationData} height={240} />
+              ) : (
+                <div className="space-y-3">
+                  {Object.entries(assetAllocation).map(([asset, value]) => {
+                    const percentage = (value / totalCurrent) * 100
+                    return (
+                      <div key={asset}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm" style={{ color: colors.textPrimary }}>{asset}</span>
+                          <span className="text-sm font-medium" style={{ color: colors.textPrimary }}>
+                            {percentage.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="h-2 rounded-full overflow-hidden" style={{ background: colors.progressBg }}>
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${percentage}%`,
+                              background: asset === 'Equity' ? colors.primary : asset === 'Debt' ? colors.secondary : colors.warning,
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs mt-1" style={{ color: colors.textTertiary }}>
+                          {formatCurrency(value)}
+                        </p>
                       </div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ background: colors.progressBg }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${percentage}%`,
-                            background: asset === 'Equity' ? colors.primary : asset === 'Debt' ? colors.secondary : colors.warning,
-                          }}
-                        />
-                      </div>
-                      <p className="text-xs mt-1" style={{ color: colors.textTertiary }}>
-                        {formatCurrency(value)}
-                      </p>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </FACard>
 
             {/* Client Details */}

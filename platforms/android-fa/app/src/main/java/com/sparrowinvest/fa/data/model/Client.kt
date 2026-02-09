@@ -104,6 +104,23 @@ data class FamilyMember(
 }
 
 @Serializable
+data class AssetAllocationItem(
+    val assetClass: String,
+    val value: Double,
+    val percentage: Double,
+    val color: String
+)
+
+@Serializable
+data class PortfolioHistoryPoint(
+    val date: String,
+    val value: Double,
+    val invested: Double,
+    val dayChange: Double = 0.0,
+    val dayChangePct: Double = 0.0
+)
+
+@Serializable
 data class CreateClientRequest(
     val name: String,
     val email: String,

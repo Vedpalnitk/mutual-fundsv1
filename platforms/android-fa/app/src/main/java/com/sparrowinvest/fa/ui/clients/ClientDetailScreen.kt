@@ -179,6 +179,9 @@ fun ClientDetailScreen(
     onNavigateToEditClient: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val allocationData by viewModel.allocationState.collectAsState()
+    val historyData by viewModel.historyState.collectAsState()
+    val selectedPeriod by viewModel.selectedPeriod.collectAsState()
     var selectedTab by remember { mutableStateOf(ClientTab.OVERVIEW) }
 
     LaunchedEffect(clientId) {
@@ -222,7 +225,11 @@ fun ClientDetailScreen(
                     onNavigateToFund = onNavigateToFund,
                     onExecuteTrade = onNavigateToExecuteTrade,
                     onCreateSip = onNavigateToCreateSip,
-                    onNavigateToClient = onNavigateToClient
+                    onNavigateToClient = onNavigateToClient,
+                    allocationData = allocationData,
+                    historyData = historyData,
+                    selectedPeriod = selectedPeriod,
+                    onPeriodChange = viewModel::onPeriodChange
                 )
             }
         }
@@ -237,7 +244,11 @@ private fun ClientDetailContent(
     onNavigateToFund: (Int) -> Unit,
     onExecuteTrade: () -> Unit,
     onCreateSip: () -> Unit,
-    onNavigateToClient: (String) -> Unit
+    onNavigateToClient: (String) -> Unit,
+    allocationData: List<com.sparrowinvest.fa.data.model.AssetAllocationItem> = emptyList(),
+    historyData: List<com.sparrowinvest.fa.data.model.PortfolioHistoryPoint> = emptyList(),
+    selectedPeriod: String = "1Y",
+    onPeriodChange: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     var showShareMenu by remember { mutableStateOf(false) }
@@ -401,7 +412,14 @@ private fun ClientDetailContent(
         ) {
             when (selectedTab) {
                 ClientTab.OVERVIEW -> {
-                    item { OverviewSection(client = client, pendingActions = pendingActions) }
+                    item { OverviewSection(
+                        client = client,
+                        pendingActions = pendingActions,
+                        allocationData = allocationData,
+                        historyData = historyData,
+                        selectedPeriod = selectedPeriod,
+                        onPeriodChange = onPeriodChange
+                    ) }
                 }
                 ClientTab.HOLDINGS -> {
                     if (client.holdings.isEmpty()) {
@@ -1747,7 +1765,14 @@ private fun UpcomingSipsCard(upcomingSips: List<FASip>) {
 // ==================== END UPCOMING TRANSACTIONS CARD ====================
 
 @Composable
-private fun OverviewSection(client: ClientDetail, pendingActions: List<PendingAction>) {
+private fun OverviewSection(
+    client: ClientDetail,
+    pendingActions: List<PendingAction>,
+    allocationData: List<com.sparrowinvest.fa.data.model.AssetAllocationItem> = emptyList(),
+    historyData: List<com.sparrowinvest.fa.data.model.PortfolioHistoryPoint> = emptyList(),
+    selectedPeriod: String = "1Y",
+    onPeriodChange: (String) -> Unit = {}
+) {
     val totalInvested = client.holdings.sumOf { it.investedValue }
     val totalCurrentValue = client.holdings.sumOf { it.currentValue }
     val monthlySip = client.sips.filter { it.isActive }.sumOf { it.amount }
@@ -1823,6 +1848,77 @@ private fun OverviewSection(client: ClientDetail, pendingActions: List<PendingAc
                         value = client.riskProfile ?: "Not Set",
                         color = if (client.riskProfile != null) Primary else Warning,
                         modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        // Portfolio Value Chart
+        if (historyData.isNotEmpty()) {
+            GlassCard {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(Spacing.small)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+                    ) {
+                        IconContainer(
+                            size = 32.dp,
+                            backgroundColor = Primary.copy(alpha = 0.15f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Primary
+                            )
+                        }
+                        Text(
+                            text = "Portfolio Value",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    com.sparrowinvest.fa.ui.components.charts.PortfolioValueChart(
+                        historyData = historyData,
+                        selectedPeriod = selectedPeriod,
+                        onPeriodChange = onPeriodChange
+                    )
+                }
+            }
+        }
+
+        // Asset Allocation Chart
+        if (allocationData.isNotEmpty()) {
+            GlassCard {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(Spacing.small)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+                    ) {
+                        IconContainer(
+                            size = 32.dp,
+                            backgroundColor = Primary.copy(alpha = 0.15f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PieChart,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = Primary
+                            )
+                        }
+                        Text(
+                            text = "Asset Allocation",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    com.sparrowinvest.fa.ui.components.charts.AllocationDonutChart(
+                        allocation = allocationData,
+                        totalValue = totalCurrentValue
                     )
                 }
             }

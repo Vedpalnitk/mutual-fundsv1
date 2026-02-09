@@ -26,6 +26,16 @@ interface ApiService {
     @PUT("clients/{id}")
     suspend fun updateClient(@Path("id") id: String, @Body client: UpdateClientRequest): Response<Client>
 
+    // Portfolio endpoints
+    @GET("portfolio/clients/{clientId}/allocation")
+    suspend fun getAssetAllocation(@Path("clientId") clientId: String): Response<List<AssetAllocationItem>>
+
+    @GET("portfolio/clients/{clientId}/history")
+    suspend fun getPortfolioHistory(
+        @Path("clientId") clientId: String,
+        @Query("period") period: String = "1Y"
+    ): Response<List<PortfolioHistoryPoint>>
+
     // Transaction endpoints
     @GET("transactions")
     suspend fun getTransactions(

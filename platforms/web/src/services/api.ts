@@ -1157,6 +1157,16 @@ export const portfolioApi = {
 
   syncNavs: () =>
     request<{ synced: number }>('/api/v1/portfolio/holdings/sync-nav', { method: 'POST' }),
+
+  getAssetAllocation: (clientId: string) =>
+    request<{ assetClass: string; value: number; percentage: number; color: string }[]>(
+      `/api/v1/portfolio/clients/${clientId}/allocation`,
+    ),
+
+  getPortfolioHistory: (clientId: string, period: string = '1Y') =>
+    request<{ date: string; value: number; invested: number; dayChange: number; dayChangePct: number }[]>(
+      `/api/v1/portfolio/clients/${clientId}/history?period=${period}`,
+    ),
 };
 
 // ============= Transactions API =============
@@ -1369,4 +1379,59 @@ export const goalsApi = {
 
   getContributions: (clientId: string, goalId: string) =>
     request<ContributionResponse[]>(`/api/v1/clients/${clientId}/goals/${goalId}/contributions`),
+};
+
+// ============= User Actions API =============
+
+export type ActionType = 'SIP_DUE' | 'SIP_FAILED' | 'REBALANCE_RECOMMENDED' | 'GOAL_REVIEW' | 'TAX_HARVESTING' | 'KYC_EXPIRY' | 'DIVIDEND_RECEIVED' | 'NAV_ALERT' | 'CUSTOM';
+export type ActionPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export interface UserActionResponse {
+  id: string;
+  userId: string;
+  type: ActionType;
+  priority: ActionPriority;
+  title: string;
+  description?: string;
+  actionUrl?: string;
+  referenceId?: string;
+  dueDate?: string;
+  isRead: boolean;
+  isDismissed: boolean;
+  isCompleted: boolean;
+  createdAt: string;
+  expiresAt?: string;
+}
+
+export interface ActionFilterParams {
+  type?: ActionType;
+  priority?: ActionPriority;
+  isCompleted?: boolean;
+  isDismissed?: boolean;
+  limit?: number;
+}
+
+export const actionsApi = {
+  list: (params?: ActionFilterParams) => {
+    const query = new URLSearchParams();
+    if (params?.type) query.append('type', params.type);
+    if (params?.priority) query.append('priority', params.priority);
+    if (params?.isCompleted !== undefined) query.append('isCompleted', params.isCompleted.toString());
+    if (params?.isDismissed !== undefined) query.append('isDismissed', params.isDismissed.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+    const queryString = query.toString();
+    return request<UserActionResponse[]>(`/api/v1/actions${queryString ? `?${queryString}` : ''}`);
+  },
+
+  getById: (id: string) =>
+    request<UserActionResponse>(`/api/v1/actions/${id}`),
+
+  markAsRead: (id: string) =>
+    request<UserActionResponse>(`/api/v1/actions/${id}/read`, { method: 'POST' }),
+
+  markAsCompleted: (id: string) =>
+    request<UserActionResponse>(`/api/v1/actions/${id}/complete`, { method: 'POST' }),
+
+  dismiss: (id: string) =>
+    request<UserActionResponse>(`/api/v1/actions/${id}/dismiss`, { method: 'POST' }),
 };
