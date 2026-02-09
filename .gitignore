@@ -12,6 +12,13 @@ out/
 build/
 dist/
 
+# Android
+.gradle/
+*.apk
+*.aab
+local.properties
+captures/
+
 # iOS / Xcode
 *.xcuserstate
 *.xcworkspace
