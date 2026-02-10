@@ -712,6 +712,7 @@ model User {
   actions            UserAction[]
   notificationPrefs  NotificationPreference[]
   notificationLogs   NotificationLog[]
+  savedAnalyses      SavedAnalysis[] @relation("AdvisorSavedAnalyses")
 
   @@map("users")
 }
@@ -910,6 +911,7 @@ model FAClient {
   goals            UserGoal[]
   portfolioHistory UserPortfolioHistory[]
   dividends        DividendRecord[]
+  savedAnalyses    SavedAnalysis[]
 
   @@unique([advisorId, email])
   @@index([advisorId])
@@ -1555,4 +1557,49 @@ model UserAction {
   @@index([userId, isCompleted, isDismissed])
   @@index([dueDate])
   @@map("user_actions")
+}
+
+// =============================================
+// SAVED DEEP ANALYSIS
+// =============================================
+
+enum AnalysisStatus {
+  DRAFT
+  FINAL
+  SHARED
+}
+
+model SavedAnalysis {
+  id             String         @id @default(uuid())
+  advisorId      String         @map("advisor_id")
+  clientId       String         @map("client_id")
+  title          String
+  status         AnalysisStatus @default(DRAFT)
+  latestVersion  Int            @default(1) @map("latest_version")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  advisor  User              @relation("AdvisorSavedAnalyses", fields: [advisorId], references: [id])
+  client   FAClient          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  versions AnalysisVersion[]
+
+  @@index([advisorId])
+  @@index([clientId])
+  @@map("saved_analyses")
+}
+
+model AnalysisVersion {
+  id              String   @id @default(uuid())
+  analysisId      String   @map("analysis_id")
+  versionNumber   Int      @map("version_number")
+  personaData     Json     @map("persona_data")
+  riskData        Json     @map("risk_data")
+  rebalancingData Json     @map("rebalancing_data")
+  editNotes       String?  @map("edit_notes")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  analysis SavedAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@unique([analysisId, versionNumber])
+  @@map("analysis_versions")
 }

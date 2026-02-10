@@ -24,6 +24,7 @@ import { ChatModule } from './chat/chat.module';
 import { PortfolioAnalysisModule } from './portfolio-analysis/portfolio-analysis.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AdvisorDashboardModule } from './advisor-dashboard/advisor-dashboard.module';
+import { SavedAnalysisModule } from './saved-analysis/saved-analysis.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
@@ -61,6 +62,8 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     NotificationsModule,
     // Advisor Dashboard (aggregated KPIs, insights)
     AdvisorDashboardModule,
+    // Saved Deep Analysis (save, version, edit, PDF)
+    SavedAnalysisModule,
   ],
   controllers: [],
   providers: [

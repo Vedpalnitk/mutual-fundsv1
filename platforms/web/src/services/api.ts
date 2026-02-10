@@ -1567,7 +1567,105 @@ export interface AdvisorInsights {
 
 export const advisorInsightsApi = {
   get: () => request<AdvisorInsights>('/api/v1/advisor/insights'),
+  getDeepAnalysis: (clientId: string) =>
+    request<DeepAnalysisResult>(`/api/v1/advisor/insights/deep/${clientId}`, { method: 'POST' }),
+  getStrategicInsights: () =>
+    request<StrategicInsights>('/api/v1/advisor/insights/strategic'),
 };
+
+// ============= Deep Analysis Types (Tier 2) =============
+
+export interface PersonaAlignment {
+  primaryPersona: string;
+  riskBand: string;
+  description?: string;
+  confidence: number;
+  blendedAllocation: Record<string, number>;
+  distribution: { persona: string; weight: number }[];
+}
+
+export interface RiskAssessment {
+  riskLevel: string;
+  riskScore: number;
+  riskFactors: {
+    name: string;
+    contribution: number;
+    severity: string;
+    description?: string;
+  }[];
+  recommendations: string[];
+}
+
+export interface RebalancingRoadmap {
+  isAligned: boolean;
+  alignmentScore: number;
+  primaryIssues: string[];
+  actions: {
+    action: string;
+    priority: string;
+    schemeName: string;
+    assetClass: string;
+    currentValue?: number;
+    targetValue: number;
+    transactionAmount: number;
+    taxStatus?: string;
+    reason: string;
+  }[];
+  totalSellAmount: number;
+  totalBuyAmount: number;
+  taxImpactSummary: string;
+}
+
+export interface DeepAnalysisSection<T> {
+  status: 'success' | 'error';
+  data?: T;
+  error?: string;
+}
+
+export interface DeepAnalysisResult {
+  clientId: string;
+  clientName: string;
+  persona: DeepAnalysisSection<PersonaAlignment>;
+  risk: DeepAnalysisSection<RiskAssessment>;
+  rebalancing: DeepAnalysisSection<RebalancingRoadmap>;
+}
+
+// ============= Strategic Insights Types (Tier 3) =============
+
+export interface FundOverlapItem {
+  fundName: string;
+  clientCount: number;
+  totalValue: number;
+  clients: string[];
+}
+
+export interface ConcentrationAlert {
+  clientId: string;
+  clientName: string;
+  type: 'fund' | 'category';
+  name: string;
+  percentage: number;
+  value: number;
+}
+
+export interface AumBucket {
+  range: string;
+  count: number;
+  totalAum: number;
+}
+
+export interface RiskDistributionItem {
+  profile: string;
+  count: number;
+  percentage: number;
+}
+
+export interface StrategicInsights {
+  fundOverlap: FundOverlapItem[];
+  concentrationAlerts: ConcentrationAlert[];
+  aumDistribution: AumBucket[];
+  riskDistribution: RiskDistributionItem[];
+}
 
 // ============= Notification Preferences API =============
 
@@ -1586,6 +1684,70 @@ export const notificationPreferencesApi = {
       method: 'PUT',
       body: { updates },
     }),
+};
+
+// ============= Saved Analysis API =============
+
+import type { SavedAnalysisSummary, AnalysisVersionDetail } from '@/utils/faTypes';
+
+export const savedAnalysisApi = {
+  save: (data: {
+    title: string;
+    clientId: string;
+    personaData: any;
+    riskData: any;
+    rebalancingData: any;
+    editNotes?: string;
+  }) =>
+    request<SavedAnalysisSummary>('/api/v1/advisor/analyses', {
+      method: 'POST',
+      body: data,
+    }),
+
+  list: (clientId?: string) =>
+    request<SavedAnalysisSummary[]>(
+      `/api/v1/advisor/analyses${clientId ? `?clientId=${clientId}` : ''}`,
+    ),
+
+  get: (id: string) =>
+    request<SavedAnalysisSummary>(`/api/v1/advisor/analyses/${id}`),
+
+  getVersion: (id: string, v: number) =>
+    request<AnalysisVersionDetail>(`/api/v1/advisor/analyses/${id}/versions/${v}`),
+
+  createVersion: (id: string, data: { rebalancingData: any; editNotes?: string }) =>
+    request<AnalysisVersionDetail>(`/api/v1/advisor/analyses/${id}/versions`, {
+      method: 'POST',
+      body: data,
+    }),
+
+  update: (id: string, data: { title?: string; status?: string }) =>
+    request<SavedAnalysisSummary>(`/api/v1/advisor/analyses/${id}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+
+  delete: (id: string) =>
+    request<{ deleted: boolean }>(`/api/v1/advisor/analyses/${id}`, {
+      method: 'DELETE',
+    }),
+
+  downloadPdf: async (id: string, v: number) => {
+    const token = getAuthToken();
+    const res = await fetch(`${API_BASE}/api/v1/advisor/analyses/${id}/versions/${v}/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error('PDF download failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `analysis-v${v}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
 };
 
 // ============= Auth Profile API =============

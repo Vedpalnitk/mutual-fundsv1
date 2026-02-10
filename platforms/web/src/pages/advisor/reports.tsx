@@ -5,10 +5,12 @@
  * Features: Report generation, preview, download, and scheduling
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
 import { useFATheme, formatCurrency, formatDate } from '@/utils/fa'
-import { Report, ReportType, ReportFormat, ScheduledReport } from '@/utils/faTypes'
+import { Report, ReportType, ReportFormat, ScheduledReport, SavedAnalysisSummary } from '@/utils/faTypes'
+import { savedAnalysisApi } from '@/services/api'
 import {
   FACard,
   FAStatCard,
@@ -59,10 +61,11 @@ const MOCK_SCHEDULED: ScheduledReport[] = [
   { id: 'sr3', name: 'Annual Tax Report', type: 'capital-gains', clients: 'all', frequency: 'Annually', nextRun: '2024-04-15', status: 'Active' },
 ]
 
-type TabType = 'generate' | 'recent' | 'scheduled'
+type TabType = 'generate' | 'recent' | 'scheduled' | 'deep-analysis'
 
 const ReportsPage = () => {
   const { colors, isDark } = useFATheme()
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabType>('generate')
   const [selectedClient, setSelectedClient] = useState('')
   const [selectedReport, setSelectedReport] = useState<ReportType | ''>('')
@@ -71,6 +74,53 @@ const ReportsPage = () => {
   const [isGenerating, setIsGenerating] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [generatedReport, setGeneratedReport] = useState<Report | null>(null)
+
+  // Deep Analysis state
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysisSummary[]>([])
+  const [loadingAnalyses, setLoadingAnalyses] = useState(false)
+
+  useEffect(() => {
+    if (activeTab === 'deep-analysis') {
+      const fetchAnalyses = async () => {
+        setLoadingAnalyses(true)
+        try {
+          const data = await savedAnalysisApi.list()
+          setSavedAnalyses(data)
+        } catch {
+          setSavedAnalyses([])
+        } finally {
+          setLoadingAnalyses(false)
+        }
+      }
+      fetchAnalyses()
+    }
+  }, [activeTab])
+
+  const handleDeleteAnalysis = async (id: string) => {
+    if (!confirm('Delete this analysis and all versions?')) return
+    try {
+      await savedAnalysisApi.delete(id)
+      setSavedAnalyses(prev => prev.filter(a => a.id !== id))
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleDownloadAnalysisPdf = async (id: string, latestVersion: number) => {
+    try {
+      await savedAnalysisApi.downloadPdf(id, latestVersion)
+    } catch {
+      alert('Failed to download PDF')
+    }
+  }
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case 'FINAL': return colors.success
+      case 'SHARED': return colors.primary
+      default: return colors.warning
+    }
+  }
 
   const getReportIcon = (typeId: ReportType) => {
     const report = REPORT_TYPES.find(r => r.id === typeId)
@@ -337,7 +387,7 @@ const ReportsPage = () => {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
-          {(['generate', 'recent', 'scheduled'] as TabType[]).map(tab => (
+          {(['generate', 'recent', 'scheduled', 'deep-analysis'] as TabType[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -350,7 +400,7 @@ const ReportsPage = () => {
                 boxShadow: activeTab === tab ? `0 4px 14px ${colors.glassShadow}` : 'none'
               }}
             >
-              {tab === 'generate' ? 'Generate Report' : tab === 'recent' ? 'Recent Reports' : 'Scheduled'}
+              {tab === 'generate' ? 'Generate Report' : tab === 'recent' ? 'Recent Reports' : tab === 'scheduled' ? 'Scheduled' : 'Deep Analysis'}
             </button>
           ))}
         </div>
@@ -662,6 +712,106 @@ const ReportsPage = () => {
               </FACard>
             )}
           </div>
+        )}
+        {/* Deep Analysis Tab */}
+        {activeTab === 'deep-analysis' && (
+          <FACard className="overflow-hidden">
+            {loadingAnalyses ? (
+              <div className="flex justify-center py-12">
+                <FASpinner />
+              </div>
+            ) : savedAnalyses.length === 0 ? (
+              <FAEmptyState
+                icon={
+                  <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zm3.75 11.625a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                  </svg>
+                }
+                title="No saved analyses"
+                description="Generate a deep analysis from the Analysis page and save it to see it here"
+              />
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr style={{ background: colors.chipBg }}>
+                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Title</th>
+                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Status</th>
+                    <th className="text-center p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Versions</th>
+                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Updated</th>
+                    <th className="p-4"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {savedAnalyses.map((analysis, i) => (
+                    <tr key={analysis.id} style={{ borderTop: i > 0 ? `1px solid ${colors.cardBorder}` : undefined }}>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: colors.chipBg }}>
+                            <svg className="w-4 h-4" style={{ color: colors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zm3.75 11.625a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="font-medium text-sm" style={{ color: colors.textPrimary }}>{analysis.title}</span>
+                            {analysis.clientName && (
+                              <p className="text-xs" style={{ color: colors.textTertiary }}>{analysis.clientName}</p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <FAChip color={statusColor(analysis.status)}>{analysis.status}</FAChip>
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className="text-sm font-medium" style={{ color: colors.textPrimary }}>v{analysis.latestVersion}</span>
+                      </td>
+                      <td className="p-4 text-sm" style={{ color: colors.textSecondary }}>
+                        {new Date(analysis.updatedAt).toLocaleString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2 justify-end">
+                          <button
+                            onClick={() => router.push(`/advisor/analysis?id=${analysis.id}`)}
+                            className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all hover:shadow-md"
+                            style={{
+                              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+                              color: '#fff',
+                            }}
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleDownloadAnalysisPdf(analysis.id, analysis.latestVersion)}
+                            className="p-2 rounded-lg transition-all hover:scale-105"
+                            style={{ background: colors.chipBg, color: colors.primary }}
+                            title="Download PDF"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAnalysis(analysis.id)}
+                            className="p-2 rounded-lg transition-all hover:scale-105"
+                            style={{ background: colors.chipBg, color: colors.error }}
+                            title="Delete"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </FACard>
         )}
       </div>
 

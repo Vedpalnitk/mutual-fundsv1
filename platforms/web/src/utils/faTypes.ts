@@ -487,6 +487,31 @@ export interface FundDetails extends FundBasic {
 }
 
 // ============================================================
+// Saved Deep Analysis
+// ============================================================
+
+export interface SavedAnalysisSummary {
+  id: string
+  clientId: string
+  clientName: string
+  title: string
+  status: 'DRAFT' | 'FINAL' | 'SHARED'
+  latestVersion: number
+  createdAt: string
+  updatedAt: string
+  versions: { id: string; versionNumber: number; editNotes?: string; createdAt: string }[]
+}
+
+export interface AnalysisVersionDetail {
+  versionNumber: number
+  editNotes?: string
+  createdAt: string
+  personaData: any
+  riskData: any
+  rebalancingData: any
+}
+
+// ============================================================
 // Common Utility Types
 // ============================================================
 

@@ -1,624 +1,724 @@
-import { useState, useEffect } from 'react';
-import AdvisorLayout from '@/components/layout/AdvisorLayout';
-import { useFATheme, formatCurrency, formatCurrencyCompact } from '@/utils/fa';
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
+import AdvisorLayout from '@/components/layout/AdvisorLayout'
+import {
+  useFATheme,
+  formatCurrency,
+  formatCurrencyCompact,
+} from '@/utils/fa'
 import {
   clientsApi,
-  portfolioApi,
-  mlApi,
-  PortfolioAnalysisResponse,
-  RebalancingAction,
-  EnrichedHolding,
-  PortfolioAllocationTarget,
-} from '@/services/api';
+  advisorInsightsApi,
+  savedAnalysisApi,
+  DeepAnalysisResult,
+  PersonaAlignment,
+  RiskAssessment,
+  RebalancingRoadmap,
+} from '@/services/api'
+import { SavedAnalysisSummary } from '@/utils/faTypes'
+import {
+  FACard,
+  FAEmptyState,
+} from '@/components/advisor/shared'
+import SavedAnalysesList from '@/components/advisor/SavedAnalysesList'
+import VersionSelector from '@/components/advisor/VersionSelector'
+import EditRebalancingModal from '@/components/advisor/EditRebalancingModal'
 
 interface ClientOption {
-  id: string;
-  name: string;
-  aum: number;
+  id: string
+  name: string
+  aum: number
 }
 
-// AI Analysis types
-const analysisTypes = [
-  { id: 'portfolio-health', name: 'Portfolio Health Check', description: 'Comprehensive analysis of portfolio diversification, risk, and performance', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
-  { id: 'rebalance', name: 'Rebalancing Recommendations', description: 'AI-powered suggestions to optimize asset allocation with tax awareness', icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
-  { id: 'risk-analysis', name: 'Risk Assessment', description: 'Deep dive into portfolio risk factors and stress testing', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
-  { id: 'tax-harvest', name: 'Tax Loss Harvesting', description: 'Identify opportunities to offset gains with strategic losses', icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z' },
-];
+// ========== Skeleton / Error helpers ==========
 
-// Default target allocation for Moderate risk profile
-const DEFAULT_TARGET_ALLOCATION: PortfolioAllocationTarget = {
-  equity: 0.60,
-  debt: 0.25,
-  hybrid: 0.05,
-  gold: 0.05,
-  international: 0.05,
-  liquid: 0.00,
-};
+const SectionSkeleton = ({ colors }: { colors: any }) => (
+  <div className="animate-pulse space-y-4">
+    <div className="h-5 rounded w-1/4" style={{ background: colors.chipBg }} />
+    <div className="h-4 rounded w-2/3" style={{ background: colors.chipBg }} />
+    <div className="h-4 rounded w-1/2" style={{ background: colors.chipBg }} />
+    <div className="h-4 rounded w-3/4" style={{ background: colors.chipBg }} />
+    <div className="h-4 rounded w-1/3" style={{ background: colors.chipBg }} />
+  </div>
+)
 
-const AnalysisPage = () => {
-  const { colors, isDark } = useFATheme();
-  const [clients, setClients] = useState<ClientOption[]>([]);
-  const [selectedClient, setSelectedClient] = useState<string>('');
-  const [selectedAnalysis, setSelectedAnalysis] = useState<string>('portfolio-health');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<PortfolioAnalysisResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loadingClients, setLoadingClients] = useState(true);
+const SectionError = ({ message, colors }: { message: string; colors: any }) => (
+  <div className="p-4 rounded-xl" style={{ background: `${colors.error}08`, border: `1px solid ${colors.error}20` }}>
+    <div className="flex items-center gap-2">
+      <svg className="w-5 h-5 flex-shrink-0" style={{ color: colors.error }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+      </svg>
+      <p className="text-sm" style={{ color: colors.error }}>{message}</p>
+    </div>
+  </div>
+)
+
+// ========== Persona Section (full-width) ==========
+
+const PersonaSection = ({ data, colors, isDark }: { data: PersonaAlignment; colors: any; isDark: boolean }) => (
+  <div className="space-y-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-lg font-bold" style={{ color: colors.textPrimary }}>{data.primaryPersona}</p>
+        <p className="text-sm" style={{ color: colors.textTertiary }}>Risk Band: {data.riskBand}</p>
+      </div>
+      <div className="text-right">
+        <p className="text-2xl font-bold" style={{ color: colors.primary }}>{(data.confidence * 100).toFixed(0)}%</p>
+        <p className="text-xs" style={{ color: colors.textTertiary }}>Confidence</p>
+      </div>
+    </div>
+    {data.description && (
+      <p className="text-sm" style={{ color: colors.textSecondary }}>{data.description}</p>
+    )}
+    {/* Blended Allocation Bar */}
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: colors.textSecondary }}>Recommended Allocation</p>
+      <div className="flex h-3 rounded-full overflow-hidden" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}>
+        {Object.entries(data.blendedAllocation)
+          .filter(([, val]) => val > 0.01)
+          .map(([key, val]) => {
+            const barColors: Record<string, string> = {
+              equity: colors.primary,
+              debt: colors.success,
+              hybrid: colors.warning,
+              gold: '#F59E0B',
+              international: colors.secondary,
+              liquid: colors.textTertiary,
+            }
+            return (
+              <div
+                key={key}
+                style={{ width: `${val * 100}%`, background: barColors[key] || colors.primary }}
+                title={`${key}: ${(val * 100).toFixed(1)}%`}
+              />
+            )
+          })}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+        {Object.entries(data.blendedAllocation)
+          .filter(([, val]) => val > 0.01)
+          .map(([key, val]) => {
+            const dotColors: Record<string, string> = {
+              equity: colors.primary,
+              debt: colors.success,
+              hybrid: colors.warning,
+              gold: '#F59E0B',
+              international: colors.secondary,
+              liquid: colors.textTertiary,
+            }
+            return (
+              <span key={key} className="flex items-center gap-1.5 text-sm" style={{ color: colors.textSecondary }}>
+                <span className="w-2 h-2 rounded-full" style={{ background: dotColors[key] || colors.primary }} />
+                {key.charAt(0).toUpperCase() + key.slice(1)} {(val * 100).toFixed(0)}%
+              </span>
+            )
+          })}
+      </div>
+    </div>
+    {/* Persona Distribution — show ALL */}
+    {data.distribution.length > 1 && (
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: colors.textSecondary }}>Persona Distribution</p>
+        <div className="space-y-2">
+          {data.distribution.map(d => (
+            <div key={d.persona} className="flex items-center gap-3">
+              <span className="text-sm w-32 truncate" style={{ color: colors.textPrimary }}>{d.persona}</span>
+              <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}>
+                <div className="h-full rounded-full" style={{ width: `${d.weight * 100}%`, background: colors.primary }} />
+              </div>
+              <span className="text-sm font-semibold w-10 text-right" style={{ color: colors.primary }}>{(d.weight * 100).toFixed(0)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+)
+
+// ========== Risk Section (full-width) ==========
+
+const RiskSection = ({ data, colors, isDark }: { data: RiskAssessment; colors: any; isDark: boolean }) => {
+  const riskColor = data.riskScore >= 70 ? colors.error : data.riskScore >= 40 ? colors.warning : colors.success
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ background: `${riskColor}12` }}>
+          <span className="text-xl font-bold" style={{ color: riskColor }}>{data.riskScore}</span>
+        </div>
+        <div>
+          <p className="text-lg font-bold" style={{ color: colors.textPrimary }}>{data.riskLevel}</p>
+          <p className="text-sm" style={{ color: colors.textTertiary }}>Overall Risk Score</p>
+        </div>
+      </div>
+      {/* Risk Factors — show ALL */}
+      {data.riskFactors.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: colors.textSecondary }}>Risk Factors</p>
+          <div className="space-y-2">
+            {data.riskFactors.map((f, i) => {
+              const severityColor = f.severity === 'high' ? colors.error : f.severity === 'medium' ? colors.warning : colors.success
+              return (
+                <div key={i} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: `${severityColor}06` }}>
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: severityColor }} />
+                  <span className="text-sm flex-1" style={{ color: colors.textPrimary }}>{f.name}</span>
+                  {f.description && (
+                    <span className="text-xs flex-1" style={{ color: colors.textTertiary }}>{f.description}</span>
+                  )}
+                  <span className="text-sm font-semibold" style={{ color: severityColor }}>{(f.contribution * 100).toFixed(0)}%</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      {/* Recommendations — show ALL */}
+      {data.recommendations.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: colors.textSecondary }}>Recommendations</p>
+          <ul className="space-y-1.5">
+            {data.recommendations.map((rec, i) => (
+              <li key={i} className="text-sm flex gap-2" style={{ color: colors.textSecondary }}>
+                <span style={{ color: colors.primary }}>-</span>
+                {rec}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ========== Rebalancing Section (full-width) ==========
+
+const RebalancingSection = ({ data, colors, isDark }: { data: RebalancingRoadmap; colors: any; isDark: boolean }) => {
+  const alignColor = data.alignmentScore >= 0.8 ? colors.success : data.alignmentScore >= 0.5 ? colors.warning : colors.error
+
+  const getActionColor = (action: string) => {
+    switch (action) {
+      case 'SELL': return colors.error
+      case 'BUY': return colors.success
+      case 'ADD_NEW': return colors.primary
+      case 'HOLD': return colors.warning
+      default: return colors.textSecondary
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Stat Cards */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="p-3 rounded-xl" style={{ background: `${alignColor}08`, border: `1px solid ${alignColor}20` }}>
+          <p className="text-xs" style={{ color: colors.textSecondary }}>Alignment</p>
+          <p className="text-xl font-bold" style={{ color: alignColor }}>{(data.alignmentScore * 100).toFixed(0)}%</p>
+          <p className="text-xs" style={{ color: alignColor }}>{data.isAligned ? 'Aligned' : 'Needs Rebalancing'}</p>
+        </div>
+        <div className="p-3 rounded-xl" style={{ background: `${colors.error}08`, border: `1px solid ${colors.error}20` }}>
+          <p className="text-xs" style={{ color: colors.textSecondary }}>Total Sell</p>
+          <p className="text-xl font-bold" style={{ color: colors.error }}>{formatCurrencyCompact(data.totalSellAmount)}</p>
+        </div>
+        <div className="p-3 rounded-xl" style={{ background: `${colors.success}08`, border: `1px solid ${colors.success}20` }}>
+          <p className="text-xs" style={{ color: colors.textSecondary }}>Total Buy</p>
+          <p className="text-xl font-bold" style={{ color: colors.success }}>{formatCurrencyCompact(data.totalBuyAmount)}</p>
+        </div>
+        <div className="p-3 rounded-xl" style={{ background: colors.chipBg, border: `1px solid ${colors.cardBorder}` }}>
+          <p className="text-xs" style={{ color: colors.textSecondary }}>Tax Impact</p>
+          <p className="text-sm font-medium mt-1" style={{ color: colors.textPrimary }}>{data.taxImpactSummary || 'N/A'}</p>
+        </div>
+      </div>
+
+      {/* Primary Issues */}
+      {data.primaryIssues.length > 0 && (
+        <div className="space-y-1.5">
+          {data.primaryIssues.map((issue, i) => (
+            <p key={i} className="text-sm flex gap-2" style={{ color: colors.warning }}>
+              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+              </svg>
+              {issue}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Actions Table — show ALL */}
+      {data.actions.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                <th className="text-left py-2 pr-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Action</th>
+                <th className="text-left py-2 pr-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Priority</th>
+                <th className="text-left py-2 pr-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Fund</th>
+                <th className="text-left py-2 pr-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Asset Class</th>
+                <th className="text-right py-2 pr-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Current</th>
+                <th className="text-right py-2 pr-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Target</th>
+                <th className="text-right py-2 pr-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Amount</th>
+                <th className="text-center py-2 pr-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Tax</th>
+                <th className="text-left py-2 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.actions.map((action, i) => {
+                const actionColor = getActionColor(action.action)
+                const priorityColor = action.priority === 'HIGH' ? colors.error : action.priority === 'MEDIUM' ? colors.warning : colors.success
+                return (
+                  <tr key={i} style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                    <td className="py-2.5 pr-3">
+                      <span className="font-semibold px-2 py-0.5 rounded text-xs" style={{ background: `${actionColor}12`, color: actionColor }}>
+                        {action.action}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: `${priorityColor}12`, color: priorityColor }}>
+                        {action.priority}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      <span className="text-sm" style={{ color: colors.textPrimary }}>{action.schemeName}</span>
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      <span className="text-xs px-2 py-0.5 rounded" style={{ background: colors.chipBg, color: colors.textSecondary }}>
+                        {action.assetClass}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-3 text-right text-sm" style={{ color: colors.textSecondary }}>
+                      {action.currentValue != null ? formatCurrencyCompact(action.currentValue) : '--'}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right text-sm" style={{ color: colors.textSecondary }}>
+                      {formatCurrencyCompact(action.targetValue)}
+                    </td>
+                    <td className="py-2.5 pr-3 text-right text-sm font-semibold" style={{ color: actionColor }}>
+                      {action.transactionAmount >= 0 ? '+' : ''}{formatCurrencyCompact(Math.abs(action.transactionAmount))}
+                    </td>
+                    <td className="py-2.5 pr-3 text-center">
+                      {action.taxStatus ? (
+                        <span className="text-xs px-2 py-0.5 rounded" style={{ background: colors.chipBg, color: colors.textSecondary }}>
+                          {action.taxStatus}
+                        </span>
+                      ) : (
+                        <span className="text-xs" style={{ color: colors.textTertiary }}>--</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 text-sm" style={{ color: colors.textTertiary }}>{action.reason}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ========== Deep Analysis Page ==========
+
+const DeepAnalysisPage = () => {
+  const { colors, isDark } = useFATheme()
+  const router = useRouter()
+  const [clients, setClients] = useState<ClientOption[]>([])
+  const [selectedClient, setSelectedClient] = useState<string>('')
+  const [loadingClients, setLoadingClients] = useState(true)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [result, setResult] = useState<DeepAnalysisResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // Saved analysis state
+  const [savedId, setSavedId] = useState<string | null>(null)
+  const [savedMeta, setSavedMeta] = useState<SavedAnalysisSummary | null>(null)
+  const [currentVersion, setCurrentVersion] = useState(1)
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   // Fetch clients on mount
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        setLoadingClients(true);
-        const response = await clientsApi.list<ClientOption>({});
-        setClients(response.data || []);
+        setLoadingClients(true)
+        const response = await clientsApi.list<ClientOption>({})
+        setClients(response.data || [])
       } catch {
-        // Fallback to mock data
         setClients([
           { id: '1', name: 'Rajesh Sharma', aum: 4500000 },
           { id: '2', name: 'Priya Patel', aum: 2800000 },
           { id: '3', name: 'Amit Kumar', aum: 1200000 },
-        ]);
+        ])
       } finally {
-        setLoadingClients(false);
+        setLoadingClients(false)
       }
-    };
-    fetchClients();
-  }, []);
+    }
+    fetchClients()
+  }, [])
+
+  // Load from URL query param
+  useEffect(() => {
+    const id = router.query.id as string | undefined
+    if (id && !savedId) {
+      loadSavedAnalysis(id)
+    }
+  }, [router.query.id])
 
   const runAnalysis = async () => {
-    if (!selectedClient || !selectedAnalysis) return;
-
-    setIsAnalyzing(true);
-    setError(null);
-    setAnalysisResult(null);
-
+    if (!selectedClient) return
+    setAnalyzing(true)
+    setError(null)
+    setResult(null)
+    setSavedId(null)
+    setSavedMeta(null)
+    setSaveSuccess(false)
     try {
-      // Fetch client holdings
-      const holdings = await portfolioApi.getClientHoldings(selectedClient);
-
-      if (!holdings || holdings.length === 0) {
-        setError('No holdings found for this client. Please add holdings first.');
-        setIsAnalyzing(false);
-        return;
-      }
-
-      // Transform holdings to ML service format
-      const portfolioHoldings = holdings.map((h: any) => ({
-        scheme_code: parseInt(h.fundSchemeCode, 10),
-        scheme_name: h.fundName,
-        amount: Number(h.currentValue) || Number(h.investedValue),
-        units: Number(h.units),
-        purchase_date: h.purchaseDate || h.createdAt?.split('T')[0],
-        purchase_amount: Number(h.investedValue),
-      }));
-
-      // Call ML service for portfolio analysis
-      const result = await mlApi.analyzePortfolio({
-        holdings: portfolioHoldings,
-        target_allocation: DEFAULT_TARGET_ALLOCATION,
-        profile: {
-          client_id: selectedClient,
-          risk_profile: 'Moderate',
-        },
-      });
-
-      setAnalysisResult(result);
+      const data = await advisorInsightsApi.getDeepAnalysis(selectedClient)
+      setResult(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed. Please try again.');
+      setError(err instanceof Error ? err.message : 'Deep analysis failed. Please try again.')
     } finally {
-      setIsAnalyzing(false);
+      setAnalyzing(false)
     }
-  };
+  }
 
-  const getActionColor = (action: string) => {
-    switch (action) {
-      case 'SELL': return colors.error;
-      case 'BUY': return colors.success;
-      case 'ADD_NEW': return colors.primary;
-      case 'HOLD': return colors.warning;
-      default: return colors.textSecondary;
+  const saveAnalysis = async () => {
+    if (!result || !selectedClient) return
+    setSaving(true)
+    try {
+      const clientName = clients.find(c => c.id === selectedClient)?.name || 'Client'
+      const saved = await savedAnalysisApi.save({
+        title: `Deep Analysis - ${clientName}`,
+        clientId: selectedClient,
+        personaData: result.persona?.data || {},
+        riskData: result.risk?.data || {},
+        rebalancingData: result.rebalancing?.data || {},
+        editNotes: 'Initial analysis from ML pipeline',
+      })
+      setSavedId(saved.id)
+      setSavedMeta(saved)
+      setCurrentVersion(1)
+      setSaveSuccess(true)
+      setRefreshKey(prev => prev + 1)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save analysis')
+    } finally {
+      setSaving(false)
     }
-  };
+  }
 
-  const getPriorityBadge = (priority: string) => {
-    const bgColors: Record<string, string> = {
-      HIGH: colors.error,
-      MEDIUM: colors.warning,
-      LOW: colors.success,
-    };
-    return bgColors[priority] || colors.textSecondary;
-  };
+  const loadSavedAnalysis = async (id: string) => {
+    try {
+      setAnalyzing(true)
+      setError(null)
+      const meta = await savedAnalysisApi.get(id)
+      const version = await savedAnalysisApi.getVersion(id, meta.latestVersion)
 
-  const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
+      setSavedId(id)
+      setSavedMeta(meta)
+      setCurrentVersion(meta.latestVersion)
+      setSelectedClient(meta.clientId)
+
+      // Reconstruct result from version data
+      setResult({
+        clientId: meta.clientId,
+        clientName: meta.clientName,
+        persona: { status: 'success', data: version.personaData },
+        risk: { status: 'success', data: version.riskData },
+        rebalancing: { status: 'success', data: version.rebalancingData },
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load analysis')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const switchVersion = async (v: number) => {
+    if (!savedId) return
+    try {
+      const version = await savedAnalysisApi.getVersion(savedId, v)
+      setCurrentVersion(v)
+      setResult(prev => prev ? {
+        ...prev,
+        persona: { status: 'success', data: version.personaData },
+        risk: { status: 'success', data: version.riskData },
+        rebalancing: { status: 'success', data: version.rebalancingData },
+      } : null)
+    } catch (err) {
+      alert('Failed to load version')
+    }
+  }
+
+  const handleDownloadPdf = async (v: number) => {
+    if (!savedId) return
+    try {
+      await savedAnalysisApi.downloadPdf(savedId, v)
+    } catch {
+      alert('PDF download failed')
+    }
+  }
+
+  const handleEditSave = async (rebalancingData: RebalancingRoadmap, editNotes: string) => {
+    if (!savedId) return
+    try {
+      const newVersion = await savedAnalysisApi.createVersion(savedId, { rebalancingData, editNotes })
+      setCurrentVersion(newVersion.versionNumber)
+      setResult(prev => prev ? {
+        ...prev,
+        rebalancing: { status: 'success', data: newVersion.rebalancingData },
+      } : null)
+      // Refresh metadata
+      const meta = await savedAnalysisApi.get(savedId)
+      setSavedMeta(meta)
+      setRefreshKey(prev => prev + 1)
+      setShowEditModal(false)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to save new version')
+    }
+  }
+
+  const sections = result ? [
+    {
+      id: 'persona',
+      label: 'Persona Alignment',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+        </svg>
+      ),
+      section: result.persona,
+      renderData: (data: PersonaAlignment) => <PersonaSection data={data} colors={colors} isDark={isDark} />,
+    },
+    {
+      id: 'risk',
+      label: 'Risk Assessment',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+        </svg>
+      ),
+      section: result.risk,
+      renderData: (data: RiskAssessment) => <RiskSection data={data} colors={colors} isDark={isDark} />,
+    },
+    {
+      id: 'rebalancing',
+      label: 'Rebalancing Roadmap',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+        </svg>
+      ),
+      section: result.rebalancing,
+      renderData: (data: RebalancingRoadmap) => <RebalancingSection data={data} colors={colors} isDark={isDark} />,
+    },
+  ] : []
 
   return (
-    <AdvisorLayout title="AI Portfolio Analysis">
+    <AdvisorLayout title="Deep Analysis">
       <div style={{ background: colors.background, minHeight: '100%', margin: '-2rem', padding: '2rem' }}>
         {/* Header */}
         <div className="mb-6">
           <p className="text-sm" style={{ color: colors.textSecondary }}>
-            Analyze client portfolios with AI-powered insights, rebalancing recommendations, and tax optimization
+            ML-powered persona alignment, risk assessment, and rebalancing roadmap for individual clients
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
-          {/* Left Column - Analysis Tools */}
-          <div className="col-span-2 space-y-6">
-            {/* Analysis Selector */}
-            <div
-              className="p-5 rounded-2xl"
-              style={{
-                background: colors.cardBackground,
-                backdropFilter: 'blur(20px)',
-                border: `1px solid ${colors.cardBorder}`,
-                boxShadow: `0 4px 20px ${colors.glassShadow}`
-              }}
-            >
-              <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: colors.primary }}>
-                Run Portfolio Analysis
-              </h2>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-xs font-medium mb-2" style={{ color: colors.textSecondary }}>Select Client</label>
-                  <select
-                    value={selectedClient}
-                    onChange={(e) => {
-                      setSelectedClient(e.target.value);
-                      setAnalysisResult(null);
-                    }}
-                    disabled={loadingClients}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm"
-                    style={{
-                      background: isDark ? colors.inputBg : '#FFFFFF',
-                      border: `1px solid ${colors.inputBorder}`,
-                      color: colors.textPrimary
-                    }}
-                  >
-                    <option value="">Choose a client...</option>
-                    {clients.map(client => (
-                      <option key={client.id} value={client.id}>
-                        {client.name} ({formatCurrency(client.aum)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-2" style={{ color: colors.textSecondary }}>Analysis Type</label>
-                  <select
-                    value={selectedAnalysis}
-                    onChange={(e) => setSelectedAnalysis(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm"
-                    style={{
-                      background: isDark ? colors.inputBg : '#FFFFFF',
-                      border: `1px solid ${colors.inputBorder}`,
-                      color: colors.textPrimary
-                    }}
-                  >
-                    {analysisTypes.map(type => (
-                      <option key={type.id} value={type.id}>{type.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <button
-                onClick={runAnalysis}
-                disabled={!selectedClient || isAnalyzing}
-                className="w-full py-3 rounded-full text-sm font-semibold text-white transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        {/* Client Selection */}
+        <FACard className="mb-6">
+          <div className="flex items-end gap-4">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>
+                Select Client
+              </label>
+              <select
+                value={selectedClient}
+                onChange={(e) => {
+                  setSelectedClient(e.target.value)
+                  setResult(null)
+                  setError(null)
+                  setSavedId(null)
+                  setSavedMeta(null)
+                  setSaveSuccess(false)
+                }}
+                disabled={loadingClients}
+                className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
                 style={{
-                  background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
-                  boxShadow: `0 4px 14px ${colors.glassShadow}`
+                  background: colors.inputBg,
+                  border: `1px solid ${colors.inputBorder}`,
+                  color: colors.textPrimary,
                 }}
               >
-                {isAnalyzing ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Analyzing Portfolio...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    Run AI Analysis
-                  </>
-                )}
-              </button>
-
-              {error && (
-                <div className="mt-4 p-3 rounded-xl text-sm" style={{ background: `${colors.error}15`, color: colors.error }}>
-                  {error}
-                </div>
-              )}
+                <option value="">Choose a client...</option>
+                {clients.map(client => (
+                  <option key={client.id} value={client.id}>
+                    {client.name} ({formatCurrency(client.aum)})
+                  </option>
+                ))}
+              </select>
             </div>
-
-            {/* Analysis Result */}
-            {analysisResult && (
-              <>
-                {/* Summary Card */}
-                <div
-                  className="p-5 rounded-2xl"
-                  style={{
-                    background: colors.cardBackground,
-                    backdropFilter: 'blur(20px)',
-                    border: `1px solid ${colors.cardBorder}`,
-                    boxShadow: `0 4px 20px ${colors.glassShadow}`
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>
-                      Portfolio Analysis Summary
-                    </h2>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs" style={{ color: colors.textSecondary }}>Alignment Score</span>
-                      <span
-                        className="text-2xl font-bold"
-                        style={{ color: analysisResult.summary.alignment_score >= 0.8 ? colors.success : analysisResult.summary.alignment_score >= 0.6 ? colors.warning : colors.error }}
-                      >
-                        {(analysisResult.summary.alignment_score * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Key Metrics */}
-                  <div className="grid grid-cols-4 gap-3 mb-6">
-                    <div className="p-3 rounded-xl" style={{ background: colors.chipBg }}>
-                      <p className="text-xs" style={{ color: colors.textSecondary }}>Total Value</p>
-                      <p className="text-lg font-bold" style={{ color: colors.textPrimary }}>
-                        {formatCurrency(analysisResult.current_metrics.total_value)}
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-xl" style={{ background: colors.chipBg }}>
-                      <p className="text-xs" style={{ color: colors.textSecondary }}>Holdings</p>
-                      <p className="text-lg font-bold" style={{ color: colors.textPrimary }}>
-                        {analysisResult.current_metrics.total_holdings}
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-xl" style={{ background: colors.chipBg }}>
-                      <p className="text-xs" style={{ color: colors.textSecondary }}>1Y Return</p>
-                      <p className="text-lg font-bold" style={{ color: (analysisResult.current_metrics.weighted_return_1y || 0) >= 0 ? colors.success : colors.error }}>
-                        {analysisResult.current_metrics.weighted_return_1y?.toFixed(1) || 'N/A'}%
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-xl" style={{ background: colors.chipBg }}>
-                      <p className="text-xs" style={{ color: colors.textSecondary }}>Volatility</p>
-                      <p className="text-lg font-bold" style={{ color: colors.textPrimary }}>
-                        {analysisResult.current_metrics.weighted_volatility?.toFixed(1) || 'N/A'}%
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Issues */}
-                  {analysisResult.summary.primary_issues.length > 0 && (
-                    <div className="mb-4">
-                      <h3 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: colors.textTertiary }}>
-                        Issues Identified
-                      </h3>
-                      <div className="space-y-2">
-                        {analysisResult.summary.primary_issues.map((issue, i) => (
-                          <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{ background: `${colors.warning}10` }}>
-                            <svg className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: colors.warning }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            <p className="text-sm" style={{ color: colors.textPrimary }}>{issue}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tax Impact */}
-                  {analysisResult.summary.tax_impact_summary && (
-                    <div className="p-3 rounded-xl" style={{ background: `${colors.primary}10`, border: `1px solid ${colors.primary}20` }}>
-                      <p className="text-xs font-medium" style={{ color: colors.primary }}>Tax Impact</p>
-                      <p className="text-sm mt-1" style={{ color: colors.textPrimary }}>{analysisResult.summary.tax_impact_summary}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Allocation Comparison */}
-                <div
-                  className="p-5 rounded-2xl"
-                  style={{
-                    background: colors.cardBackground,
-                    backdropFilter: 'blur(20px)',
-                    border: `1px solid ${colors.cardBorder}`,
-                    boxShadow: `0 4px 20px ${colors.glassShadow}`
-                  }}
-                >
-                  <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: colors.primary }}>
-                    Asset Allocation Comparison
-                  </h2>
-                  <div className="space-y-4">
-                    {Object.keys(analysisResult.target_allocation).map((asset) => {
-                      const current = (analysisResult.current_allocation as any)[asset] || 0;
-                      const target = (analysisResult.target_allocation as any)[asset] || 0;
-                      const gap = (analysisResult.allocation_gaps as any)[asset] || 0;
-                      const isOver = gap > 0;
-
-                      return (
-                        <div key={asset}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium capitalize" style={{ color: colors.textPrimary }}>{asset}</span>
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs" style={{ color: colors.textSecondary }}>
-                                Current: {formatPercent(current)}
-                              </span>
-                              <span className="text-xs" style={{ color: colors.textTertiary }}>→</span>
-                              <span className="text-xs" style={{ color: colors.primary }}>
-                                Target: {formatPercent(target)}
-                              </span>
-                              {gap !== 0 && (
-                                <span
-                                  className="text-xs px-2 py-0.5 rounded-full"
-                                  style={{ background: `${isOver ? colors.error : colors.success}15`, color: isOver ? colors.error : colors.success }}
-                                >
-                                  {isOver ? '+' : ''}{formatPercent(gap)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="relative h-2 rounded-full overflow-hidden" style={{ background: colors.progressBg }}>
-                            <div
-                              className="absolute h-full rounded-full transition-all"
-                              style={{
-                                width: `${Math.min(current * 100, 100)}%`,
-                                background: current > target ? colors.warning : colors.primary,
-                              }}
-                            />
-                            <div
-                              className="absolute top-0 h-full w-0.5"
-                              style={{
-                                left: `${Math.min(target * 100, 100)}%`,
-                                background: colors.textPrimary,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Rebalancing Actions */}
-                {analysisResult.rebalancing_actions.length > 0 && (
-                  <div
-                    className="p-5 rounded-2xl"
-                    style={{
-                      background: colors.cardBackground,
-                      backdropFilter: 'blur(20px)',
-                      border: `1px solid ${colors.cardBorder}`,
-                      boxShadow: `0 4px 20px ${colors.glassShadow}`
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>
-                        Recommended Actions
-                      </h2>
-                      <div className="flex items-center gap-4 text-xs" style={{ color: colors.textSecondary }}>
-                        <span>Sell: {formatCurrencyCompact(analysisResult.summary.total_sell_amount)}</span>
-                        <span>Buy: {formatCurrencyCompact(analysisResult.summary.total_buy_amount)}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      {analysisResult.rebalancing_actions.map((action: RebalancingAction, i: number) => (
-                        <div
-                          key={i}
-                          className="p-4 rounded-xl"
-                          style={{
-                            background: isDark ? 'rgba(147, 197, 253, 0.05)' : 'rgba(59, 130, 246, 0.03)',
-                            border: `1px solid ${colors.cardBorder}`,
-                          }}
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="px-2 py-1 rounded text-xs font-bold text-white"
-                                style={{ background: getActionColor(action.action) }}
-                              >
-                                {action.action}
-                              </span>
-                              <span
-                                className="px-2 py-0.5 rounded text-xs"
-                                style={{ background: `${getPriorityBadge(action.priority)}20`, color: getPriorityBadge(action.priority) }}
-                              >
-                                {action.priority}
-                              </span>
-                              {action.tax_status && (
-                                <span
-                                  className="px-2 py-0.5 rounded text-xs"
-                                  style={{ background: colors.chipBg, color: colors.textSecondary }}
-                                >
-                                  {action.tax_status}
-                                </span>
-                              )}
-                            </div>
-                            <span
-                              className="text-lg font-bold"
-                              style={{ color: action.transaction_amount < 0 ? colors.error : colors.success }}
-                            >
-                              {action.transaction_amount < 0 ? '-' : '+'}
-                              {formatCurrency(Math.abs(action.transaction_amount))}
-                            </span>
-                          </div>
-                          <p className="font-medium text-sm" style={{ color: colors.textPrimary }}>{action.scheme_name}</p>
-                          <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
-                            {action.category} • {action.asset_class}
-                          </p>
-                          <p className="text-xs mt-2" style={{ color: colors.textTertiary }}>{action.reason}</p>
-                          {action.tax_note && (
-                            <p className="text-xs mt-1 italic" style={{ color: colors.warning }}>{action.tax_note}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Holdings Detail */}
-                <div
-                  className="p-5 rounded-2xl"
-                  style={{
-                    background: colors.cardBackground,
-                    backdropFilter: 'blur(20px)',
-                    border: `1px solid ${colors.cardBorder}`,
-                    boxShadow: `0 4px 20px ${colors.glassShadow}`
-                  }}
-                >
-                  <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: colors.primary }}>
-                    Portfolio Holdings
-                  </h2>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ color: colors.textSecondary }}>
-                          <th className="text-left py-2 font-medium">Fund</th>
-                          <th className="text-right py-2 font-medium">Value</th>
-                          <th className="text-right py-2 font-medium">Weight</th>
-                          <th className="text-right py-2 font-medium">1Y Return</th>
-                          <th className="text-right py-2 font-medium">Tax Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {analysisResult.holdings.map((holding: EnrichedHolding, i: number) => (
-                          <tr key={i} style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
-                            <td className="py-3">
-                              <p className="font-medium" style={{ color: colors.textPrimary }}>{holding.scheme_name}</p>
-                              <p className="text-xs" style={{ color: colors.textTertiary }}>{holding.category}</p>
-                            </td>
-                            <td className="text-right py-3" style={{ color: colors.textPrimary }}>
-                              {formatCurrency(holding.current_value)}
-                            </td>
-                            <td className="text-right py-3" style={{ color: colors.textSecondary }}>
-                              {(holding.weight * 100).toFixed(1)}%
-                            </td>
-                            <td className="text-right py-3" style={{ color: (holding.return_1y || 0) >= 0 ? colors.success : colors.error }}>
-                              {holding.return_1y?.toFixed(1) || 'N/A'}%
-                            </td>
-                            <td className="text-right py-3">
-                              {holding.tax_status && (
-                                <span
-                                  className="px-2 py-0.5 rounded text-xs"
-                                  style={{
-                                    background: holding.tax_status === 'LTCG' ? `${colors.success}15` : `${colors.warning}15`,
-                                    color: holding.tax_status === 'LTCG' ? colors.success : colors.warning,
-                                  }}
-                                >
-                                  {holding.tax_status}
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Analysis Types Grid - Show when no result */}
-            {!analysisResult && (
-              <div>
-                <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: colors.primary }}>
-                  Available Analysis Types
-                </h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {analysisTypes.map(type => (
-                    <div
-                      key={type.id}
-                      className="p-4 rounded-xl cursor-pointer transition-all hover:-translate-y-0.5"
-                      style={{
-                        background: isDark
-                          ? 'linear-gradient(135deg, rgba(147, 197, 253, 0.08) 0%, rgba(125, 211, 252, 0.04) 100%)'
-                          : 'linear-gradient(135deg, rgba(59, 130, 246, 0.04) 0%, rgba(56, 189, 248, 0.02) 100%)',
-                        border: `1px solid ${selectedAnalysis === type.id ? colors.primary : colors.cardBorder}`,
-                        boxShadow: `0 2px 10px ${colors.glassShadow}`
-                      }}
-                      onClick={() => setSelectedAnalysis(type.id)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div
-                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ background: colors.chipBg }}
-                        >
-                          <svg className="w-5 h-5" style={{ color: colors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d={type.icon} />
-                          </svg>
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-sm" style={{ color: colors.textPrimary }}>{type.name}</h3>
-                          <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>{type.description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right Column - Model Info */}
-          <div>
-            <div
-              className="p-5 rounded-2xl sticky top-24"
+            <button
+              onClick={runAnalysis}
+              disabled={!selectedClient || analyzing}
+              className="h-10 px-6 rounded-full text-sm font-semibold text-white transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               style={{
-                background: colors.cardBackground,
-                backdropFilter: 'blur(20px)',
-                border: `1px solid ${colors.cardBorder}`,
-                boxShadow: `0 4px 20px ${colors.glassShadow}`
+                background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+                boxShadow: `0 4px 14px ${colors.glassShadow}`,
               }}
             >
-              <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: colors.primary }}>
-                AI Model Info
-              </h2>
-              <div className="space-y-4">
-                <div className="p-3 rounded-xl" style={{ background: colors.chipBg }}>
-                  <p className="text-xs font-medium" style={{ color: colors.textSecondary }}>Model Version</p>
-                  <p className="text-sm font-bold" style={{ color: colors.textPrimary }}>
-                    {analysisResult?.model_version || 'portfolio-analyzer-v1.0'}
-                  </p>
-                </div>
-                {analysisResult?.latency_ms && (
-                  <div className="p-3 rounded-xl" style={{ background: colors.chipBg }}>
-                    <p className="text-xs font-medium" style={{ color: colors.textSecondary }}>Analysis Time</p>
-                    <p className="text-sm font-bold" style={{ color: colors.textPrimary }}>
-                      {analysisResult.latency_ms.toFixed(0)}ms
-                    </p>
-                  </div>
+              {analyzing ? (
+                <>
+                  <div
+                    className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
+                    style={{ borderColor: 'rgba(255,255,255,0.3) transparent rgba(255,255,255,0.3) rgba(255,255,255,0.3)' }}
+                  />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+                  </svg>
+                  Run Deep Analysis
+                </>
+              )}
+            </button>
+            {/* Save Button - shown after analysis completes */}
+            {result && !savedId && (
+              <button
+                onClick={saveAnalysis}
+                disabled={saving}
+                className="h-10 px-5 rounded-full text-sm font-semibold transition-all hover:shadow-lg disabled:opacity-50 flex items-center gap-2"
+                style={{
+                  background: colors.chipBg,
+                  color: colors.primary,
+                  border: `1px solid ${colors.cardBorder}`,
+                }}
+              >
+                {saving ? (
+                  <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: `${colors.primary}40 transparent ${colors.primary}40 ${colors.primary}40` }} />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7l-4-4z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 3v4H7M7 14h10" />
+                  </svg>
                 )}
-                <div className="p-3 rounded-xl" style={{ background: colors.chipBg }}>
-                  <p className="text-xs font-medium mb-2" style={{ color: colors.textSecondary }}>Features</p>
-                  <ul className="space-y-1">
-                    {['Tax-aware rebalancing', 'LTCG/STCG classification', 'Priority-based actions', 'Gap analysis'].map((feature, i) => (
-                      <li key={i} className="flex items-center gap-2 text-xs" style={{ color: colors.textPrimary }}>
-                        <svg className="w-3 h-3" style={{ color: colors.success }} fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="pt-4 border-t" style={{ borderColor: colors.cardBorder }}>
-                  <p className="text-xs" style={{ color: colors.textTertiary }}>
-                    The AI analysis considers your client&apos;s current holdings, target allocation based on risk profile,
-                    and tax implications to provide optimal rebalancing recommendations.
-                  </p>
-                </div>
-              </div>
-            </div>
+                Save
+              </button>
+            )}
+            {saveSuccess && (
+              <span className="text-xs font-medium" style={{ color: colors.success }}>Saved!</span>
+            )}
           </div>
-        </div>
-      </div>
-    </AdvisorLayout>
-  );
-};
+        </FACard>
 
-export default AnalysisPage;
+        {/* Saved Analyses List */}
+        <SavedAnalysesList
+          clientId={selectedClient}
+          onLoad={loadSavedAnalysis}
+          refreshKey={refreshKey}
+        />
+
+        {/* Top-level error */}
+        {error && (
+          <div className="mb-6">
+            <SectionError message={error} colors={colors} />
+          </div>
+        )}
+
+        {/* Empty state before running */}
+        {!result && !analyzing && !error && (
+          <FACard>
+            <FAEmptyState
+              icon={
+                <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+                </svg>
+              }
+              title="Select a Client to Analyze"
+              description="Choose a client from the dropdown above and run deep analysis to see persona alignment, risk assessment, and rebalancing recommendations."
+            />
+          </FACard>
+        )}
+
+        {/* Loading skeletons */}
+        {analyzing && (
+          <div className="space-y-6">
+            {['Persona Alignment', 'Risk Assessment', 'Rebalancing Roadmap'].map(label => (
+              <FACard key={label}>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 rounded-lg" style={{ background: colors.chipBg }} />
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>{label}</span>
+                </div>
+                <SectionSkeleton colors={colors} />
+              </FACard>
+            ))}
+          </div>
+        )}
+
+        {/* Version Selector - shown when viewing a saved analysis */}
+        {result && savedId && savedMeta && (
+          <div className="mb-4 p-3 rounded-xl" style={{ background: colors.chipBg, border: `1px solid ${colors.cardBorder}` }}>
+            <VersionSelector
+              versions={savedMeta.versions}
+              currentVersion={currentVersion}
+              onSelect={switchVersion}
+              onDownloadPdf={handleDownloadPdf}
+            />
+          </div>
+        )}
+
+        {/* Analysis Results — 3 full-width sections */}
+        {result && (
+          <div className="space-y-6">
+            {sections.map(({ id, label, icon, section, renderData }) => (
+              <FACard key={id}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: colors.chipBg, color: colors.primary }}>
+                      {icon}
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>{label}</span>
+                  </div>
+                  {/* Edit Rebalancing button */}
+                  {id === 'rebalancing' && savedId && section?.data && (
+                    <button
+                      onClick={() => setShowEditModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all hover:shadow-md"
+                      style={{
+                        background: colors.chipBg,
+                        color: colors.primary,
+                        border: `1px solid ${colors.cardBorder}`,
+                      }}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit Rebalancing
+                    </button>
+                  )}
+                </div>
+                {section?.status === 'error' ? (
+                  <SectionError message={section.error || 'Analysis failed'} colors={colors} />
+                ) : section?.data ? (
+                  (renderData as any)(section.data)
+                ) : (
+                  <p className="text-sm" style={{ color: colors.textTertiary }}>No data available</p>
+                )}
+              </FACard>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Edit Rebalancing Modal */}
+      {showEditModal && result?.rebalancing?.data && (
+        <EditRebalancingModal
+          data={result.rebalancing.data}
+          onSave={handleEditSave}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
+    </AdvisorLayout>
+  )
+}
+
+export default DeepAnalysisPage
