@@ -26,15 +26,6 @@ interface PendingAction {
 }
 
 // Navigation items for FA portal with gradient styling
-const advisorNavItems = [
-  { label: 'Clients', href: '/advisor/clients', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', description: 'Manage client portfolios' },
-  { label: 'Prospects', href: '/advisor/prospects', icon: 'M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z', description: 'Lead pipeline' },
-  { label: 'Transactions', href: '/advisor/transactions', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', description: 'Buy/sell funds' },
-  { label: 'AI Analysis', href: '/advisor/analysis', icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z', description: 'Portfolio insights' },
-  { label: 'Reports', href: '/advisor/reports', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', description: 'Generate statements' },
-  { label: 'Fund Universe', href: '/advisor/funds', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10', description: 'Browse & recommend' },
-];
-
 // Transform API action to dashboard format
 function transformAction(action: UserActionResponse): PendingAction {
   const typeLabels: Record<ActionType, string> = {
@@ -117,40 +108,6 @@ const AdvisorDashboard = () => {
           <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
             Here&apos;s an overview of your client portfolios and pending actions.
           </p>
-        </div>
-
-        {/* Quick Navigation */}
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold uppercase tracking-wide mb-4" style={{ color: colors.textSecondary }}>
-            Quick Access
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {advisorNavItems.map((item, index) => {
-              const accentColors = [colors.primary, colors.secondary, colors.success, colors.warning, colors.error, colors.accent];
-              const accentColor = accentColors[index % accentColors.length];
-              return (
-                <Link key={item.label} href={item.href} className="group">
-                  <div
-                    className="p-4 rounded-2xl h-full transition-all duration-300 group-hover:-translate-y-1"
-                    style={{
-                      background: `linear-gradient(145deg, ${colors.cardBackground} 0%, ${isDark ? colors.backgroundTertiary : colors.backgroundSecondary} 100%)`,
-                      border: `1px solid ${colors.cardBorder}`,
-                      borderLeft: `4px solid ${accentColor}`,
-                      boxShadow: `0 4px 20px ${colors.glassShadow}`
-                    }}
-                  >
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: `${accentColor}15` }}>
-                      <svg className="w-5 h-5" style={{ color: accentColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
-                      </svg>
-                    </div>
-                    <p className="text-base font-semibold" style={{ color: colors.textPrimary }}>{item.label}</p>
-                    <p className="text-xs mt-0.5" style={{ color: colors.textTertiary }}>{item.description}</p>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
         </div>
 
         {/* KPI Cards */}

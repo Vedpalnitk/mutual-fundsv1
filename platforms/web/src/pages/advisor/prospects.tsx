@@ -5,25 +5,32 @@
  * Includes pipeline view, list view, and conversion flow.
  */
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
 import { useFATheme, formatCurrency, getStageColor } from '@/utils/fa'
 import { Prospect, ProspectStage, LeadSource, ProspectFormData, ClientFormData } from '@/utils/faTypes'
 import {
   FACard,
-  FAStatCard,
   FAChip,
   FASearchInput,
   FASelect,
   FAButton,
   FAEmptyState,
-  FAIconButton,
 } from '@/components/advisor/shared'
 import ProspectFormModal from '@/components/advisor/ProspectFormModal'
 import ConvertToClientModal from '@/components/advisor/ConvertToClientModal'
 
 // Pipeline stages
-const STAGES: ProspectStage[] = ['Discovery', 'Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost']
+const ACTIVE_STAGES: ProspectStage[] = ['Discovery', 'Analysis', 'Proposal', 'Negotiation']
+const ALL_STAGES: ProspectStage[] = ['Discovery', 'Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost']
+
+// Stage icons
+const STAGE_ICONS: Record<string, string> = {
+  Discovery: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z',
+  Analysis: 'M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605',
+  Proposal: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z',
+  Negotiation: 'M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+}
 
 // Mock prospects data
 const mockProspects: Prospect[] = [
@@ -51,17 +58,27 @@ const ProspectsPage = () => {
   const [convertingProspect, setConvertingProspect] = useState<Prospect | null>(null)
   const [showMoveStage, setShowMoveStage] = useState<string | null>(null)
 
-  const filteredProspects = prospects.filter(prospect => {
+  const filteredProspects = useMemo(() => prospects.filter(prospect => {
     const matchesSearch = prospect.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          prospect.email.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStage = filterStage === 'all' || prospect.stage === filterStage
     return matchesSearch && matchesStage
-  })
+  }), [prospects, searchTerm, filterStage])
 
-  const activeProspects = prospects.filter(p => !['Closed Won', 'Closed Lost'].includes(p.stage))
-  const totalPipelineValue = activeProspects.reduce((sum, p) => sum + p.potentialAum, 0)
-  const wonThisMonth = prospects.filter(p => p.stage === 'Closed Won').length
-  const wonValue = prospects.filter(p => p.stage === 'Closed Won').reduce((s, p) => s + p.potentialAum, 0)
+  const stats = useMemo(() => {
+    const active = prospects.filter(p => !['Closed Won', 'Closed Lost'].includes(p.stage))
+    const won = prospects.filter(p => p.stage === 'Closed Won')
+    const lost = prospects.filter(p => p.stage === 'Closed Lost')
+    const total = won.length + lost.length
+    const rate = total > 0 ? Math.round((won.length / total) * 100) : 0
+    return {
+      activeCount: active.length,
+      pipelineValue: active.reduce((sum, p) => sum + p.potentialAum, 0),
+      wonCount: won.length,
+      wonValue: won.reduce((s, p) => s + p.potentialAum, 0),
+      conversionRate: rate,
+    }
+  }, [prospects])
 
   const getProspectsByStage = (stage: ProspectStage) => filteredProspects.filter(p => p.stage === stage)
 
@@ -86,9 +103,7 @@ const ProspectsPage = () => {
   const handleUpdateProspect = (data: ProspectFormData) => {
     if (editingProspect) {
       setProspects(prospects.map(p =>
-        p.id === editingProspect.id
-          ? { ...p, ...data }
-          : p
+        p.id === editingProspect.id ? { ...p, ...data } : p
       ))
     }
     setEditingProspect(null)
@@ -96,20 +111,15 @@ const ProspectsPage = () => {
 
   const handleMoveStage = (prospectId: string, newStage: ProspectStage) => {
     setProspects(prospects.map(p =>
-      p.id === prospectId
-        ? { ...p, stage: newStage }
-        : p
+      p.id === prospectId ? { ...p, stage: newStage } : p
     ))
     setShowMoveStage(null)
   }
 
   const handleConvertClick = (prospect: Prospect) => {
-    // First move to Closed Won if not already
     if (prospect.stage !== 'Closed Won') {
       setProspects(prospects.map(p =>
-        p.id === prospect.id
-          ? { ...p, stage: 'Closed Won' }
-          : p
+        p.id === prospect.id ? { ...p, stage: 'Closed Won' } : p
       ))
     }
     setConvertingProspect(prospect)
@@ -117,20 +127,220 @@ const ProspectsPage = () => {
   }
 
   const handleConvertToClient = (clientData: ClientFormData) => {
-    // In a real app, this would create the client via API
-    // Remove from prospects list (they're now a client)
     setProspects(prospects.filter(p => p.id !== convertingProspect?.id))
     setConvertingProspect(null)
+  }
+
+  // ── Pipeline Card ─────────────────────────────────────────────
+
+  const PipelineCard = ({ prospect }: { prospect: Prospect }) => {
+    const stageColor = getStageColor(prospect.stage, colors)
+    return (
+      <div
+        className="p-3.5 rounded-xl cursor-pointer transition-all hover:-translate-y-0.5 group"
+        style={{
+          background: colors.cardBackground,
+          border: `1px solid ${colors.cardBorder}`,
+          boxShadow: `0 2px 8px ${colors.glassShadow}`,
+        }}
+        onClick={() => handleEditProspect(prospect)}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2.5 mb-3">
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-semibold text-sm flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${stageColor} 0%, ${colors.primaryDark} 100%)` }}
+          >
+            {prospect.name.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate" style={{ color: colors.textPrimary }}>{prospect.name}</p>
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: stageColor }} />
+              <p className="text-[11px]" style={{ color: colors.textTertiary }}>{prospect.source}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* AUM */}
+        <p className="text-lg font-bold mb-3" style={{ color: colors.primary }}>{formatCurrency(prospect.potentialAum)}</p>
+
+        {/* Footer */}
+        <div
+          className="pt-2.5 flex items-center justify-between"
+          style={{ borderTop: `1px solid ${colors.cardBorder}` }}
+        >
+          <p className="text-[11px] truncate flex-1 mr-2" style={{ color: colors.textTertiary }}>
+            {prospect.nextAction}
+          </p>
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowMoveStage(showMoveStage === prospect.id ? null : prospect.id)}
+              className="p-1.5 rounded-lg transition-all opacity-60 group-hover:opacity-100"
+              style={{ background: colors.chipBg, color: colors.primary }}
+              title="Move Stage"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Stage Move Dropdown */}
+        {showMoveStage === prospect.id && (
+          <div
+            className="mt-2.5 p-2 rounded-lg space-y-0.5"
+            style={{ background: isDark ? colors.backgroundTertiary : colors.backgroundSecondary, border: `1px solid ${colors.cardBorder}` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wider px-2 py-1" style={{ color: colors.textTertiary }}>Move to</p>
+            {ALL_STAGES.filter(s => s !== prospect.stage && s !== 'Closed Lost').map(s => (
+              <button
+                key={s}
+                onClick={() => {
+                  if (s === 'Closed Won') handleConvertClick(prospect)
+                  else handleMoveStage(prospect.id, s)
+                }}
+                className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  color: s === 'Closed Won' ? colors.success : colors.textPrimary,
+                  background: 'transparent',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = colors.chipBg}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: getStageColor(s as ProspectStage, colors) }} />
+                  {s === 'Closed Won' ? 'Won — Convert to Client' : s}
+                </div>
+              </button>
+            ))}
+            <button
+              onClick={() => handleMoveStage(prospect.id, 'Closed Lost')}
+              className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              style={{ color: colors.error }}
+              onMouseEnter={(e) => e.currentTarget.style.background = `${colors.error}08`}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: colors.error }} />
+                Mark as Lost
+              </div>
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── List Row ──────────────────────────────────────────────────
+
+  const ListRow = ({ prospect }: { prospect: Prospect }) => {
+    const stageColor = getStageColor(prospect.stage, colors)
+    return (
+      <div
+        className="p-4 rounded-xl transition-all hover:-translate-y-0.5 cursor-pointer"
+        style={{
+          background: colors.cardBackground,
+          border: `1px solid ${colors.cardBorder}`,
+          boxShadow: `0 2px 8px ${colors.glassShadow}`,
+        }}
+        onClick={() => handleEditProspect(prospect)}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-base flex-shrink-0"
+              style={{ background: `linear-gradient(135deg, ${stageColor} 0%, ${colors.primaryDark} 100%)` }}
+            >
+              {prospect.name.charAt(0)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm" style={{ color: colors.textPrimary }}>{prospect.name}</h3>
+              <p className="text-xs mt-0.5" style={{ color: colors.textTertiary }}>{prospect.email}</p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <FAChip color={stageColor}>{prospect.stage}</FAChip>
+                <span className="text-[11px]" style={{ color: colors.textTertiary }}>via {prospect.source}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 flex-shrink-0">
+            <div className="text-right">
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Potential AUM</p>
+              <p className="text-base font-bold" style={{ color: colors.primary }}>{formatCurrency(prospect.potentialAum)}</p>
+            </div>
+            <div className="text-right w-40 hidden lg:block">
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Next Action</p>
+              <p className="text-sm truncate" style={{ color: colors.textPrimary }}>{prospect.nextAction}</p>
+            </div>
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              {prospect.stage === 'Closed Won' ? (
+                <button
+                  onClick={() => handleConvertClick(prospect)}
+                  className="px-3 py-1.5 rounded-full text-xs font-semibold text-white transition-all hover:scale-105"
+                  style={{ background: `linear-gradient(135deg, ${colors.success} 0%, ${colors.primary} 100%)` }}
+                >
+                  Convert
+                </button>
+              ) : prospect.stage !== 'Closed Lost' ? (
+                <button
+                  onClick={() => setShowMoveStage(showMoveStage === prospect.id ? null : prospect.id)}
+                  className="p-2 rounded-lg transition-all hover:scale-105"
+                  style={{ background: colors.chipBg, color: colors.primary }}
+                  title="Move Stage"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        {/* Stage Move Dropdown (List View) */}
+        {showMoveStage === prospect.id && (
+          <div
+            className="mt-3 p-2 rounded-xl flex flex-wrap gap-1.5"
+            style={{ background: isDark ? colors.backgroundTertiary : colors.backgroundSecondary, border: `1px solid ${colors.cardBorder}` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-[10px] font-semibold uppercase tracking-wider w-full mb-1 px-1" style={{ color: colors.textTertiary }}>Move to</span>
+            {ALL_STAGES.filter(s => s !== prospect.stage).map(s => (
+              <button
+                key={s}
+                onClick={() => {
+                  if (s === 'Closed Won') handleConvertClick(prospect)
+                  else handleMoveStage(prospect.id, s)
+                }}
+                className="px-3 py-1.5 rounded-full text-xs font-medium transition-all hover:scale-105"
+                style={{
+                  background: s === 'Closed Won'
+                    ? `linear-gradient(135deg, ${colors.success} 0%, ${colors.primary} 100%)`
+                    : s === 'Closed Lost'
+                    ? `${colors.error}10`
+                    : `${getStageColor(s as ProspectStage, colors)}10`,
+                  color: s === 'Closed Won' ? 'white' : s === 'Closed Lost' ? colors.error : getStageColor(s as ProspectStage, colors),
+                  border: `1px solid ${s === 'Closed Won' ? 'transparent' : s === 'Closed Lost' ? `${colors.error}25` : `${getStageColor(s as ProspectStage, colors)}25`}`,
+                }}
+              >
+                {s === 'Closed Won' ? 'Won & Convert' : s}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
     <AdvisorLayout title="Prospects">
       <div style={{ background: colors.background, minHeight: '100%', margin: '-2rem', padding: '2rem' }}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <p className="text-sm" style={{ color: colors.textSecondary }}>Track and manage your sales pipeline</p>
-          </div>
+        <div className="flex items-center justify-between mb-6">
+          <p className="text-sm" style={{ color: colors.textSecondary }}>Track and manage your sales pipeline</p>
           <FAButton
             onClick={() => {
               setEditingProspect(null)
@@ -145,39 +355,47 @@ const ProspectsPage = () => {
           </FAButton>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <FAStatCard
-            label="Active Prospects"
-            value={activeProspects.length.toString()}
-            change="+3 this week"
-            accentColor={colors.primary}
-          />
-          <FAStatCard
-            label="Pipeline Value"
-            value={formatCurrency(totalPipelineValue)}
-            change="Potential AUM"
-            accentColor={colors.secondary}
-          />
-          <FAStatCard
-            label="Won This Month"
-            value={wonThisMonth.toString()}
-            change={formatCurrency(wonValue)}
-            accentColor={colors.success}
-          />
-          <FAStatCard
-            label="Conversion Rate"
-            value="28%"
-            change="+5% vs last month"
-            accentColor={colors.warning}
-          />
-        </div>
+        {/* Summary + Filters — single outline card */}
+        <div
+          className="rounded-xl mb-6 overflow-hidden"
+          style={{
+            background: colors.cardBackground,
+            border: `1px solid ${colors.cardBorder}`,
+            boxShadow: `0 2px 8px ${colors.glassShadow}`,
+          }}
+        >
+          {/* Stats Row */}
+          <div className="flex items-stretch">
+            {[
+              { label: 'Active', value: stats.activeCount.toString(), sub: 'In pipeline', color: colors.primary },
+              { label: 'Pipeline', value: formatCurrency(stats.pipelineValue), sub: 'Potential AUM', color: colors.secondary || colors.primaryDark },
+              { label: 'Won', value: stats.wonCount.toString(), sub: formatCurrency(stats.wonValue), color: colors.success },
+              { label: 'Conversion', value: `${stats.conversionRate}%`, sub: 'Won / closed', color: colors.warning },
+            ].map((stat, idx) => (
+              <div
+                key={stat.label}
+                className="flex-1 p-4 flex items-center gap-3"
+                style={{
+                  borderRight: idx < 3 ? `1px solid ${colors.cardBorder}` : 'none',
+                }}
+              >
+                <div className="w-2 h-10 rounded-full flex-shrink-0" style={{ background: stat.color }} />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: colors.textTertiary }}>{stat.label}</p>
+                  <p className="text-lg font-bold leading-tight truncate" style={{ color: colors.textPrimary }}>{stat.value}</p>
+                  <p className="text-[11px] mt-0.5 truncate" style={{ color: colors.textTertiary }}>{stat.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
 
-        {/* Filters & View Toggle */}
-        <FACard className="mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="flex-1 max-w-md">
+          {/* Divider */}
+          <div style={{ borderTop: `1px solid ${colors.cardBorder}` }} />
+
+          {/* Search, Filter, View Toggle */}
+          <div className="flex items-center justify-between p-3">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="flex-1 max-w-sm">
                 <FASearchInput
                   placeholder="Search prospects..."
                   value={searchTerm}
@@ -187,284 +405,204 @@ const ProspectsPage = () => {
               <FASelect
                 options={[
                   { value: 'all', label: 'All Stages' },
-                  ...STAGES.map(stage => ({ value: stage, label: stage }))
+                  ...ALL_STAGES.map(stage => ({ value: stage, label: stage }))
                 ]}
                 value={filterStage}
                 onChange={(e) => setFilterStage(e.target.value)}
                 containerClassName="w-40"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div
+              className="flex items-center rounded-lg p-0.5"
+              style={{ background: isDark ? colors.backgroundTertiary : colors.backgroundSecondary }}
+            >
               <button
                 onClick={() => setViewMode('pipeline')}
-                className="p-2 rounded-lg transition-all"
+                className="p-2 rounded-md transition-all"
                 style={{
-                  background: viewMode === 'pipeline' ? colors.chipBg : 'transparent',
-                  color: viewMode === 'pipeline' ? colors.primary : colors.textTertiary
+                  background: viewMode === 'pipeline' ? colors.cardBackground : 'transparent',
+                  color: viewMode === 'pipeline' ? colors.primary : colors.textTertiary,
+                  boxShadow: viewMode === 'pipeline' ? `0 1px 3px ${colors.glassShadow}` : 'none',
                 }}
                 title="Pipeline View"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
                 </svg>
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className="p-2 rounded-lg transition-all"
+                className="p-2 rounded-md transition-all"
                 style={{
-                  background: viewMode === 'list' ? colors.chipBg : 'transparent',
-                  color: viewMode === 'list' ? colors.primary : colors.textTertiary
+                  background: viewMode === 'list' ? colors.cardBackground : 'transparent',
+                  color: viewMode === 'list' ? colors.primary : colors.textTertiary,
+                  boxShadow: viewMode === 'list' ? `0 1px 3px ${colors.glassShadow}` : 'none',
                 }}
                 title="List View"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
                 </svg>
               </button>
             </div>
           </div>
-        </FACard>
+        </div>
 
         {/* Pipeline View */}
         {viewMode === 'pipeline' && (
-          <div className="grid grid-cols-4 gap-4">
-            {(['Discovery', 'Analysis', 'Proposal', 'Negotiation'] as ProspectStage[]).map(stage => (
-              <div key={stage}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ background: getStageColor(stage, colors) }} />
-                    <span className="text-sm font-semibold" style={{ color: colors.textPrimary }}>{stage}</span>
-                  </div>
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ background: colors.chipBg, color: colors.textSecondary }}
-                  >
-                    {getProspectsByStage(stage).length}
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {getProspectsByStage(stage).map(prospect => (
+          <>
+            {/* Active Pipeline */}
+            <div className="grid grid-cols-4 gap-4 mb-8">
+              {ACTIVE_STAGES.map(stage => {
+                const stageProspects = getProspectsByStage(stage)
+                const stageColor = getStageColor(stage, colors)
+                const stageValue = stageProspects.reduce((s, p) => s + p.potentialAum, 0)
+                return (
+                  <div key={stage}>
+                    {/* Column Header */}
                     <div
-                      key={prospect.id}
-                      className="p-3 rounded-xl cursor-pointer transition-all hover:-translate-y-0.5"
-                      style={{
-                        background: colors.cardBackground,
-                        backdropFilter: 'blur(20px)',
-                        border: `1px solid ${colors.cardBorder}`,
-                        boxShadow: `0 2px 10px ${colors.glassShadow}`
-                      }}
-                      onClick={() => handleEditProspect(prospect)}
+                      className="flex items-center justify-between mb-3 p-2.5 rounded-lg"
+                      style={{ background: `${stageColor}08`, border: `1px solid ${stageColor}15` }}
                     >
-                      <div className="flex items-center gap-2 mb-2">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-semibold text-sm"
-                          style={{ background: `linear-gradient(135deg, ${getStageColor(prospect.stage, colors)} 0%, ${colors.primaryDark} 100%)` }}
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4" style={{ color: stageColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d={STAGE_ICONS[stage] || ''} />
+                        </svg>
+                        <span className="text-xs font-semibold" style={{ color: stageColor }}>{stage}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-medium" style={{ color: colors.textTertiary }}>
+                          {stageValue > 0 ? formatCurrency(stageValue) : ''}
+                        </span>
+                        <span
+                          className="text-[10px] font-bold w-5 h-5 rounded-md flex items-center justify-center"
+                          style={{ background: `${stageColor}15`, color: stageColor }}
                         >
-                          {prospect.name.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate" style={{ color: colors.textPrimary }}>{prospect.name}</p>
-                          <p className="text-xs truncate" style={{ color: colors.textTertiary }}>{prospect.source}</p>
-                        </div>
+                          {stageProspects.length}
+                        </span>
                       </div>
-                      <p className="text-lg font-bold" style={{ color: colors.primary }}>{formatCurrency(prospect.potentialAum)}</p>
-                      <div className="mt-2 pt-2 flex items-center justify-between" style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
-                        <p className="text-xs truncate flex-1" style={{ color: colors.textTertiary }}>Next: {prospect.nextAction}</p>
-                        <div className="flex items-center gap-1 ml-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setShowMoveStage(showMoveStage === prospect.id ? null : prospect.id)
-                            }}
-                            className="p-1 rounded transition-all hover:scale-110"
-                            style={{ background: colors.chipBg, color: colors.primary }}
-                            title="Move Stage"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
+                    </div>
 
-                      {/* Stage Move Dropdown */}
-                      {showMoveStage === prospect.id && (
+                    {/* Cards */}
+                    <div className="space-y-3">
+                      {stageProspects.map(prospect => (
+                        <PipelineCard key={prospect.id} prospect={prospect} />
+                      ))}
+                      {stageProspects.length === 0 && (
                         <div
-                          className="mt-2 p-2 rounded-lg space-y-1"
-                          style={{ background: colors.chipBg, border: `1px solid ${colors.cardBorder}` }}
-                          onClick={(e) => e.stopPropagation()}
+                          className="p-6 rounded-xl text-center"
+                          style={{ border: `1px dashed ${colors.cardBorder}` }}
                         >
-                          <p className="text-xs font-semibold mb-2" style={{ color: colors.textSecondary }}>Move to:</p>
-                          {STAGES.filter(s => s !== prospect.stage && s !== 'Closed Lost').map(s => (
-                            <button
-                              key={s}
-                              onClick={() => {
-                                if (s === 'Closed Won') {
-                                  handleConvertClick(prospect)
-                                } else {
-                                  handleMoveStage(prospect.id, s)
-                                }
-                              }}
-                              className="w-full text-left px-2 py-1.5 rounded text-xs font-medium transition-all hover:bg-opacity-50"
-                              style={{
-                                color: s === 'Closed Won' ? colors.success : colors.textPrimary,
-                                background: s === 'Closed Won' ? `${colors.success}15` : 'transparent',
-                              }}
-                            >
-                              {s === 'Closed Won' ? 'Mark as Won & Convert' : s}
-                            </button>
-                          ))}
+                          <p className="text-xs" style={{ color: colors.textTertiary }}>No prospects</p>
                         </div>
                       )}
                     </div>
-                  ))}
-                  {getProspectsByStage(stage).length === 0 && (
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Closed Deals */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Won */}
+              <div
+                className="p-4 rounded-xl"
+                style={{
+                  background: colors.cardBackground,
+                  border: `1px solid ${colors.success}20`,
+                  borderLeft: `3px solid ${colors.success}`,
+                }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" style={{ color: colors.success }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-xs font-semibold" style={{ color: colors.success }}>Won</span>
+                  </div>
+                  <span className="text-xs font-bold" style={{ color: colors.success }}>{getProspectsByStage('Closed Won').length}</span>
+                </div>
+                <div className="space-y-2">
+                  {getProspectsByStage('Closed Won').map(p => (
                     <div
-                      className="p-4 rounded-xl text-center"
-                      style={{
-                        background: colors.cardBackground,
-                        border: `1px dashed ${colors.cardBorder}`
-                      }}
+                      key={p.id}
+                      className="p-2.5 rounded-lg flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01]"
+                      style={{ background: `${colors.success}06`, border: `1px solid ${colors.success}15` }}
+                      onClick={() => handleConvertClick(p)}
                     >
-                      <p className="text-xs" style={{ color: colors.textTertiary }}>No prospects</p>
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-semibold text-xs" style={{ background: colors.success }}>
+                          {p.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold" style={{ color: colors.textPrimary }}>{p.name}</p>
+                          <p className="text-[10px]" style={{ color: colors.textTertiary }}>{p.source}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold" style={{ color: colors.success }}>{formatCurrency(p.potentialAum)}</p>
+                        <span className="text-[10px] font-semibold" style={{ color: colors.primary }}>Convert</span>
+                      </div>
                     </div>
+                  ))}
+                  {getProspectsByStage('Closed Won').length === 0 && (
+                    <p className="text-xs text-center py-3" style={{ color: colors.textTertiary }}>No won deals yet</p>
                   )}
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Lost */}
+              <div
+                className="p-4 rounded-xl"
+                style={{
+                  background: colors.cardBackground,
+                  border: `1px solid ${colors.error}15`,
+                  borderLeft: `3px solid ${colors.error}`,
+                }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" style={{ color: colors.error }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-xs font-semibold" style={{ color: colors.error }}>Lost</span>
+                  </div>
+                  <span className="text-xs font-bold" style={{ color: colors.error }}>{getProspectsByStage('Closed Lost').length}</span>
+                </div>
+                <div className="space-y-2">
+                  {getProspectsByStage('Closed Lost').map(p => (
+                    <div
+                      key={p.id}
+                      className="p-2.5 rounded-lg flex items-center justify-between"
+                      style={{ background: `${colors.error}04`, border: `1px solid ${colors.error}10` }}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-semibold text-xs opacity-50" style={{ background: colors.error }}>
+                          {p.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium" style={{ color: colors.textSecondary }}>{p.name}</p>
+                          <p className="text-[10px]" style={{ color: colors.textTertiary }}>{p.notes}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs" style={{ color: colors.textTertiary }}>{formatCurrency(p.potentialAum)}</p>
+                    </div>
+                  ))}
+                  {getProspectsByStage('Closed Lost').length === 0 && (
+                    <p className="text-xs text-center py-3" style={{ color: colors.textTertiary }}>No lost deals</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
         )}
 
         {/* List View */}
         {viewMode === 'list' && (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {filteredProspects.map(prospect => (
-              <div
-                key={prospect.id}
-                className="p-4 rounded-2xl transition-all hover:-translate-y-0.5 cursor-pointer"
-                style={{
-                  background: isDark ? colors.pastelIndigo : colors.pastelPink,
-                  border: `1px solid ${colors.cardBorder}`,
-                  boxShadow: `0 4px 20px ${colors.glassShadow}`
-                }}
-                onClick={() => handleEditProspect(prospect)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
-                      style={{ background: `linear-gradient(135deg, ${getStageColor(prospect.stage, colors)} 0%, ${colors.primaryDark} 100%)` }}
-                    >
-                      {prospect.name.charAt(0)}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold" style={{ color: colors.textPrimary }}>{prospect.name}</h3>
-                      <p className="text-sm" style={{ color: colors.textSecondary }}>{prospect.email}</p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <FAChip color={getStageColor(prospect.stage, colors)}>{prospect.stage}</FAChip>
-                        <span className="text-xs" style={{ color: colors.textTertiary }}>
-                          via {prospect.source}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-8">
-                    <div className="text-right">
-                      <p className="text-xs uppercase tracking-wider" style={{ color: colors.textTertiary }}>Potential AUM</p>
-                      <p className="font-bold" style={{ color: colors.primary }}>{formatCurrency(prospect.potentialAum)}</p>
-                    </div>
-                    <div className="text-right max-w-[200px]">
-                      <p className="text-xs uppercase tracking-wider" style={{ color: colors.textTertiary }}>Next Action</p>
-                      <p className="text-sm truncate" style={{ color: colors.textPrimary }}>{prospect.nextAction}</p>
-                    </div>
-                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className="p-2 rounded-lg transition-all hover:scale-105"
-                        style={{ background: colors.chipBg, color: colors.primary }}
-                        title="Call"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                      </button>
-                      <button
-                        className="p-2 rounded-lg transition-all hover:scale-105"
-                        style={{ background: colors.chipBg, color: colors.primary }}
-                        title="Email"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                      {prospect.stage === 'Closed Won' ? (
-                        <button
-                          onClick={() => handleConvertClick(prospect)}
-                          className="px-3 py-2 rounded-lg text-xs font-semibold transition-all hover:scale-105"
-                          style={{
-                            background: `linear-gradient(135deg, ${colors.success} 0%, ${colors.primary} 100%)`,
-                            color: 'white',
-                          }}
-                          title="Convert to Client"
-                        >
-                          Convert
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => setShowMoveStage(showMoveStage === prospect.id ? null : prospect.id)}
-                          className="p-2 rounded-lg transition-all hover:scale-105"
-                          style={{ background: colors.chipBg, color: colors.primary }}
-                          title="Move Stage"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stage Move Dropdown (List View) */}
-                {showMoveStage === prospect.id && (
-                  <div
-                    className="mt-4 p-3 rounded-xl flex flex-wrap gap-2"
-                    style={{ background: colors.chipBg, border: `1px solid ${colors.cardBorder}` }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span className="text-xs font-semibold w-full mb-1" style={{ color: colors.textSecondary }}>Move to:</span>
-                    {STAGES.filter(s => s !== prospect.stage).map(s => (
-                      <button
-                        key={s}
-                        onClick={() => {
-                          if (s === 'Closed Won') {
-                            handleConvertClick(prospect)
-                          } else {
-                            handleMoveStage(prospect.id, s)
-                          }
-                        }}
-                        className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all hover:scale-105"
-                        style={{
-                          background: s === 'Closed Won'
-                            ? `linear-gradient(135deg, ${colors.success} 0%, ${colors.primary} 100%)`
-                            : s === 'Closed Lost'
-                            ? `${colors.error}15`
-                            : `${getStageColor(s as ProspectStage, colors)}15`,
-                          color: s === 'Closed Won'
-                            ? 'white'
-                            : s === 'Closed Lost'
-                            ? colors.error
-                            : getStageColor(s as ProspectStage, colors),
-                          border: `1px solid ${s === 'Closed Won' ? 'transparent' : getStageColor(s as ProspectStage, colors)}30`,
-                        }}
-                      >
-                        {s === 'Closed Won' ? 'Mark as Won & Convert' : s}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <ListRow key={prospect.id} prospect={prospect} />
             ))}
-
             {filteredProspects.length === 0 && (
               <FAEmptyState
                 icon={
@@ -476,121 +614,6 @@ const ProspectsPage = () => {
                 description="Try adjusting your search or add a new prospect"
               />
             )}
-          </div>
-        )}
-
-        {/* Closed Deals Section */}
-        {viewMode === 'pipeline' && (
-          <div className="mt-8">
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: colors.primary }}>
-              Closed Deals
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              {/* Won */}
-              <FACard>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ background: `${colors.success}15`, color: colors.success }}
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <span className="font-semibold" style={{ color: colors.success }}>Won</span>
-                  </div>
-                  <span className="text-sm font-bold" style={{ color: colors.success }}>
-                    {getProspectsByStage('Closed Won').length}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {getProspectsByStage('Closed Won').map(p => (
-                    <div
-                      key={p.id}
-                      className="p-3 rounded-lg flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01]"
-                      style={{ background: `${colors.success}08`, border: `1px solid ${colors.success}20` }}
-                      onClick={() => handleConvertClick(p)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-semibold text-sm"
-                          style={{ background: colors.success }}
-                        >
-                          {p.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{p.name}</p>
-                          <p className="text-xs" style={{ color: colors.textTertiary }}>{p.source}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold" style={{ color: colors.success }}>{formatCurrency(p.potentialAum)}</p>
-                        <button
-                          className="text-xs font-semibold underline"
-                          style={{ color: colors.primary }}
-                        >
-                          Convert
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {getProspectsByStage('Closed Won').length === 0 && (
-                    <p className="text-sm text-center py-4" style={{ color: colors.textTertiary }}>
-                      No won deals yet
-                    </p>
-                  )}
-                </div>
-              </FACard>
-
-              {/* Lost */}
-              <FACard>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ background: `${colors.error}15`, color: colors.error }}
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <span className="font-semibold" style={{ color: colors.error }}>Lost</span>
-                  </div>
-                  <span className="text-sm font-bold" style={{ color: colors.error }}>
-                    {getProspectsByStage('Closed Lost').length}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {getProspectsByStage('Closed Lost').map(p => (
-                    <div
-                      key={p.id}
-                      className="p-3 rounded-lg flex items-center justify-between"
-                      style={{ background: `${colors.error}05`, border: `1px solid ${colors.error}15` }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-semibold text-sm opacity-60"
-                          style={{ background: colors.error }}
-                        >
-                          {p.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium" style={{ color: colors.textSecondary }}>{p.name}</p>
-                          <p className="text-xs" style={{ color: colors.textTertiary }}>{p.notes}</p>
-                        </div>
-                      </div>
-                      <p className="text-sm" style={{ color: colors.textTertiary }}>{formatCurrency(p.potentialAum)}</p>
-                    </div>
-                  ))}
-                  {getProspectsByStage('Closed Lost').length === 0 && (
-                    <p className="text-sm text-center py-4" style={{ color: colors.textTertiary }}>
-                      No lost deals
-                    </p>
-                  )}
-                </div>
-              </FACard>
-            </div>
           </div>
         )}
       </div>
