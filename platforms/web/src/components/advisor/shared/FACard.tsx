@@ -43,12 +43,11 @@ export const FACard = ({
 
   return (
     <div
-      className={`rounded-2xl ${paddingClass} ${hoverClass} ${className}`}
+      className={`rounded-lg ${paddingClass} ${hoverClass} ${className}`}
       style={{
         background: colors.cardBackground,
-        backdropFilter: 'blur(20px)',
         border: `1px solid ${colors.cardBorder}`,
-        boxShadow: `0 4px 20px ${colors.glassShadow}`,
+        boxShadow: `0 1px 3px ${colors.glassShadow}`,
         ...style,
       }}
       onClick={onClick}
@@ -85,21 +84,19 @@ export const FATintedCard = ({
     lg: 'p-5',
   }[padding]
 
-  const hoverClass = hover ? 'transition-all hover:-translate-y-0.5 cursor-pointer' : ''
+  const hoverClass = hover ? 'transition-colors cursor-pointer' : ''
 
-  // Use Main Design colors - Blue (59, 130, 246) / Cyan (56, 189, 248)
-  const bgGradient = isDark
-    ? 'linear-gradient(135deg, rgba(147, 197, 253, 0.08) 0%, rgba(125, 211, 252, 0.04) 100%)'
-    : 'linear-gradient(135deg, rgba(59, 130, 246, 0.04) 0%, rgba(56, 189, 248, 0.02) 100%)'
+  const bg = isDark
+    ? 'rgba(147, 197, 253, 0.04)'
+    : 'rgba(59, 130, 246, 0.02)'
 
   return (
     <div
-      className={`rounded-2xl ${hoverClass} ${paddingClass} ${className}`}
+      className={`rounded-lg ${hoverClass} ${paddingClass} ${className}`}
       style={{
-        background: bgGradient,
+        background: bg,
         border: `1px solid ${colors.cardBorder}`,
-        borderLeft: accentColor ? `4px solid ${accentColor}` : `1px solid ${colors.cardBorder}`,
-        boxShadow: `0 4px 20px ${colors.glassShadow}`,
+        borderLeft: accentColor ? `3px solid ${accentColor}` : `1px solid ${colors.cardBorder}`,
         ...style,
       }}
       onClick={onClick}
@@ -151,12 +148,11 @@ export const FAInfoTile = ({
 
   return (
     <div
-      className={`rounded-xl ${paddingClass} ${className}`}
+      className={`rounded-lg ${paddingClass} ${className}`}
       style={{
-        background: `linear-gradient(145deg, ${colors.cardBackground} 0%, ${isDark ? 'rgba(30, 41, 59, 0.5)' : 'rgba(248, 250, 252, 0.5)'} 100%)`,
+        background: colors.cardBackground,
         border: `1px solid ${isDark ? `${accent}20` : `${accent}15`}`,
-        borderLeft: `4px solid ${accent}`,
-        boxShadow: isDark ? 'none' : '0 2px 12px rgba(0,0,0,0.04)',
+        borderLeft: `3px solid ${accent}`,
         ...style,
       }}
     >
@@ -195,13 +191,12 @@ export const FAStatCard = ({
 
   return (
     <div
-      className={`rounded-2xl p-4 ${className}`}
+      className={`rounded-lg p-4 ${className}`}
       style={{
-        background: `linear-gradient(145deg, ${colors.cardBackground} 0%, ${isDark ? colors.backgroundTertiary : colors.backgroundSecondary} 100%)`,
-        backdropFilter: 'blur(20px)',
+        background: colors.cardBackground,
         border: `1px solid ${colors.cardBorder}`,
-        borderLeft: accentColor ? `4px solid ${accentColor}` : `1px solid ${colors.cardBorder}`,
-        boxShadow: `0 4px 20px ${colors.glassShadow}`,
+        borderLeft: accentColor ? `3px solid ${accentColor}` : `1px solid ${colors.cardBorder}`,
+        boxShadow: `0 1px 3px ${colors.glassShadow}`,
       }}
     >
       <div className="flex items-start justify-between">
@@ -331,7 +326,7 @@ export const FAIconContainer = ({
 
   return (
     <div
-      className={`rounded-xl flex items-center justify-center ${sizeClass} ${className}`}
+      className={`rounded-lg flex items-center justify-center ${sizeClass} ${className}`}
       style={{ background: `${iconColor}15` }}
     >
       {children}

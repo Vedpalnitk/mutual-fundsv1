@@ -1037,7 +1037,7 @@ const MLStudioPage = () => {
                     <div className="space-y-3">
                       <div>
                         <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Target Allocation (%)</label>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           {(['equity', 'debt', 'hybrid', 'gold', 'international', 'liquid'] as const).map((key) => (
                             <div key={key}>
                               <label className="block text-xs mb-1 capitalize" style={{ color: colors.textSecondary }}>{key}</label>
@@ -1230,7 +1230,7 @@ const MLStudioPage = () => {
                       {/* Target Allocation */}
                       <div>
                         <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Target Allocation (0-1)</label>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           {(['equity', 'debt', 'hybrid', 'gold', 'international', 'liquid'] as const).map((key) => (
                             <div key={key}>
                               <label className="block text-xs mb-1 capitalize" style={{ color: colors.textSecondary }}>{key}</label>
@@ -1332,7 +1332,7 @@ const MLStudioPage = () => {
                           {optimizeFunds.map((fund, idx) => (
                             <div key={idx} className="p-2.5 rounded-xl" style={{ background: colors.chipBg, border: `1px solid ${colors.chipBorder}` }}>
                               <div className="flex items-start gap-2">
-                                <div className="flex-1 grid grid-cols-3 gap-2">
+                                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
                                   <input
                                     type="number"
                                     placeholder="Code"
@@ -1735,7 +1735,7 @@ const MLStudioPage = () => {
                       {/* Summary */}
                       <div className="p-3 rounded-xl" style={{ background: isDark ? `${colors.warning}10` : `${colors.warning}08`, border: `1px solid ${colors.chipBorder}` }}>
                         <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: colors.warning }}>Summary</p>
-                        <div className="grid grid-cols-3 gap-2 mb-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
                           <div>
                             <p className="text-xs" style={{ color: colors.textTertiary }}>Sell</p>
                             <p className="text-sm font-bold" style={{ color: colors.error }}>₹{portfolioResult.summary.total_sell_amount.toLocaleString()}</p>
@@ -1777,7 +1777,7 @@ const MLStudioPage = () => {
                       {/* Expected Metrics */}
                       <div className="p-4 rounded-xl" style={{ background: isDark ? `${colors.primary}15` : `${colors.primary}08`, border: `1px solid ${colors.chipBorder}` }}>
                         <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>Expected Metrics</span>
-                        <div className="grid grid-cols-3 gap-3 mt-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
                           <div>
                             <p className="text-xs" style={{ color: colors.textTertiary }}>Return</p>
                             <p className="text-lg font-bold" style={{ color: colors.success }}>{(optimizeResult.expected_metrics.expected_return * 100).toFixed(1)}%</p>

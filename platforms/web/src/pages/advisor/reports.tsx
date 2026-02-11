@@ -239,7 +239,7 @@ const ReportsPage = () => {
                 <h2 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: colors.primary }}>
                   Client Details
                 </h2>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs" style={{ color: colors.textTertiary }}>Name</p>
                     <p className="font-medium" style={{ color: colors.textPrimary }}>{generatedReport.client}</p>
@@ -262,7 +262,7 @@ const ReportsPage = () => {
                 <h2 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: colors.primary }}>
                   Summary
                 </h2>
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
                     { label: 'Total Invested', value: formatCurrency(1500000) },
                     { label: 'Current Value', value: formatCurrency(1850000) },
@@ -286,6 +286,7 @@ const ReportsPage = () => {
                 <h2 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: colors.primary }}>
                   Holdings
                 </h2>
+                <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr style={{ background: colors.chipBg }}>
@@ -317,6 +318,7 @@ const ReportsPage = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
 
               {/* Mock Footer */}
@@ -407,8 +409,8 @@ const ReportsPage = () => {
 
         {/* Generate Report Tab */}
         {activeTab === 'generate' && (
-          <div className="grid grid-cols-3 gap-6">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="col-span-1 lg:col-span-2">
               <FACard className="mb-6">
                 <FASectionHeader title="Generate New Report" />
                 <div className="mt-4 grid grid-cols-2 gap-4">
@@ -553,6 +555,7 @@ const ReportsPage = () => {
         {/* Recent Reports Tab */}
         {activeTab === 'recent' && (
           <FACard className="overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr style={{ background: colors.chipBg }}>
@@ -618,6 +621,7 @@ const ReportsPage = () => {
                 ))}
               </tbody>
             </table>
+            </div>
 
             {MOCK_REPORTS.length === 0 && (
               <FAEmptyState
@@ -731,6 +735,7 @@ const ReportsPage = () => {
                 description="Generate a deep analysis from the Analysis page and save it to see it here"
               />
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr style={{ background: colors.chipBg }}>
@@ -810,6 +815,7 @@ const ReportsPage = () => {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </FACard>
         )}

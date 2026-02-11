@@ -512,9 +512,9 @@ const ClientDetailPage = () => {
         {/* Client Header */}
         <FACard padding="lg" className="mb-6">
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-5">
+            <div className="flex items-center gap-4">
               <div
-                className="w-20 h-20 rounded-2xl flex items-center justify-center text-white font-bold text-2xl"
+                className="w-16 h-16 rounded-lg flex items-center justify-center text-white font-bold text-xl"
                 style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)` }}
               >
                 {client.name.split(' ').map(n => n[0]).join('')}
@@ -574,7 +574,7 @@ const ClientDetailPage = () => {
         </FACard>
 
         {/* Portfolio Summary */}
-        <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           <FACard padding="md">
             <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>
               Total Invested
@@ -623,7 +623,7 @@ const ClientDetailPage = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap"
+              className="px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap"
               style={{
                 background: activeTab === tab.id
                   ? `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`
@@ -648,8 +648,8 @@ const ClientDetailPage = () => {
 
         {/* ==================== OVERVIEW TAB ==================== */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-3 gap-6">
-            <div className="col-span-2 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="col-span-1 lg:col-span-2 space-y-6">
               {/* Portfolio Value Chart */}
               {id && typeof id === 'string' && (
                 <FACard padding="md">
@@ -659,10 +659,10 @@ const ClientDetailPage = () => {
               )}
 
               {/* Quick Stats */}
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <FACard padding="md">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${colors.primary}15` }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${colors.primary}15` }}>
                       <svg className="w-5 h-5" style={{ color: colors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                       </svg>
@@ -675,7 +675,7 @@ const ClientDetailPage = () => {
                 </FACard>
                 <FACard padding="md">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${colors.success}15` }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${colors.success}15` }}>
                       <svg className="w-5 h-5" style={{ color: colors.success }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
@@ -688,7 +688,7 @@ const ClientDetailPage = () => {
                 </FACard>
                 <FACard padding="md">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${colors.secondary}15` }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${colors.secondary}15` }}>
                       <svg className="w-5 h-5" style={{ color: colors.secondary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
                       </svg>
@@ -701,7 +701,7 @@ const ClientDetailPage = () => {
                 </FACard>
                 <FACard padding="md">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${colors.warning}15` }}>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${colors.warning}15` }}>
                       <svg className="w-5 h-5" style={{ color: colors.warning }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                       </svg>
@@ -801,7 +801,7 @@ const ClientDetailPage = () => {
                     <button
                       key={action.label}
                       onClick={() => handleQuickAction(action.type)}
-                      className="p-3 rounded-xl text-sm font-medium transition-all flex flex-col items-center gap-2 hover:scale-105 hover:shadow-md cursor-pointer"
+                      className="p-3 rounded-lg text-sm font-medium transition-all flex flex-col items-center gap-2 hover:scale-105 hover:shadow-md cursor-pointer"
                       style={{
                         background: isDark ? 'rgba(147, 197, 253, 0.08)' : 'rgba(59, 130, 246, 0.04)',
                         border: `1px solid ${colors.cardBorder}`,
@@ -845,7 +845,7 @@ const ClientDetailPage = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div
-                          className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold"
+                          className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-semibold"
                           style={{ background: `linear-gradient(135deg, ${member.relationship === 'SELF' ? colors.primary : colors.secondary} 0%, ${member.relationship === 'SELF' ? colors.primaryDark : colors.secondaryDark} 100%)` }}
                         >
                           {member.name.split(' ').map(n => n[0]).join('')}
@@ -907,7 +907,7 @@ const ClientDetailPage = () => {
                   <button
                     key={cat}
                     onClick={() => setHoldingCategory(cat)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
                     style={{
                       background: holdingCategory === cat
                         ? `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`
@@ -922,7 +922,7 @@ const ClientDetailPage = () => {
               <select
                 value={holdingSort}
                 onChange={(e) => setHoldingSort(e.target.value as HoldingSort)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium focus:outline-none"
+                className="px-3 py-1.5 rounded-md text-xs font-medium focus:outline-none"
                 style={{
                   background: colors.inputBg,
                   border: `1px solid ${colors.inputBorder}`,
@@ -947,33 +947,41 @@ const ClientDetailPage = () => {
                 description={holdingCategory !== 'All' ? `No ${holdingCategory} holdings found` : 'No portfolio holdings yet'}
               />
             ) : (
-              <div className="space-y-3">
-                {filteredHoldings.map((holding) => (
-                  <FATintedCard key={holding.id} padding="sm" accentColor={getAssetClassColor(holding.assetClass, colors)}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-base font-semibold" style={{ color: colors.textPrimary }}>{holding.fundName}</p>
-                          <FAChip size="xs">{holding.assetClass}</FAChip>
-                          {holding.fundCategory && (
-                            <FAChip size="xs" color={colors.textTertiary}>{holding.fundCategory}</FAChip>
-                          )}
-                        </div>
-                        <p className="text-xs mt-1" style={{ color: colors.textTertiary }}>
-                          {holding.units.toFixed(2)} units @ {formatCurrency(holding.currentNav)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-base font-bold" style={{ color: colors.textPrimary }}>
-                          {formatCurrency(holding.currentValue)}
-                        </p>
-                        <p className="text-sm" style={{ color: holding.absoluteGainPercent >= 0 ? colors.success : colors.error }}>
-                          {holding.absoluteGainPercent >= 0 ? '+' : ''}{holding.absoluteGainPercent.toFixed(1)}% ({formatCurrencyCompact(holding.absoluteGain)})
-                        </p>
-                      </div>
-                    </div>
-                  </FATintedCard>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                      <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Fund Name</th>
+                      <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Category</th>
+                      <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Units</th>
+                      <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>NAV</th>
+                      <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Current Value</th>
+                      <th className="text-right py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Returns</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredHoldings.map((holding) => (
+                      <tr key={holding.id} style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                        <td className="py-3 pr-4">
+                          <div>
+                            <p className="font-medium" style={{ color: colors.textPrimary }}>{holding.fundName}</p>
+                            {holding.fundCategory && <p className="text-xs mt-0.5" style={{ color: colors.textTertiary }}>{holding.fundCategory}</p>}
+                          </div>
+                        </td>
+                        <td className="py-3 pr-4"><FAChip size="xs">{holding.assetClass}</FAChip></td>
+                        <td className="py-3 pr-4 text-right" style={{ color: colors.textSecondary }}>{holding.units.toFixed(2)}</td>
+                        <td className="py-3 pr-4 text-right" style={{ color: colors.textSecondary }}>{formatCurrency(holding.currentNav)}</td>
+                        <td className="py-3 pr-4 text-right font-medium" style={{ color: colors.textPrimary }}>{formatCurrency(holding.currentValue)}</td>
+                        <td className="py-3 text-right">
+                          <span className="font-medium" style={{ color: holding.absoluteGainPercent >= 0 ? colors.success : colors.error }}>
+                            {holding.absoluteGainPercent >= 0 ? '+' : ''}{holding.absoluteGainPercent.toFixed(1)}%
+                          </span>
+                          <p className="text-xs" style={{ color: colors.textTertiary }}>{formatCurrencyCompact(holding.absoluteGain)}</p>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </FACard>
@@ -992,7 +1000,7 @@ const ClientDetailPage = () => {
                     <button
                       key={type}
                       onClick={() => setTxnTypeFilter(type)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
                       style={{
                         background: txnTypeFilter === type
                           ? `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`
@@ -1011,7 +1019,7 @@ const ClientDetailPage = () => {
                     <button
                       key={status}
                       onClick={() => setTxnStatusFilter(status)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
                       style={{
                         background: txnStatusFilter === status
                           ? `${status === 'Completed' ? colors.success : status === 'Failed' ? colors.error : status === 'Pending' ? colors.warning : colors.primary}20`
@@ -1029,7 +1037,7 @@ const ClientDetailPage = () => {
                 <select
                   value={txnSort}
                   onChange={(e) => setTxnSort(e.target.value as TxnSort)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium focus:outline-none"
+                  className="px-3 py-1.5 rounded-md text-xs font-medium focus:outline-none"
                   style={{
                     background: colors.inputBg,
                     border: `1px solid ${colors.inputBorder}`,
@@ -1055,58 +1063,65 @@ const ClientDetailPage = () => {
                 description="No transactions match the selected filters"
               />
             ) : (
-              <div className="space-y-2">
-                {filteredTransactions.map((txn) => (
-                  <FATintedCard key={txn.id} padding="sm" accentColor={getTransactionTypeColor(txn.type, colors)}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center"
-                          style={{ background: `${getTransactionTypeColor(txn.type, colors)}15` }}
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            style={{ color: getTransactionTypeColor(txn.type, colors) }}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                          >
-                            {txn.type === 'Buy' || txn.type === 'SIP' ? (
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                            ) : txn.type === 'Sell' ? (
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
-                            ) : (
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                            )}
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-base font-semibold" style={{ color: colors.textPrimary }}>{txn.fundName}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs" style={{ color: colors.textTertiary }}>
-                              {txn.type} • {formatDate(txn.date)}
-                            </span>
-                            <FAChip
-                              size="xs"
-                              color={txn.status === 'Completed' ? colors.success : txn.status === 'Failed' ? colors.error : colors.warning}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                      <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Type</th>
+                      <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Fund Name</th>
+                      <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Date</th>
+                      <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Amount</th>
+                      <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Units</th>
+                      <th className="text-left py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTransactions.map((txn) => (
+                      <tr key={txn.id} style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                        <td className="py-3 pr-4">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
+                              style={{ background: `${getTransactionTypeColor(txn.type, colors)}15` }}
                             >
-                              {txn.status}
-                            </FAChip>
+                              <svg
+                                className="w-3.5 h-3.5"
+                                style={{ color: getTransactionTypeColor(txn.type, colors) }}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                              >
+                                {txn.type === 'Buy' || txn.type === 'SIP' ? (
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                ) : txn.type === 'Sell' ? (
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                                ) : (
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                )}
+                              </svg>
+                            </div>
+                            <span className="font-medium" style={{ color: getTransactionTypeColor(txn.type, colors) }}>{txn.type}</span>
                           </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-base font-bold" style={{ color: colors.textPrimary }}>
-                          {formatCurrency(txn.amount)}
-                        </p>
-                        <p className="text-sm" style={{ color: colors.textTertiary }}>
-                          {txn.units.toFixed(2)} units
-                        </p>
-                      </div>
-                    </div>
-                  </FATintedCard>
-                ))}
+                        </td>
+                        <td className="py-3 pr-4">
+                          <p className="font-medium" style={{ color: colors.textPrimary }}>{txn.fundName}</p>
+                        </td>
+                        <td className="py-3 pr-4" style={{ color: colors.textSecondary }}>{formatDate(txn.date)}</td>
+                        <td className="py-3 pr-4 text-right font-medium" style={{ color: colors.textPrimary }}>{formatCurrency(txn.amount)}</td>
+                        <td className="py-3 pr-4 text-right" style={{ color: colors.textSecondary }}>{txn.units.toFixed(2)}</td>
+                        <td className="py-3">
+                          <FAChip
+                            size="xs"
+                            color={txn.status === 'Completed' ? colors.success : txn.status === 'Failed' ? colors.error : colors.warning}
+                          >
+                            {txn.status}
+                          </FAChip>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </FACard>
@@ -1300,7 +1315,7 @@ const ClientDetailPage = () => {
                 <select
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value)}
-                  className="w-full h-10 px-4 rounded-xl text-sm transition-all focus:outline-none"
+                  className="w-full h-10 px-4 rounded-lg text-sm transition-all focus:outline-none"
                   style={{
                     background: colors.inputBg,
                     border: `1px solid ${colors.inputBorder}`,
@@ -1325,7 +1340,7 @@ const ClientDetailPage = () => {
                     type="date"
                     value={reportDateFrom}
                     onChange={(e) => setReportDateFrom(e.target.value)}
-                    className="w-full h-10 px-4 rounded-xl text-sm transition-all focus:outline-none"
+                    className="w-full h-10 px-4 rounded-lg text-sm transition-all focus:outline-none"
                     style={{
                       background: colors.inputBg,
                       border: `1px solid ${colors.inputBorder}`,
@@ -1341,7 +1356,7 @@ const ClientDetailPage = () => {
                     type="date"
                     value={reportDateTo}
                     onChange={(e) => setReportDateTo(e.target.value)}
-                    className="w-full h-10 px-4 rounded-xl text-sm transition-all focus:outline-none"
+                    className="w-full h-10 px-4 rounded-lg text-sm transition-all focus:outline-none"
                     style={{
                       background: colors.inputBg,
                       border: `1px solid ${colors.inputBorder}`,

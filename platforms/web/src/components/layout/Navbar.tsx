@@ -75,7 +75,7 @@ const Navbar = ({ mode = 'user' }: NavbarProps) => {
         { label: 'Clients', href: '/advisor/clients' },
         { label: 'Prospects', href: '/advisor/prospects' },
         { label: 'Transactions', href: '/advisor/transactions' },
-        { label: 'Analysis', href: '/advisor/analysis' },
+        { label: 'Deep Analysis', href: '/advisor/analysis' },
         { label: 'Reports', href: '/advisor/reports' },
         { label: 'Funds', href: '/advisor/funds' },
       ]

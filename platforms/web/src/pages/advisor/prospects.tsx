@@ -332,7 +332,7 @@ const ProspectsPage = () => {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <FAStatCard label="Active Prospects" value={stats.activeCount} change="In pipeline" accentColor={colors.primary} />
           <FAStatCard label="Pipeline Value" value={formatCurrency(stats.pipelineValue)} change="Potential AUM" accentColor={colors.secondary || colors.primaryDark} />
           <FAStatCard label="Won" value={stats.wonCount} change={formatCurrency(stats.wonValue)} accentColor={colors.success} />
@@ -405,7 +405,7 @@ const ProspectsPage = () => {
           <>
             {/* Pipeline Board — single outline card */}
             <div
-              className="rounded-2xl overflow-hidden mb-6"
+              className="rounded-2xl overflow-x-auto mb-6"
               style={{
                 background: colors.cardBackground,
                 border: `1px solid ${colors.cardBorder}`,
@@ -413,7 +413,7 @@ const ProspectsPage = () => {
               }}
             >
               {/* Stage Header Row */}
-              <div className="grid grid-cols-4" style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+              <div className="grid grid-cols-4 min-w-[640px]" style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
                 {ACTIVE_STAGES.map((stage, idx) => {
                   const stageProspects = getProspectsByStage(stage)
                   const stageColor = getStageColor(stage, colors)
@@ -446,7 +446,7 @@ const ProspectsPage = () => {
 
               {/* Cards Grid */}
               <div
-                className="grid grid-cols-4"
+                className="grid grid-cols-4 min-w-[640px]"
                 style={{ background: isDark ? colors.backgroundSecondary : colors.backgroundTertiary }}
               >
                 {ACTIVE_STAGES.map((stage, idx) => {
@@ -490,6 +490,7 @@ const ProspectsPage = () => {
                     {getProspectsByStage('Closed Won').length + getProspectsByStage('Closed Lost').length} total
                   </span>
                 </div>
+                <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
@@ -558,6 +559,7 @@ const ProspectsPage = () => {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
           </>
@@ -586,6 +588,7 @@ const ProspectsPage = () => {
                 />
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
@@ -717,6 +720,7 @@ const ProspectsPage = () => {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         )}

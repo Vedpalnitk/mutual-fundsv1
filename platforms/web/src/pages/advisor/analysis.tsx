@@ -207,7 +207,7 @@ const RebalancingSection = ({ data, colors, isDark }: { data: RebalancingRoadmap
   return (
     <div className="space-y-4">
       {/* Summary Stat Cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="p-3 rounded-xl" style={{ background: `${alignColor}08`, border: `1px solid ${alignColor}20` }}>
           <p className="text-xs" style={{ color: colors.textSecondary }}>Alignment</p>
           <p className="text-xl font-bold" style={{ color: alignColor }}>{(data.alignmentScore * 100).toFixed(0)}%</p>

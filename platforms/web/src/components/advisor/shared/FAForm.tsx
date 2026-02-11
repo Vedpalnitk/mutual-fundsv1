@@ -65,7 +65,7 @@ export const FAInput = ({
         </FALabel>
       )}
       <input
-        className={`w-full h-10 px-4 rounded-xl text-sm transition-all focus:outline-none focus:ring-2 ${className}`}
+        className={`w-full h-10 px-4 rounded-lg text-sm transition-all focus:outline-none focus:ring-2 ${className}`}
         style={{
           background: isDark ? colors.inputBg : '#FFFFFF',
           border: `1px solid ${error ? colors.error : colors.inputBorder}`,
@@ -119,7 +119,7 @@ export const FATextarea = ({
       )}
       <textarea
         rows={rows}
-        className={`w-full px-4 py-3 rounded-xl text-sm transition-all focus:outline-none focus:ring-2 resize-none ${className}`}
+        className={`w-full px-4 py-3 rounded-lg text-sm transition-all focus:outline-none focus:ring-2 resize-none ${className}`}
         style={{
           background: isDark ? colors.inputBg : '#FFFFFF',
           border: `1px solid ${error ? colors.error : colors.inputBorder}`,
@@ -173,7 +173,7 @@ export const FASelect = ({
         </FALabel>
       )}
       <select
-        className={`w-full h-10 px-4 rounded-xl text-sm transition-all focus:outline-none focus:ring-2 appearance-none ${className}`}
+        className={`w-full h-10 px-4 rounded-lg text-sm transition-all focus:outline-none focus:ring-2 appearance-none ${className}`}
         style={{
           backgroundColor: isDark ? colors.inputBg : '#FFFFFF',
           border: `1px solid ${error ? colors.error : colors.inputBorder}`,
@@ -478,7 +478,7 @@ export const FASearchInput = ({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full pl-10 pr-4 h-10 rounded-xl text-sm transition-all focus:outline-none focus:ring-2"
+        className="w-full pl-10 pr-4 h-10 rounded-lg text-sm transition-all focus:outline-none focus:ring-2"
         style={{
           background: isDark ? colors.inputBg : '#FFFFFF',
           border: `1px solid ${colors.inputBorder}`,

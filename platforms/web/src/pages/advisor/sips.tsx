@@ -378,7 +378,7 @@ const SIPsDashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           <FAStatCard
             label="Active SIPs"
             value={activeSIPs.length.toString()}
@@ -466,13 +466,14 @@ const SIPsDashboard = () => {
           </div>
         </FACard>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content - List or Calendar */}
-          <div className="col-span-2">
+          <div className="col-span-1 lg:col-span-2">
             {loading ? (
               <FALoadingState message="Loading SIPs..." />
             ) : viewMode === 'list' ? (
               <FACard>
+                <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr style={{ background: colors.chipBg }}>
@@ -617,6 +618,7 @@ const SIPsDashboard = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
 
                 {filteredSIPs.length === 0 && (
                   <FAEmptyState

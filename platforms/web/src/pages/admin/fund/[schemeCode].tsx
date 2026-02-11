@@ -174,7 +174,7 @@ export default function AdminFundDetailsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content (2/3) */}
           <div className="col-span-2 space-y-6">
             {/* NAV Performance Chart */}
@@ -208,7 +208,7 @@ export default function AdminFundDetailsPage() {
               <h2 className="text-lg font-semibold mb-4" style={{ color: colors.textPrimary }}>
                 Returns
               </h2>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: '1 Day', value: fund.dayChangePercent, suffix: '%' },
                   { label: '1 Year', value: fund.return1Y, suffix: '%' },

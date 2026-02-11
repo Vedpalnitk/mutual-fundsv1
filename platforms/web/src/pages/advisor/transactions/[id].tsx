@@ -268,9 +268,9 @@ const TransactionDetailPage = () => {
           </div>
         </FACard>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
-          <div className="col-span-2 space-y-6">
+          <div className="col-span-1 lg:col-span-2 space-y-6">
             {/* Fund Details */}
             <FACard padding="md">
               <FASectionHeader title="Fund Details" />

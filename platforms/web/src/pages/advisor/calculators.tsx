@@ -645,7 +645,7 @@ const CalculatorsPage = () => {
   const renderRetirement = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div className="space-y-5">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <SliderInput
             label="Current Age"
             value={retCurrentAge}
@@ -701,7 +701,7 @@ const CalculatorsPage = () => {
           colors={colors}
           isDark={isDark}
         />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <SliderInput
             label="Inflation"
             value={retInflation}
@@ -788,7 +788,7 @@ const CalculatorsPage = () => {
         </div>
 
         {/* Calculator Selector */}
-        <div className="grid grid-cols-5 gap-3 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
           {CALCULATORS.map(calc => (
             <button
               key={calc.id}
@@ -850,7 +850,7 @@ const CalculatorsPage = () => {
         </FACard>
 
         {/* Tips Section */}
-        <div className="grid grid-cols-3 gap-4 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
           {[
             {
               icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',

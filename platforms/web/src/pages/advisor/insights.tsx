@@ -20,6 +20,7 @@ import {
   FAStatCard,
   FAEmptyState,
 } from '@/components/advisor/shared'
+import DeepAnalysisPanel from '@/components/advisor/DeepAnalysisPanel'
 
 type InsightTab = 'health' | 'rebalancing' | 'goals' | 'tax'
 type SortDirection = 'asc' | 'desc'
@@ -84,6 +85,22 @@ const InsightsPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [insights, setInsights] = useState<AdvisorInsights | null>(null)
+
+  // Tier 2: expanded client rows for deep analysis
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set())
+
+  const toggleExpanded = (clientId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setExpandedClients(prev => {
+      const next = new Set(prev)
+      if (next.has(clientId)) {
+        next.delete(clientId)
+      } else {
+        next.add(clientId)
+      }
+      return next
+    })
+  }
 
   // Search
   const [searchInput, setSearchInput] = useState('')
@@ -261,6 +278,19 @@ const InsightsPage = () => {
     )
   }
 
+  const theadStyle = {
+    background: isDark
+      ? 'linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)'
+      : 'linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)',
+    borderBottom: `1px solid ${colors.cardBorder}`,
+  }
+
+  const thClass = 'text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th'
+  const rowHover = {
+    onMouseEnter: (e: React.MouseEvent<HTMLTableRowElement>) => e.currentTarget.style.background = isDark ? 'rgba(147,197,253,0.04)' : 'rgba(59,130,246,0.02)',
+    onMouseLeave: (e: React.MouseEvent<HTMLTableRowElement>) => e.currentTarget.style.background = 'transparent',
+  }
+
   const selectStyle = (isActive: boolean) => ({
     background: colors.inputBg,
     border: `1px solid ${isActive ? colors.primary : colors.inputBorder}`,
@@ -301,7 +331,7 @@ const InsightsPage = () => {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <FAStatCard
             label="Avg Health Score"
             value={avgHealthScore.toString()}
@@ -360,99 +390,99 @@ const InsightsPage = () => {
 
         {/* Filter Bar */}
         <FACard className="mb-4">
-          <div className="flex items-center gap-3">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-                style={{ color: colors.textTertiary }}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder={activeTab === 'tax' ? 'Search client or fund...' : activeTab === 'goals' ? 'Search client or goal...' : 'Search client...'}
-                value={searchInput}
-                onChange={e => handleSearchChange(e.target.value)}
-                className="w-full h-9 pl-9 pr-3 rounded-lg text-sm focus:outline-none"
-                style={{
-                  background: colors.inputBg,
-                  border: `1px solid ${colors.inputBorder}`,
-                  color: colors.textPrimary,
-                }}
-              />
-            </div>
-
-            <div className="w-px h-6" style={{ background: colors.cardBorder }} />
-
-            {/* Tab-specific filter */}
-            {activeTab === 'health' && (
-              <select
-                value={healthFilter}
-                onChange={e => setHealthFilter(e.target.value)}
-                className="h-9 px-3 rounded-lg text-sm focus:outline-none cursor-pointer"
-                style={selectStyle(healthFilter !== 'All')}
-              >
-                <option value="All">All Status</option>
-                <option value="healthy">Healthy</option>
-                <option value="needs_attention">Needs Attention</option>
-                <option value="critical">Critical</option>
-              </select>
-            )}
-            {activeTab === 'rebalancing' && (
-              <select
-                value={rebalanceFilter}
-                onChange={e => setRebalanceFilter(e.target.value)}
-                className="h-9 px-3 rounded-lg text-sm focus:outline-none cursor-pointer"
-                style={selectStyle(rebalanceFilter !== 'All')}
-              >
-                <option value="All">All Actions</option>
-                <option value="increase">Increase</option>
-                <option value="decrease">Decrease</option>
-              </select>
-            )}
-            {activeTab === 'goals' && (
-              <select
-                value={goalFilter}
-                onChange={e => setGoalFilter(e.target.value)}
-                className="h-9 px-3 rounded-lg text-sm focus:outline-none cursor-pointer"
-                style={selectStyle(goalFilter !== 'All')}
-              >
-                <option value="All">All Status</option>
-                <option value="ON_TRACK">On Track</option>
-                <option value="AT_RISK">At Risk</option>
-                <option value="OFF_TRACK">Off Track</option>
-              </select>
-            )}
-            {activeTab === 'tax' && (
-              <select
-                value={taxFilter}
-                onChange={e => setTaxFilter(e.target.value)}
-                className="h-9 px-3 rounded-lg text-sm focus:outline-none cursor-pointer"
-                style={selectStyle(taxFilter !== 'All')}
-              >
-                <option value="All">All Holdings</option>
-                <option value="short_term">Short Term</option>
-                <option value="long_term">Long Term</option>
-              </select>
-            )}
-
-            {/* Clear */}
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="h-9 px-3 rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
-                style={{ color: colors.primary, background: colors.chipBg }}
-              >
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            <div className="flex items-center gap-3">
+              {/* Search */}
+              <div className="flex-1 relative">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+                  style={{ color: colors.textTertiary }}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                Clear
-              </button>
-            )}
-          </div>
-        </FACard>
+                <input
+                  type="text"
+                  placeholder={activeTab === 'tax' ? 'Search client or fund...' : activeTab === 'goals' ? 'Search client or goal...' : 'Search client...'}
+                  value={searchInput}
+                  onChange={e => handleSearchChange(e.target.value)}
+                  className="w-full h-9 pl-9 pr-3 rounded-lg text-sm focus:outline-none"
+                  style={{
+                    background: colors.inputBg,
+                    border: `1px solid ${colors.inputBorder}`,
+                    color: colors.textPrimary,
+                  }}
+                />
+              </div>
+
+              <div className="w-px h-6" style={{ background: colors.cardBorder }} />
+
+              {/* Tab-specific filter */}
+              {activeTab === 'health' && (
+                <select
+                  value={healthFilter}
+                  onChange={e => setHealthFilter(e.target.value)}
+                  className="h-9 px-3 rounded-lg text-sm focus:outline-none cursor-pointer"
+                  style={selectStyle(healthFilter !== 'All')}
+                >
+                  <option value="All">All Status</option>
+                  <option value="healthy">Healthy</option>
+                  <option value="needs_attention">Needs Attention</option>
+                  <option value="critical">Critical</option>
+                </select>
+              )}
+              {activeTab === 'rebalancing' && (
+                <select
+                  value={rebalanceFilter}
+                  onChange={e => setRebalanceFilter(e.target.value)}
+                  className="h-9 px-3 rounded-lg text-sm focus:outline-none cursor-pointer"
+                  style={selectStyle(rebalanceFilter !== 'All')}
+                >
+                  <option value="All">All Actions</option>
+                  <option value="increase">Increase</option>
+                  <option value="decrease">Decrease</option>
+                </select>
+              )}
+              {activeTab === 'goals' && (
+                <select
+                  value={goalFilter}
+                  onChange={e => setGoalFilter(e.target.value)}
+                  className="h-9 px-3 rounded-lg text-sm focus:outline-none cursor-pointer"
+                  style={selectStyle(goalFilter !== 'All')}
+                >
+                  <option value="All">All Status</option>
+                  <option value="ON_TRACK">On Track</option>
+                  <option value="AT_RISK">At Risk</option>
+                  <option value="OFF_TRACK">Off Track</option>
+                </select>
+              )}
+              {activeTab === 'tax' && (
+                <select
+                  value={taxFilter}
+                  onChange={e => setTaxFilter(e.target.value)}
+                  className="h-9 px-3 rounded-lg text-sm focus:outline-none cursor-pointer"
+                  style={selectStyle(taxFilter !== 'All')}
+                >
+                  <option value="All">All Holdings</option>
+                  <option value="short_term">Short Term</option>
+                  <option value="long_term">Long Term</option>
+                </select>
+              )}
+
+              {/* Clear */}
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="h-9 px-3 rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
+                  style={{ color: colors.primary, background: colors.chipBg }}
+                >
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Clear
+                </button>
+              )}
+            </div>
+          </FACard>
 
         {/* ========== PORTFOLIO HEALTH ========== */}
         {activeTab === 'health' && (
@@ -466,26 +496,20 @@ const InsightsPage = () => {
                 />
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr
-                    style={{
-                      background: isDark
-                        ? 'linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)'
-                        : 'linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)',
-                      borderBottom: `1px solid ${colors.cardBorder}`,
-                    }}
-                  >
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('client')}>
+                  <tr style={theadStyle}>
+                    <th className={`text-left px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('client')}>
                       Client{sortIcon('client')}
                     </th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider w-28 cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('score')}>
+                    <th className={`text-center px-4 py-3 w-28 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('score')}>
                       Score{sortIcon('score')}
                     </th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('status')}>
+                    <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('status')}>
                       Status{sortIcon('status')}
                     </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('aum')}>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('aum')}>
                       AUM{sortIcon('aum')}
                     </th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Issues</th>
@@ -495,19 +519,31 @@ const InsightsPage = () => {
                 <tbody>
                   {filteredHealth.map((item) => {
                     const statusColor = getHealthColor(item.status, colors)
-                    return (
+                    const isExpanded = expandedClients.has(item.clientId)
+                    return [
                       <tr
                         key={item.clientId}
-                        onClick={() => router.push(`/advisor/clients/${item.clientId}`)}
                         className="transition-colors cursor-pointer"
-                        style={{ borderBottom: `1px solid ${colors.cardBorder}` }}
-                        onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(147,197,253,0.04)' : 'rgba(59,130,246,0.02)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        style={{
+                          borderBottom: isExpanded ? 'none' : `1px solid ${colors.cardBorder}`,
+                          background: isExpanded ? (isDark ? 'rgba(147,197,253,0.04)' : 'rgba(59,130,246,0.02)') : 'transparent',
+                        }}
+                        onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = isDark ? 'rgba(147,197,253,0.04)' : 'rgba(59,130,246,0.02)' }}
+                        onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent' }}
                       >
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{item.clientName}</p>
+                        <td className="px-4 py-3" onClick={(e) => toggleExpanded(item.clientId, e)}>
+                          <div className="flex items-center gap-2">
+                            <svg
+                              className="w-3.5 h-3.5 transition-transform flex-shrink-0"
+                              style={{ color: colors.textTertiary, transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                            <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{item.clientName}</p>
+                          </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={(e) => toggleExpanded(item.clientId, e)}>
                           <div className="flex items-center gap-2 justify-center">
                             <div className="w-12 h-1.5 rounded-full overflow-hidden" style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }}>
                               <div
@@ -518,7 +554,7 @@ const InsightsPage = () => {
                             <span className="text-sm font-semibold" style={{ color: statusColor }}>{item.score}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-3 text-center" onClick={(e) => toggleExpanded(item.clientId, e)}>
                           <span
                             className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded"
                             style={{ background: `${statusColor}15`, color: statusColor }}
@@ -527,10 +563,10 @@ const InsightsPage = () => {
                             {getHealthLabel(item.status)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right text-sm font-medium" style={{ color: colors.textPrimary }}>
+                        <td className="px-4 py-3 text-right text-sm font-medium" style={{ color: colors.textPrimary }} onClick={(e) => toggleExpanded(item.clientId, e)}>
                           {formatCurrencyCompact(item.aum)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3" onClick={(e) => toggleExpanded(item.clientId, e)}>
                           {item.issues.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {item.issues.map((issue, i) => (
@@ -544,15 +580,32 @@ const InsightsPage = () => {
                           )}
                         </td>
                         <td className="px-2 py-3">
-                          <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                          </svg>
+                          <button
+                            onClick={() => router.push(`/advisor/clients/${item.clientId}`)}
+                            className="p-1 rounded-lg transition-colors"
+                            style={{ color: colors.textTertiary }}
+                            title="View client"
+                            onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+                            onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                            </svg>
+                          </button>
                         </td>
-                      </tr>
-                    )
+                      </tr>,
+                      isExpanded && (
+                        <DeepAnalysisPanel
+                          key={`deep-${item.clientId}`}
+                          clientId={item.clientId}
+                          clientName={item.clientName}
+                        />
+                      ),
+                    ]
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </FACard>
         )}
@@ -569,37 +622,17 @@ const InsightsPage = () => {
                 />
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr
-                    style={{
-                      background: isDark
-                        ? 'linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)'
-                        : 'linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)',
-                      borderBottom: `1px solid ${colors.cardBorder}`,
-                    }}
-                  >
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('client')}>
-                      Client{sortIcon('client')}
-                    </th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('assetClass')}>
-                      Asset Class{sortIcon('assetClass')}
-                    </th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('action')}>
-                      Action{sortIcon('action')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('current')}>
-                      Current{sortIcon('current')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('target')}>
-                      Target{sortIcon('target')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('drift')}>
-                      Drift{sortIcon('drift')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('amount')}>
-                      Amount{sortIcon('amount')}
-                    </th>
+                  <tr style={theadStyle}>
+                    <th className={`text-left px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('client')}>Client{sortIcon('client')}</th>
+                    <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('assetClass')}>Asset Class{sortIcon('assetClass')}</th>
+                    <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('action')}>Action{sortIcon('action')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('current')}>Current{sortIcon('current')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('target')}>Target{sortIcon('target')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('drift')}>Drift{sortIcon('drift')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('amount')}>Amount{sortIcon('amount')}</th>
                     <th className="w-8 px-2"></th>
                   </tr>
                 </thead>
@@ -612,42 +645,28 @@ const InsightsPage = () => {
                         onClick={() => router.push(`/advisor/clients/${alert.clientId}`)}
                         className="transition-colors cursor-pointer"
                         style={{ borderBottom: `1px solid ${colors.cardBorder}` }}
-                        onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(147,197,253,0.04)' : 'rgba(59,130,246,0.02)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        {...rowHover}
                       >
                         <td className="px-4 py-3">
                           <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{alert.clientName}</p>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: colors.chipBg, color: colors.textPrimary }}>
-                            {alert.assetClass}
-                          </span>
+                          <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: colors.chipBg, color: colors.textPrimary }}>{alert.assetClass}</span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span
-                            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded"
-                            style={{ background: `${actionColor}15`, color: actionColor }}
-                          >
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded" style={{ background: `${actionColor}15`, color: actionColor }}>
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d={alert.action === 'decrease' ? 'M19 14l-7 7m0 0l-7-7m7 7V3' : 'M5 10l7-7m0 0l7 7m-7-7v18'} />
                             </svg>
                             {alert.action === 'decrease' ? 'Reduce' : 'Increase'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right text-sm font-medium" style={{ color: colors.textPrimary }}>
-                          {alert.currentAllocation.toFixed(1)}%
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>
-                          {alert.targetAllocation.toFixed(1)}%
-                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-medium" style={{ color: colors.textPrimary }}>{alert.currentAllocation.toFixed(1)}%</td>
+                        <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>{alert.targetAllocation.toFixed(1)}%</td>
                         <td className="px-4 py-3 text-right">
-                          <span className="text-sm font-semibold" style={{ color: actionColor }}>
-                            {Math.abs(alert.deviation).toFixed(1)}%
-                          </span>
+                          <span className="text-sm font-semibold" style={{ color: actionColor }}>{Math.abs(alert.deviation).toFixed(1)}%</span>
                         </td>
-                        <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>
-                          {formatCurrencyCompact(alert.amount)}
-                        </td>
+                        <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>{formatCurrencyCompact(alert.amount)}</td>
                         <td className="px-2 py-3">
                           <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -658,6 +677,7 @@ const InsightsPage = () => {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </FACard>
         )}
@@ -674,37 +694,17 @@ const InsightsPage = () => {
                 />
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr
-                    style={{
-                      background: isDark
-                        ? 'linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)'
-                        : 'linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)',
-                      borderBottom: `1px solid ${colors.cardBorder}`,
-                    }}
-                  >
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('goal')}>
-                      Goal{sortIcon('goal')}
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('client')}>
-                      Client{sortIcon('client')}
-                    </th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('status')}>
-                      Status{sortIcon('status')}
-                    </th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider w-40 cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('progress')}>
-                      Progress{sortIcon('progress')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('current')}>
-                      Current{sortIcon('current')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('target')}>
-                      Target{sortIcon('target')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('daysLeft')}>
-                      Days Left{sortIcon('daysLeft')}
-                    </th>
+                  <tr style={theadStyle}>
+                    <th className={`text-left px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('goal')}>Goal{sortIcon('goal')}</th>
+                    <th className={`text-left px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('client')}>Client{sortIcon('client')}</th>
+                    <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('status')}>Status{sortIcon('status')}</th>
+                    <th className={`text-center px-4 py-3 w-40 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('progress')}>Progress{sortIcon('progress')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('current')}>Current{sortIcon('current')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('target')}>Target{sortIcon('target')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('daysLeft')}>Days Left{sortIcon('daysLeft')}</th>
                     <th className="w-8 px-2"></th>
                   </tr>
                 </thead>
@@ -717,20 +717,12 @@ const InsightsPage = () => {
                         onClick={() => router.push(`/advisor/clients/${goal.clientId}`)}
                         className="transition-colors cursor-pointer"
                         style={{ borderBottom: `1px solid ${colors.cardBorder}` }}
-                        onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(147,197,253,0.04)' : 'rgba(59,130,246,0.02)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        {...rowHover}
                       >
-                        <td className="px-4 py-3">
-                          <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{goal.goalName}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm" style={{ color: colors.textSecondary }}>{goal.clientName}</p>
-                        </td>
+                        <td className="px-4 py-3"><p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{goal.goalName}</p></td>
+                        <td className="px-4 py-3"><p className="text-sm" style={{ color: colors.textSecondary }}>{goal.clientName}</p></td>
                         <td className="px-4 py-3 text-center">
-                          <span
-                            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded"
-                            style={{ background: `${statusColor}15`, color: statusColor }}
-                          >
+                          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded" style={{ background: `${statusColor}15`, color: statusColor }}>
                             <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor }} />
                             {getGoalStatusLabel(goal.status)}
                           </span>
@@ -738,28 +730,14 @@ const InsightsPage = () => {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }}>
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${Math.min(goal.progress, 100)}%`,
-                                  background: statusColor,
-                                }}
-                              />
+                              <div className="h-full rounded-full" style={{ width: `${Math.min(goal.progress, 100)}%`, background: statusColor }} />
                             </div>
-                            <span className="text-xs font-medium w-8 text-right" style={{ color: statusColor }}>
-                              {goal.progress.toFixed(0)}%
-                            </span>
+                            <span className="text-xs font-medium w-8 text-right" style={{ color: statusColor }}>{goal.progress.toFixed(0)}%</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-right text-sm font-medium" style={{ color: colors.textPrimary }}>
-                          {formatCurrencyCompact(goal.currentAmount)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>
-                          {formatCurrencyCompact(goal.targetAmount)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>
-                          {goal.daysRemaining}
-                        </td>
+                        <td className="px-4 py-3 text-right text-sm font-medium" style={{ color: colors.textPrimary }}>{formatCurrencyCompact(goal.currentAmount)}</td>
+                        <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>{formatCurrencyCompact(goal.targetAmount)}</td>
+                        <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>{goal.daysRemaining}</td>
                         <td className="px-2 py-3">
                           <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -770,6 +748,7 @@ const InsightsPage = () => {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </FACard>
         )}
@@ -786,37 +765,17 @@ const InsightsPage = () => {
                 />
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr
-                    style={{
-                      background: isDark
-                        ? 'linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)'
-                        : 'linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)',
-                      borderBottom: `1px solid ${colors.cardBorder}`,
-                    }}
-                  >
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('fund')}>
-                      Fund{sortIcon('fund')}
-                    </th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('client')}>
-                      Client{sortIcon('client')}
-                    </th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('holding')}>
-                      Holding{sortIcon('holding')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('invested')}>
-                      Invested{sortIcon('invested')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('current')}>
-                      Current{sortIcon('current')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('loss')}>
-                      Loss{sortIcon('loss')}
-                    </th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleSort('savings')}>
-                      Est. Savings{sortIcon('savings')}
-                    </th>
+                  <tr style={theadStyle}>
+                    <th className={`text-left px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('fund')}>Fund{sortIcon('fund')}</th>
+                    <th className={`text-left px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('client')}>Client{sortIcon('client')}</th>
+                    <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('holding')}>Holding{sortIcon('holding')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('invested')}>Invested{sortIcon('invested')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('current')}>Current{sortIcon('current')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('loss')}>Loss{sortIcon('loss')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('savings')}>Est. Savings{sortIcon('savings')}</th>
                     <th className="w-8 px-2"></th>
                   </tr>
                 </thead>
@@ -827,32 +786,19 @@ const InsightsPage = () => {
                       onClick={() => router.push(`/advisor/clients/${opp.clientId}`)}
                       className="transition-colors cursor-pointer"
                       style={{ borderBottom: `1px solid ${colors.cardBorder}` }}
-                      onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(147,197,253,0.04)' : 'rgba(59,130,246,0.02)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      {...rowHover}
                     >
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium truncate max-w-[200px]" style={{ color: colors.textPrimary }}>{opp.fundName}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm" style={{ color: colors.textSecondary }}>{opp.clientName}</p>
-                      </td>
+                      <td className="px-4 py-3"><p className="text-sm font-medium truncate max-w-[200px]" style={{ color: colors.textPrimary }}>{opp.fundName}</p></td>
+                      <td className="px-4 py-3"><p className="text-sm" style={{ color: colors.textSecondary }}>{opp.clientName}</p></td>
                       <td className="px-4 py-3 text-center">
                         <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: colors.chipBg, color: colors.textPrimary }}>
                           {opp.holdingPeriod === 'short_term' ? 'Short' : 'Long'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textPrimary }}>
-                        {formatCurrencyCompact(opp.investedValue)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>
-                        {formatCurrencyCompact(opp.currentValue)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: colors.error }}>
-                        -{formatCurrencyCompact(opp.unrealizedLoss)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: colors.success }}>
-                        {formatCurrencyCompact(opp.potentialSavings)}
-                      </td>
+                      <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textPrimary }}>{formatCurrencyCompact(opp.investedValue)}</td>
+                      <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>{formatCurrencyCompact(opp.currentValue)}</td>
+                      <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: colors.error }}>-{formatCurrencyCompact(opp.unrealizedLoss)}</td>
+                      <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: colors.success }}>{formatCurrencyCompact(opp.potentialSavings)}</td>
                       <td className="px-2 py-3">
                         <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -862,6 +808,7 @@ const InsightsPage = () => {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </FACard>
         )}

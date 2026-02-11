@@ -333,9 +333,9 @@ const GoalDetailPage = () => {
           </div>
         </FACard>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Progress & Details */}
-          <div className="col-span-2 space-y-6">
+          <div className="col-span-1 lg:col-span-2 space-y-6">
             {/* Progress Section */}
             <FACard>
               <FASectionHeader title="Progress Overview" />
@@ -365,7 +365,7 @@ const GoalDetailPage = () => {
                 </div>
 
                 {/* Amount Details */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="p-4 rounded-xl" style={{ background: colors.chipBg }}>
                     <p className="text-xs uppercase tracking-wider" style={{ color: colors.textTertiary }}>
                       Current Value

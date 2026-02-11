@@ -280,8 +280,8 @@ const ClientsPage = () => {
           </div>
         </div>
 
-        {/* Summary Cards - Duo-Tone Gradient Style */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        {/* Summary Cards - Clean Flat Style */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {(() => {
             const familyGroups = groupClientsByFamily(clients)
             const familyCount = familyGroups.filter(f => f.members.length > 1).length
@@ -295,54 +295,45 @@ const ClientsPage = () => {
               { label: 'Active SIPs', value: clients.reduce((sum, c) => sum + c.sipCount, 0).toString(), change: '28 this month', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', variant: 'accent' },
             ]
           })().map((stat, i) => {
-            const getGradient = () => {
+            const getAccentColor = () => {
               switch (stat.variant) {
-                case 'secondary': return `linear-gradient(135deg, ${colors.secondary} 0%, ${colors.primary} 100%)`;
-                case 'success': return `linear-gradient(135deg, ${colors.success} 0%, ${isDark ? '#059669' : '#047857'} 100%)`;
-                case 'accent': return `linear-gradient(135deg, ${colors.primaryDark} 0%, ${colors.secondary} 100%)`;
-                default: return `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`;
+                case 'secondary': return colors.secondary;
+                case 'success': return colors.success;
+                case 'accent': return colors.primaryDark;
+                default: return colors.primary;
               }
             };
+            const accentColor = getAccentColor();
             return (
               <div
                 key={i}
-                className="p-4 rounded-2xl relative overflow-hidden transition-all duration-300 hover:-translate-y-1"
+                className="p-4 rounded-lg"
                 style={{
-                  background: getGradient(),
-                  boxShadow: `0 8px 32px ${isDark ? 'rgba(168, 85, 247, 0.25)' : `${colors.primary}25`}`
+                  background: colors.cardBackground,
+                  border: `1px solid ${colors.cardBorder}`,
                 }}
               >
-                {/* Decorative circles */}
-                <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} />
-                <div className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
-                <div className="relative z-10 flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-white/70">
-                      {stat.label}
-                    </p>
-                    <p className="text-xl font-bold mt-1 text-white">
-                      {stat.value}
-                    </p>
-                    <span
-                      className="text-xs font-medium px-2 py-0.5 rounded-full mt-2 inline-block"
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.2)',
-                        border: '1px solid rgba(255, 255, 255, 0.3)',
-                        color: '#FFFFFF'
-                      }}
-                    >
-                      {stat.change}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-3">
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.2)' }}
+                    className="w-9 h-9 rounded-lg flex items-center justify-center"
+                    style={{ background: `${accentColor}12` }}
                   >
-                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <svg className="w-5 h-5" style={{ color: accentColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d={stat.icon} />
                     </svg>
                   </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textTertiary }}>
+                      {stat.label}
+                    </p>
+                    <p className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+                      {stat.value}
+                    </p>
+                  </div>
                 </div>
+                <p className="text-xs mt-2" style={{ color: colors.textTertiary }}>
+                  {stat.change}
+                </p>
               </div>
             );
           })}
@@ -388,7 +379,7 @@ const ClientsPage = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg"
+                      className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg"
                       style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)` }}
                     >
                       {getInitials(client.name)}
@@ -477,7 +468,7 @@ const ClientsPage = () => {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-4">
                     <div
-                      className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-xl"
+                      className="w-14 h-14 rounded-lg flex items-center justify-center text-white font-bold text-xl"
                       style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)` }}
                     >
                       <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

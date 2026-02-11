@@ -134,7 +134,7 @@ const ADVISOR_NAV_ITEMS = [
     items: [
       { label: 'Funds', href: '/advisor/funds', icon: 'trending-up' },
       { label: 'Compare', href: '/advisor/compare', icon: 'scale' },
-      { label: 'Analysis', href: '/advisor/analysis', icon: 'chart' },
+      { label: 'Deep Analysis', href: '/advisor/analysis', icon: 'chart' },
       { label: 'Calculators', href: '/advisor/calculators', icon: 'calculator' },
       { label: 'Reports', href: '/advisor/reports', icon: 'document' },
     ]
@@ -253,6 +253,7 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
   const isDark = useDarkMode()
   const colors = isDark ? COLORS_DARK : COLORS_LIGHT
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [hasToken, setHasToken] = useState(true) // Assume true initially to avoid flash
 
   // Auth check - redirect to login if no token
@@ -278,14 +279,28 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
     return router.pathname === href || router.asPath.startsWith(href + '?')
   }
 
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [router.pathname])
+
   return (
     <FANotificationProvider>
     <div className="min-h-screen flex" style={{ background: colors.background, fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" }}>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full z-40 transition-all duration-300 ${
-          collapsed ? 'w-20' : 'w-64'
-        }`}
+        className={`fixed top-0 left-0 h-full z-50 w-64 transition-all duration-300
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0 lg:z-40 ${collapsed ? 'lg:w-20' : 'lg:w-64'}
+        `}
         style={{
           background: colors.sidebarBg,
           backdropFilter: 'blur(50px) saturate(180%)',
@@ -321,12 +336,23 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
               </div>
             )}
           </Link>
+          {/* Collapse button - desktop only */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 rounded-lg transition-colors"
+            className="p-1.5 rounded-lg transition-colors hidden lg:block"
             style={{ color: colors.textSecondary }}
           >
             <NavIcon name={collapsed ? 'chevron-right' : 'chevron-left'} className="w-4 h-4" />
+          </button>
+          {/* Close button - mobile only */}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1.5 rounded-lg transition-colors lg:hidden"
+            style={{ color: colors.textSecondary }}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
@@ -350,7 +376,7 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
                       key={item.href}
                       href={item.href}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                        collapsed ? 'justify-center' : ''
+                        collapsed ? 'lg:justify-center' : ''
                       }`}
                       style={{
                         background: isActive ? colors.activeBg : 'transparent',
@@ -361,6 +387,10 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
                       <NavIcon name={item.icon} className="w-5 h-5 flex-shrink-0" />
                       {!collapsed && (
                         <span className="text-sm font-medium">{item.label}</span>
+                      )}
+                      {/* Always show labels on mobile sidebar */}
+                      {collapsed && (
+                        <span className="text-sm font-medium lg:hidden">{item.label}</span>
                       )}
                     </Link>
                   )
@@ -375,12 +405,12 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
       {/* Main Content */}
       <main
         className={`flex-1 transition-all duration-300 ${
-          collapsed ? 'ml-20' : 'ml-64'
+          collapsed ? 'lg:ml-20' : 'lg:ml-64'
         }`}
       >
         {/* Top Bar */}
         <header
-          className="sticky top-0 z-30 h-16 flex items-center justify-between px-8"
+          className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8"
           style={{
             background: colors.sidebarBg,
             backdropFilter: 'blur(50px) saturate(180%)',
@@ -388,17 +418,27 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
             borderBottom: `0.5px solid ${colors.glassBorder}`,
           }}
         >
-          <div>
+          <div className="flex items-center gap-3">
+            {/* Hamburger - mobile only */}
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="p-2 rounded-lg transition-colors lg:hidden"
+              style={{ color: colors.textSecondary }}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            </button>
             {title && (
-              <h1 className="text-xl font-semibold" style={{ color: colors.textPrimary }}>
+              <h1 className="text-lg sm:text-xl font-semibold" style={{ color: colors.textPrimary }}>
                 {title}
               </h1>
             )}
           </div>
-          <div className="flex items-center gap-4">
-            {/* Client count badge */}
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Client count badge - hidden on small screens */}
             <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full"
               style={{
                 background: colors.chipBg,
                 border: `1px solid ${colors.chipBorder}`,
@@ -416,7 +456,7 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
             <NotificationCenter colors={colors} />
             <button
               onClick={handleLogout}
-              className="px-4 py-2 rounded-full text-sm font-medium transition-all hover:shadow-lg hover:opacity-90"
+              className="px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all hover:shadow-lg hover:opacity-90"
               style={{
                 background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
                 color: '#FFFFFF',
@@ -429,7 +469,7 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
         </header>
 
         {/* Page Content */}
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {children}
         </div>
       </main>

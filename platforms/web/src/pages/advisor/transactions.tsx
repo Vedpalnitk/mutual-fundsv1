@@ -298,7 +298,7 @@ const TransactionsPage = () => {
         </div>
 
         {/* Stat Tiles */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <FAStatCard
             label="Total Volume"
             value={formatCurrency(totalVolume)}
@@ -452,6 +452,7 @@ const TransactionsPage = () => {
             </div>
           ) : (
             <>
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr
@@ -545,6 +546,7 @@ const TransactionsPage = () => {
                   })}
                 </tbody>
               </table>
+              </div>
 
               {/* Pagination Footer */}
               <div

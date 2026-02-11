@@ -203,6 +203,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const isDark = useDarkMode()
   const colors = isDark ? COLORS_DARK : COLORS_LIGHT
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [hasToken, setHasToken] = useState(true)
 
   // Auth check
@@ -227,6 +228,11 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     return router.pathname === href || router.asPath.startsWith(href + '?')
   }
 
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [router.pathname])
+
   return (
     <div
       className="min-h-screen flex"
@@ -235,11 +241,20 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif",
       }}
     >
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full z-40 transition-all duration-300 ease-out ${
-          collapsed ? 'w-[72px]' : 'w-[260px]'
-        }`}
+        className={`fixed top-0 left-0 h-full z-50 w-[260px] transition-all duration-300 ease-out
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0 lg:z-40 ${collapsed ? 'lg:w-[72px]' : 'lg:w-[260px]'}
+        `}
         style={{
           background: colors.sidebarBg,
           borderRight: `1px solid ${colors.border}`,
@@ -252,7 +267,6 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           style={{ borderBottom: `1px solid ${colors.separator}` }}
         >
           <Link href="/admin/dashboard" className="flex items-center gap-3">
-            {/* Sage leaf logo */}
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{
@@ -276,15 +290,26 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               </div>
             )}
           </Link>
+          {/* Collapse button - desktop only */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 rounded-lg transition-all duration-200 hover:scale-105"
+            className="p-1.5 rounded-lg transition-all duration-200 hover:scale-105 hidden lg:block"
             style={{
               color: colors.textTertiary,
               background: colors.hoverBg,
             }}
           >
             <NavIcon name={collapsed ? 'chevron-right' : 'chevron-left'} className="w-4 h-4" />
+          </button>
+          {/* Close button - mobile only */}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1.5 rounded-lg transition-colors lg:hidden"
+            style={{ color: colors.textTertiary }}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
@@ -308,7 +333,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                       key={item.href}
                       href={item.href}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                        collapsed ? 'justify-center' : ''
+                        collapsed ? 'lg:justify-center' : ''
                       }`}
                       style={{
                         background: isActive
@@ -323,6 +348,9 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                       <NavIcon name={item.icon} className="w-[18px] h-[18px] flex-shrink-0" />
                       {!collapsed && (
                         <span className="text-[13px]">{item.label}</span>
+                      )}
+                      {collapsed && (
+                        <span className="text-[13px] lg:hidden">{item.label}</span>
                       )}
                     </Link>
                   )
@@ -340,7 +368,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           <button
             onClick={toggleTheme}
             className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all duration-200 ${
-              collapsed ? 'justify-center' : ''
+              collapsed ? 'lg:justify-center' : ''
             }`}
             style={{
               color: colors.textSecondary,
@@ -353,6 +381,11 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 {isDark ? 'Light Mode' : 'Dark Mode'}
               </span>
             )}
+            {collapsed && (
+              <span className="text-[13px] font-medium lg:hidden">
+                {isDark ? 'Light Mode' : 'Dark Mode'}
+              </span>
+            )}
           </button>
         </div>
       </aside>
@@ -360,32 +393,42 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
       {/* Main Content */}
       <main
         className={`flex-1 transition-all duration-300 ${
-          collapsed ? 'ml-[72px]' : 'ml-[260px]'
+          collapsed ? 'lg:ml-[72px]' : 'lg:ml-[260px]'
         }`}
       >
         {/* Top Bar */}
         <header
-          className="sticky top-0 z-30 h-16 flex items-center justify-between px-8"
+          className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8"
           style={{
             background: isDark ? colors.background : 'rgba(248, 250, 252, 0.9)',
             backdropFilter: 'blur(12px)',
             borderBottom: `1px solid ${colors.border}`,
           }}
         >
-          <div>
+          <div className="flex items-center gap-3">
+            {/* Hamburger - mobile only */}
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="p-2 rounded-lg transition-colors lg:hidden"
+              style={{ color: colors.textSecondary }}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            </button>
             {title && (
               <h1
-                className="text-xl font-semibold"
+                className="text-lg sm:text-xl font-semibold"
                 style={{ color: colors.textPrimary }}
               >
                 {title}
               </h1>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            {/* Status indicator */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Status indicator - hidden on small screens */}
             <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full"
               style={{
                 background: `${colors.success}12`,
                 border: `1px solid ${colors.success}25`,
@@ -402,7 +445,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             {/* Logout button */}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-all duration-200 hover:shadow-md"
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-[13px] font-medium transition-all duration-200 hover:shadow-md"
               style={{
                 background: colors.cardBg,
                 color: colors.textSecondary,
@@ -410,13 +453,13 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               }}
             >
               <NavIcon name="logout" className="w-4 h-4" />
-              <span>Logout</span>
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </header>
 
         {/* Page Content */}
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {children}
         </div>
       </main>

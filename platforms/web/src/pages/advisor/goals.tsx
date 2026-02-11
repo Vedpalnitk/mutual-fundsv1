@@ -304,7 +304,7 @@ const GoalsDashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           <FAStatCard
             label="Total Goals"
             value={goals.length.toString()}
@@ -337,7 +337,7 @@ const GoalsDashboard = () => {
         {/* Goal Templates */}
         <FACard className="mb-6">
           <FASectionHeader title="Quick Start Templates" />
-          <div className="grid grid-cols-6 gap-3 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-4">
             {goalTemplates.map(template => {
               const config = GOAL_CONFIG[template.type]
               return (
@@ -423,7 +423,7 @@ const GoalsDashboard = () => {
 
         {/* Goals Grid */}
         {!loading && (
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredGoals.map(goal => {
             const config = GOAL_CONFIG[goal.type]
             const clientName = goal.clientName || 'Unknown Client'
@@ -486,7 +486,7 @@ const GoalsDashboard = () => {
                 </div>
 
                 {/* Amount Details */}
-                <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                   <div>
                     <p className="text-xs uppercase tracking-wider" style={{ color: colors.textTertiary }}>
                       Current
@@ -587,7 +587,7 @@ const GoalsDashboard = () => {
         )}
 
         {/* Goal Summary by Type */}
-        <div className="grid grid-cols-4 gap-4 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
           {(['Retirement', 'Education', 'Home', 'Wealth'] as GoalType[]).map(type => {
             const typeGoals = goals.filter(g => g.type === type)
             const config = GOAL_CONFIG[type]
@@ -677,7 +677,7 @@ const GoalsDashboard = () => {
               </FAFormSection>
 
               <FAFormSection title="Goal Type" className="mt-6">
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   {(['Retirement', 'Education', 'Home', 'Emergency', 'Wealth', 'Wedding', 'Travel', 'Custom'] as GoalType[]).map(type => {
                     const config = GOAL_CONFIG[type]
                     return (
