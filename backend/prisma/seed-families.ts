@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -61,6 +62,9 @@ async function createHoldings(clientId: string, clientName: string, holdings: Ho
 async function main() {
   console.log('🏠 Creating Family Trees for Priya Patel and Rajesh Sharma...\n');
 
+  // Hash password for all family member User accounts
+  const passwordHash = await bcrypt.hash('Demo@123', 10);
+
   // Get the advisor
   const advisor = await prisma.user.findFirst({
     where: { email: 'advisor@sparrowinvest.com' }
@@ -95,7 +99,22 @@ async function main() {
   // =====================
   console.log('👨‍👩‍👧‍👦 Creating Patel Family...');
 
-  // Update Priya as family head
+  // Create User account for Priya Patel (family head)
+  const priyaUser = await prisma.user.upsert({
+    where: { email: 'priya.patel@email.com' },
+    update: {},
+    create: {
+      email: 'priya.patel@email.com',
+      phone: priya.phone || '+91 98765 43210',
+      passwordHash,
+      role: 'investor',
+      isActive: true,
+      isVerified: true,
+      profile: { create: { name: 'Priya Patel', city: 'Ahmedabad' } },
+    },
+  });
+
+  // Update Priya as family head with userId
   await prisma.fAClient.update({
     where: { id: priya.id },
     data: {
@@ -103,16 +122,33 @@ async function main() {
       familyGroupId: patelFamilyId,
       familyRole: 'SELF',
       familyHeadId: priya.id,
+      userId: priyaUser.id,
     }
   });
-  console.log(`  ✓ Priya Patel (Head) - updated`);
+  console.log(`  ✓ Priya Patel (Head) - updated with User account`);
+
+  // Create User account for Vikram Patel
+  const vikramUser = await prisma.user.upsert({
+    where: { email: 'vikram.patel@email.com' },
+    update: {},
+    create: {
+      email: 'vikram.patel@email.com',
+      phone: '+91 87654 32100',
+      passwordHash,
+      role: 'investor',
+      isActive: true,
+      isVerified: true,
+      profile: { create: { name: 'Vikram Patel', city: 'Ahmedabad' } },
+    },
+  });
 
   // Create Priya's husband
   const vikramPatel = await prisma.fAClient.upsert({
     where: { advisorId_email: { advisorId: advisor.id, email: 'vikram.patel@email.com' } },
-    update: { familyGroupId: patelFamilyId, familyRole: 'SPOUSE', familyHeadId: priya.id },
+    update: { familyGroupId: patelFamilyId, familyRole: 'SPOUSE', familyHeadId: priya.id, userId: vikramUser.id },
     create: {
       advisorId: advisor.id,
+      userId: vikramUser.id,
       name: 'Vikram Patel',
       email: 'vikram.patel@email.com',
       phone: '+91 87654 32100',
@@ -132,12 +168,28 @@ async function main() {
   });
   console.log(`  ✓ Vikram Patel (Spouse) - ID: ${vikramPatel.id}`);
 
+  // Create User account for Ananya Patel
+  const ananyaUser = await prisma.user.upsert({
+    where: { email: 'ananya.patel@email.com' },
+    update: {},
+    create: {
+      email: 'ananya.patel@email.com',
+      phone: '+91 87654 32101',
+      passwordHash,
+      role: 'investor',
+      isActive: true,
+      isVerified: true,
+      profile: { create: { name: 'Ananya Patel', city: 'Ahmedabad' } },
+    },
+  });
+
   // Create Priya's daughter
   const ananyaPatel = await prisma.fAClient.upsert({
     where: { advisorId_email: { advisorId: advisor.id, email: 'ananya.patel@email.com' } },
-    update: { familyGroupId: patelFamilyId, familyRole: 'CHILD', familyHeadId: priya.id },
+    update: { familyGroupId: patelFamilyId, familyRole: 'CHILD', familyHeadId: priya.id, userId: ananyaUser.id },
     create: {
       advisorId: advisor.id,
+      userId: ananyaUser.id,
       name: 'Ananya Patel',
       email: 'ananya.patel@email.com',
       phone: '+91 87654 32101',
@@ -157,12 +209,28 @@ async function main() {
   });
   console.log(`  ✓ Ananya Patel (Daughter) - ID: ${ananyaPatel.id}`);
 
+  // Create User account for Harish Patel
+  const harishUser = await prisma.user.upsert({
+    where: { email: 'harish.patel@email.com' },
+    update: {},
+    create: {
+      email: 'harish.patel@email.com',
+      phone: '+91 87654 32102',
+      passwordHash,
+      role: 'investor',
+      isActive: true,
+      isVerified: true,
+      profile: { create: { name: 'Harish Patel', city: 'Ahmedabad' } },
+    },
+  });
+
   // Create Priya's father
   const harishPatel = await prisma.fAClient.upsert({
     where: { advisorId_email: { advisorId: advisor.id, email: 'harish.patel@email.com' } },
-    update: { familyGroupId: patelFamilyId, familyRole: 'PARENT', familyHeadId: priya.id },
+    update: { familyGroupId: patelFamilyId, familyRole: 'PARENT', familyHeadId: priya.id, userId: harishUser.id },
     create: {
       advisorId: advisor.id,
+      userId: harishUser.id,
       name: 'Harish Patel',
       email: 'harish.patel@email.com',
       phone: '+91 87654 32102',
@@ -187,7 +255,22 @@ async function main() {
   // =====================
   console.log('\n👨‍👩‍👧‍👦 Creating Sharma Family...');
 
-  // Update Rajesh as family head
+  // Create User account for Rajesh Sharma (family head)
+  const rajeshUser = await prisma.user.upsert({
+    where: { email: 'rajesh.sharma@email.com' },
+    update: {},
+    create: {
+      email: 'rajesh.sharma@email.com',
+      phone: rajesh.phone || '+91 98765 43210',
+      passwordHash,
+      role: 'investor',
+      isActive: true,
+      isVerified: true,
+      profile: { create: { name: 'Rajesh Sharma', city: 'Mumbai' } },
+    },
+  });
+
+  // Update Rajesh as family head with userId
   await prisma.fAClient.update({
     where: { id: rajesh.id },
     data: {
@@ -195,16 +278,33 @@ async function main() {
       familyGroupId: sharmaFamilyId,
       familyRole: 'SELF',
       familyHeadId: rajesh.id,
+      userId: rajeshUser.id,
     }
   });
-  console.log(`  ✓ Rajesh Sharma (Head) - updated`);
+  console.log(`  ✓ Rajesh Sharma (Head) - updated with User account`);
+
+  // Create User account for Sunita Sharma
+  const sunitaUser = await prisma.user.upsert({
+    where: { email: 'sunita.sharma@email.com' },
+    update: {},
+    create: {
+      email: 'sunita.sharma@email.com',
+      phone: '+91 98765 43211',
+      passwordHash,
+      role: 'investor',
+      isActive: true,
+      isVerified: true,
+      profile: { create: { name: 'Sunita Sharma', city: 'Mumbai' } },
+    },
+  });
 
   // Create Rajesh's wife
   const sunitaSharma = await prisma.fAClient.upsert({
     where: { advisorId_email: { advisorId: advisor.id, email: 'sunita.sharma@email.com' } },
-    update: { familyGroupId: sharmaFamilyId, familyRole: 'SPOUSE', familyHeadId: rajesh.id },
+    update: { familyGroupId: sharmaFamilyId, familyRole: 'SPOUSE', familyHeadId: rajesh.id, userId: sunitaUser.id },
     create: {
       advisorId: advisor.id,
+      userId: sunitaUser.id,
       name: 'Sunita Sharma',
       email: 'sunita.sharma@email.com',
       phone: '+91 98765 43211',
@@ -224,12 +324,28 @@ async function main() {
   });
   console.log(`  ✓ Sunita Sharma (Wife) - ID: ${sunitaSharma.id}`);
 
+  // Create User account for Arjun Sharma
+  const arjunUser = await prisma.user.upsert({
+    where: { email: 'arjun.sharma@email.com' },
+    update: {},
+    create: {
+      email: 'arjun.sharma@email.com',
+      phone: '+91 98765 43212',
+      passwordHash,
+      role: 'investor',
+      isActive: true,
+      isVerified: true,
+      profile: { create: { name: 'Arjun Sharma', city: 'Mumbai' } },
+    },
+  });
+
   // Create Rajesh's son
   const arjunSharma = await prisma.fAClient.upsert({
     where: { advisorId_email: { advisorId: advisor.id, email: 'arjun.sharma@email.com' } },
-    update: { familyGroupId: sharmaFamilyId, familyRole: 'CHILD', familyHeadId: rajesh.id },
+    update: { familyGroupId: sharmaFamilyId, familyRole: 'CHILD', familyHeadId: rajesh.id, userId: arjunUser.id },
     create: {
       advisorId: advisor.id,
+      userId: arjunUser.id,
       name: 'Arjun Sharma',
       email: 'arjun.sharma@email.com',
       phone: '+91 98765 43212',
@@ -249,12 +365,28 @@ async function main() {
   });
   console.log(`  ✓ Arjun Sharma (Son) - ID: ${arjunSharma.id}`);
 
+  // Create User account for Kamla Devi Sharma
+  const kamlaUser = await prisma.user.upsert({
+    where: { email: 'kamla.sharma@email.com' },
+    update: {},
+    create: {
+      email: 'kamla.sharma@email.com',
+      phone: '+91 98765 43213',
+      passwordHash,
+      role: 'investor',
+      isActive: true,
+      isVerified: true,
+      profile: { create: { name: 'Kamla Devi Sharma', city: 'Mumbai' } },
+    },
+  });
+
   // Create Rajesh's mother
   const kamlaDeviSharma = await prisma.fAClient.upsert({
     where: { advisorId_email: { advisorId: advisor.id, email: 'kamla.sharma@email.com' } },
-    update: { familyGroupId: sharmaFamilyId, familyRole: 'PARENT', familyHeadId: rajesh.id },
+    update: { familyGroupId: sharmaFamilyId, familyRole: 'PARENT', familyHeadId: rajesh.id, userId: kamlaUser.id },
     create: {
       advisorId: advisor.id,
+      userId: kamlaUser.id,
       name: 'Kamla Devi Sharma',
       email: 'kamla.sharma@email.com',
       phone: '+91 98765 43213',
