@@ -77,9 +77,24 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
-    const token = this.generateToken(user.id, user.email, user.role);
+    // If staff, look up FAStaffMember for ownerId and allowedPages
+    let staffExtra: { ownerId?: string; allowedPages?: string[] } | undefined;
+    if (user.role === 'fa_staff') {
+      const staffProfile = await this.prisma.fAStaffMember.findUnique({
+        where: { staffUserId: user.id },
+      });
+      if (!staffProfile || !staffProfile.isActive) {
+        throw new UnauthorizedException('Staff account is deactivated');
+      }
+      staffExtra = {
+        ownerId: staffProfile.ownerId,
+        allowedPages: staffProfile.allowedPages,
+      };
+    }
 
-    return {
+    const token = this.generateToken(user.id, user.email, user.role, staffExtra);
+
+    const response: any = {
       accessToken: token,
       user: {
         id: user.id,
@@ -87,14 +102,25 @@ export class AuthService {
         role: user.role,
       },
     };
+
+    if (staffExtra) {
+      response.user.ownerId = staffExtra.ownerId;
+      response.user.allowedPages = staffExtra.allowedPages;
+    }
+
+    return response;
   }
 
-  private generateToken(userId: string, email: string, role: string): string {
-    return this.jwtService.sign({
-      sub: userId,
-      email,
-      role,
-    });
+  private generateToken(
+    userId: string,
+    email: string,
+    role: string,
+    extra?: { ownerId?: string; allowedPages?: string[] },
+  ): string {
+    const payload: any = { sub: userId, email, role };
+    if (extra?.ownerId) payload.ownerId = extra.ownerId;
+    if (extra?.allowedPages) payload.allowedPages = extra.allowedPages;
+    return this.jwtService.sign(payload);
   }
 
   async getProfile(userId: string) {
@@ -128,6 +154,20 @@ export class AuthService {
       role: user.role,
       isVerified: user.isVerified,
     };
+
+    // If staff, add staff-specific info
+    if (user.role === 'fa_staff') {
+      const staffProfile = await this.prisma.fAStaffMember.findUnique({
+        where: { staffUserId: user.id },
+        include: { owner: { include: { profile: true } } },
+      });
+      if (staffProfile) {
+        profile.isStaff = true;
+        profile.ownerId = staffProfile.ownerId;
+        profile.ownerName = staffProfile.owner?.profile?.name || staffProfile.owner?.email;
+        profile.allowedPages = staffProfile.allowedPages;
+      }
+    }
 
     // Check if this is a self-assisted client (advisor is Self-Service Platform)
     const isSelfAssisted = client?.advisor?.email === 'self-service@sparrowinvest.com';

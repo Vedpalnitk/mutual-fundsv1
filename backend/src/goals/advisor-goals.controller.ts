@@ -10,7 +10,9 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { StaffPageGuard, RequiredPage } from '../common/guards/staff-page.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { GoalsService } from './goals.service';
 import { GoalResponseDto } from './dto/goal.dto';
 
@@ -20,7 +22,8 @@ import { GoalResponseDto } from './dto/goal.dto';
  */
 @ApiTags('advisor-goals')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffPageGuard)
+@RequiredPage('/advisor/clients')
 @Controller('api/v1/goals')
 export class AdvisorGoalsController {
   constructor(private readonly goalsService: GoalsService) {}
@@ -29,6 +32,6 @@ export class AdvisorGoalsController {
   @ApiOperation({ summary: 'List all goals across all clients (for advisor dashboard)' })
   @ApiResponse({ status: 200, type: [GoalResponseDto] })
   async findAll(@CurrentUser() user: any) {
-    return this.goalsService.findAllByAdvisor(user.id);
+    return this.goalsService.findAllByAdvisor(getEffectiveAdvisorId(user));
   }
 }

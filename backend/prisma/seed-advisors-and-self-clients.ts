@@ -337,6 +337,48 @@ async function main() {
   console.log('📊 SUMMARY');
   console.log('='.repeat(70));
 
+  // =====================
+  // CREATE DEMO STAFF MEMBER
+  // =====================
+  console.log('\n👤 Creating demo Staff Member...');
+
+  const priyaAdvisorId = createdAdvisors['priya.sharma@sparrowinvest.com'];
+  if (priyaAdvisorId) {
+    const staffPassword = await bcrypt.hash('Staff@123', 10);
+    const staffUser = await prisma.user.upsert({
+      where: { email: 'neha.staff@sparrowinvest.com' },
+      update: {},
+      create: {
+        email: 'neha.staff@sparrowinvest.com',
+        passwordHash: staffPassword,
+        role: 'fa_staff',
+        isActive: true,
+        isVerified: true,
+        profile: {
+          create: {
+            name: 'Neha Staff',
+            city: 'Mumbai',
+          },
+        },
+      },
+    });
+
+    await prisma.fAStaffMember.upsert({
+      where: { staffUserId: staffUser.id },
+      update: {},
+      create: {
+        ownerId: priyaAdvisorId,
+        staffUserId: staffUser.id,
+        displayName: 'Neha Sharma',
+        allowedPages: ['/advisor/dashboard', '/advisor/clients', '/advisor/transactions', '/advisor/funds'],
+        isActive: true,
+      },
+    });
+
+    console.log(`  ✓ Neha Sharma (neha.staff@sparrowinvest.com) → Staff for Priya Sharma`);
+    console.log(`    Allowed pages: Dashboard, Clients, Transactions, Funds`);
+  }
+
   const totalAdvisors = await prisma.user.count({ where: { role: 'advisor' } });
   const totalClients = await prisma.fAClient.count();
   const selfAssistedClients = await prisma.fAClient.count({ where: { advisorId: selfServiceAdvisor.id } });
@@ -369,6 +411,7 @@ async function main() {
   console.log('\n✅ Seeding completed successfully!');
   console.log('\n📝 Login credentials:');
   console.log('   Advisors: [email]@sparrowinvest.com / Advisor@123');
+  console.log('   Staff:    neha.staff@sparrowinvest.com / Staff@123');
   console.log('   Self-assisted clients: [email]@demo.com / Demo@123\n');
 
   await prisma.$disconnect();

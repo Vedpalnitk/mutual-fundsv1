@@ -16,7 +16,9 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { StaffPageGuard, RequiredPage } from '../common/guards/staff-page.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { PortfolioService } from './portfolio.service';
 import { CreateHoldingDto, UpdateHoldingDto } from './dto/create-holding.dto';
 import { HoldingResponseDto } from './dto/holding-response.dto';
@@ -24,7 +26,8 @@ import { PortfolioResponseDto, AssetAllocationDto } from './dto/portfolio-respon
 
 @ApiTags('portfolio')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffPageGuard)
+@RequiredPage('/advisor/clients')
 @Controller('api/v1/portfolio')
 export class PortfolioController {
   constructor(private portfolioService: PortfolioService) {}
@@ -36,7 +39,7 @@ export class PortfolioController {
     @CurrentUser() user: any,
     @Param('clientId') clientId: string,
   ) {
-    return this.portfolioService.getClientHoldings(clientId, user.id);
+    return this.portfolioService.getClientHoldings(clientId, getEffectiveAdvisorId(user));
   }
 
   @Get('clients/:clientId/summary')
@@ -46,7 +49,7 @@ export class PortfolioController {
     @CurrentUser() user: any,
     @Param('clientId') clientId: string,
   ) {
-    return this.portfolioService.getPortfolioSummary(clientId, user.id);
+    return this.portfolioService.getPortfolioSummary(clientId, getEffectiveAdvisorId(user));
   }
 
   @Get('clients/:clientId/allocation')
@@ -56,7 +59,7 @@ export class PortfolioController {
     @CurrentUser() user: any,
     @Param('clientId') clientId: string,
   ) {
-    return this.portfolioService.getAssetAllocation(clientId, user.id);
+    return this.portfolioService.getAssetAllocation(clientId, getEffectiveAdvisorId(user));
   }
 
   @Get('clients/:clientId/history')
@@ -66,7 +69,7 @@ export class PortfolioController {
     @Param('clientId') clientId: string,
     @Query('period') period: string = '1Y',
   ) {
-    return this.portfolioService.getPortfolioHistory(clientId, user.id, period);
+    return this.portfolioService.getPortfolioHistory(clientId, getEffectiveAdvisorId(user), period);
   }
 
   @Post('clients/:clientId/holdings')
@@ -77,7 +80,7 @@ export class PortfolioController {
     @Param('clientId') clientId: string,
     @Body() dto: CreateHoldingDto,
   ) {
-    return this.portfolioService.addHolding(clientId, user.id, dto);
+    return this.portfolioService.addHolding(clientId, getEffectiveAdvisorId(user), dto);
   }
 
   @Put('holdings/:id')
@@ -88,7 +91,7 @@ export class PortfolioController {
     @Param('id') id: string,
     @Body() dto: UpdateHoldingDto,
   ) {
-    return this.portfolioService.updateHolding(id, user.id, dto);
+    return this.portfolioService.updateHolding(id, getEffectiveAdvisorId(user), dto);
   }
 
   @Delete('holdings/:id')
@@ -98,7 +101,7 @@ export class PortfolioController {
     @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.portfolioService.deleteHolding(id, user.id);
+    return this.portfolioService.deleteHolding(id, getEffectiveAdvisorId(user));
   }
 
   @Post('holdings/sync-nav')
@@ -107,6 +110,6 @@ export class PortfolioController {
     @CurrentUser() user: any,
     @Body() updates: { holdingId: string; currentNav: number }[],
   ) {
-    return this.portfolioService.syncNavBatch(user.id, updates);
+    return this.portfolioService.syncNavBatch(getEffectiveAdvisorId(user), updates);
   }
 }

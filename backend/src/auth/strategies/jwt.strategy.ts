@@ -8,6 +8,8 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  ownerId?: string;
+  allowedPages?: string[];
 }
 
 @Injectable()
@@ -36,10 +38,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException();
     }
 
-    return {
+    const result: any = {
       id: user.id,
       email: user.email,
       role: user.role,
     };
+
+    // Include staff-specific fields if present in JWT
+    if (payload.ownerId) result.ownerId = payload.ownerId;
+    if (payload.allowedPages) result.allowedPages = payload.allowedPages;
+
+    return result;
   }
 }

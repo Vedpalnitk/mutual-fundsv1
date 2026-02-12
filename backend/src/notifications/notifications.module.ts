@@ -15,6 +15,6 @@ import { NotificationListener } from './listeners/notification.listener';
     WhatsAppService,
     NotificationListener,
   ],
-  exports: [NotificationsService],
+  exports: [NotificationsService, EmailService],
 })
 export class NotificationsModule {}

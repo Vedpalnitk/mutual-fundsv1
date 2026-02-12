@@ -24,11 +24,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         // Decode JWT to get user info (basic decode, not verification)
         const payload = JSON.parse(atob(token.split('.')[1]))
-        setUser({
+        const decoded: AuthUser = {
           id: payload.sub || payload.id,
           email: payload.email,
           role: payload.role,
-        })
+        }
+        if (payload.ownerId) decoded.ownerId = payload.ownerId
+        if (payload.allowedPages) decoded.allowedPages = payload.allowedPages
+        setUser(decoded)
       } catch {
         // Invalid token, clear it
         clearAuthToken()
@@ -43,7 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('[Auth] Login response:', response)
     console.log('[Auth] Setting token:', response.accessToken?.substring(0, 30) + '...')
     setAuthToken(response.accessToken)
-    setUser(response.user)
+    const loginUser: AuthUser = { ...response.user }
+    // Include staff-specific fields if present in response
+    if ((response.user as any).ownerId) loginUser.ownerId = (response.user as any).ownerId
+    if ((response.user as any).allowedPages) loginUser.allowedPages = (response.user as any).allowedPages
+    setUser(loginUser)
     console.log('[Auth] Token stored, verifying:', getAuthToken()?.substring(0, 30) + '...')
   }, [])
 

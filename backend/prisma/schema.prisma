@@ -713,6 +713,9 @@ model User {
   notificationPrefs  NotificationPreference[]
   notificationLogs   NotificationLog[]
   savedAnalyses      SavedAnalysis[] @relation("AdvisorSavedAnalyses")
+  communications     FACommunicationLog[] @relation("AdvisorCommunications")
+  ownedStaff         FAStaffMember[] @relation("FAStaffOwner")
+  staffProfile       FAStaffMember? @relation("FAStaffUser")
 
   @@map("users")
 }
@@ -912,6 +915,7 @@ model FAClient {
   portfolioHistory UserPortfolioHistory[]
   dividends        DividendRecord[]
   savedAnalyses    SavedAnalysis[]
+  communications   FACommunicationLog[] @relation("ClientCommunications")
 
   @@unique([advisorId, email])
   @@index([advisorId])
@@ -1477,6 +1481,17 @@ enum NotificationStatus {
   FAILED
 }
 
+enum CommunicationType {
+  PORTFOLIO_SUMMARY
+  SIP_FAILURE_ALERT
+  SIP_PAYMENT_REMINDER
+  GOAL_PROGRESS_UPDATE
+  TRANSACTION_CONFIRMATION
+  REPORT_SHARING
+  KYC_REMINDER
+  CUSTOM
+}
+
 model NotificationPreference {
   id        String              @id @default(uuid())
   userId    String              @map("user_id")
@@ -1511,6 +1526,47 @@ model NotificationLog {
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
   @@map("notification_logs")
+}
+
+model FACommunicationLog {
+  id         String              @id @default(uuid())
+  advisorId  String              @map("advisor_id")
+  clientId   String              @map("client_id")
+  channel    NotificationChannel
+  type       CommunicationType
+  subject    String?
+  body       String              @db.Text
+  status     NotificationStatus  @default(PENDING)
+  externalId String?             @map("external_id")
+  error      String?
+  metadata   Json?
+  sentAt     DateTime?           @map("sent_at")
+  createdAt  DateTime            @default(now()) @map("created_at")
+
+  advisor User     @relation("AdvisorCommunications", fields: [advisorId], references: [id])
+  client  FAClient @relation("ClientCommunications", fields: [clientId], references: [id])
+
+  @@index([advisorId, createdAt(sort: Desc)])
+  @@index([clientId])
+  @@map("fa_communication_logs")
+}
+
+model FAStaffMember {
+  id           String   @id @default(uuid())
+  ownerId      String   @map("owner_id")
+  staffUserId  String   @unique @map("staff_user_id")
+  displayName  String   @map("display_name")
+  allowedPages String[] @map("allowed_pages")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  owner     User @relation("FAStaffOwner", fields: [ownerId], references: [id])
+  staffUser User @relation("FAStaffUser", fields: [staffUserId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, staffUserId])
+  @@index([ownerId])
+  @@map("fa_staff_members")
 }
 
 // =============================================

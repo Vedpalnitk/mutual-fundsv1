@@ -33,6 +33,8 @@ export interface AuthUser {
   id: string;
   email: string;
   role: string;
+  ownerId?: string;
+  allowedPages?: string[];
 }
 
 export interface AuthResponse {
@@ -1761,6 +1763,119 @@ export interface AuthProfile {
   isVerified: boolean;
   clientType?: string;
 }
+
+// ============= Staff API =============
+
+export interface StaffMember {
+  id: string;
+  displayName: string;
+  email: string;
+  phone: string | null;
+  allowedPages: string[];
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateStaffRequest {
+  displayName: string;
+  email: string;
+  password: string;
+  phone?: string;
+  allowedPages: string[];
+}
+
+export interface UpdateStaffRequest {
+  displayName?: string;
+  allowedPages?: string[];
+  isActive?: boolean;
+}
+
+export const staffApi = {
+  list: () => request<StaffMember[]>('/api/v1/staff'),
+
+  getById: (id: string) => request<StaffMember>(`/api/v1/staff/${id}`),
+
+  create: (data: CreateStaffRequest) =>
+    request<StaffMember>('/api/v1/staff', { method: 'POST', body: data }),
+
+  update: (id: string, data: UpdateStaffRequest) =>
+    request<StaffMember>(`/api/v1/staff/${id}`, { method: 'PUT', body: data }),
+
+  deactivate: (id: string) =>
+    request<StaffMember>(`/api/v1/staff/${id}`, { method: 'DELETE' }),
+};
+
+// ============= Communications API =============
+
+export interface CommunicationTemplate {
+  type: string;
+  label: string;
+  description: string;
+}
+
+export interface CommunicationPreview {
+  emailSubject: string;
+  emailBody: string;
+  whatsappBody: string;
+}
+
+export interface CommunicationLog {
+  id: string;
+  advisorId: string;
+  clientId: string;
+  channel: string;
+  type: string;
+  subject: string | null;
+  body: string;
+  status: string;
+  error: string | null;
+  sentAt: string | null;
+  createdAt: string;
+  client?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+  };
+}
+
+export interface CommunicationStats {
+  totalSent: number;
+  emailCount: number;
+  whatsappCount: number;
+  thisMonthCount: number;
+}
+
+export const communicationsApi = {
+  getTemplates: () =>
+    request<CommunicationTemplate[]>('/api/v1/communications/templates'),
+
+  preview: (data: { clientId: string; type: string; contextData?: Record<string, any>; customSubject?: string; customBody?: string }) =>
+    request<CommunicationPreview>('/api/v1/communications/preview', { method: 'POST', body: data }),
+
+  send: (data: { clientId: string; channel: string; type: string; subject: string; body: string; metadata?: Record<string, any> }) =>
+    request<{ success: boolean; logId: string; waLink?: string; error?: string }>('/api/v1/communications/send', { method: 'POST', body: data }),
+
+  getHistory: (params?: { clientId?: string; channel?: string; type?: string; dateFrom?: string; dateTo?: string; page?: number; limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.clientId) query.append('clientId', params.clientId);
+    if (params?.channel) query.append('channel', params.channel);
+    if (params?.type) query.append('type', params.type);
+    if (params?.dateFrom) query.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) query.append('dateTo', params.dateTo);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+    const queryString = query.toString();
+    return request<FAPaginatedResponse<CommunicationLog>>(`/api/v1/communications/history${queryString ? `?${queryString}` : ''}`);
+  },
+
+  getStats: () =>
+    request<CommunicationStats>('/api/v1/communications/history/stats'),
+};
+
+// ============= Auth Profile API =============
 
 export const authProfileApi = {
   get: () => request<AuthProfile>('/api/v1/auth/me'),

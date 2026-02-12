@@ -15,7 +15,9 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { StaffPageGuard, RequiredPage } from '../common/guards/staff-page.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto, UpdateTransactionStatusDto, CreateTradeRequestDto } from './dto/create-transaction.dto';
 import { TransactionFilterDto } from './dto/transaction-filter.dto';
@@ -26,7 +28,8 @@ import {
 
 @ApiTags('transactions')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffPageGuard)
+@RequiredPage('/advisor/transactions')
 @Controller('api/v1/transactions')
 export class TransactionsController {
   constructor(private transactionsService: TransactionsService) {}
@@ -38,7 +41,7 @@ export class TransactionsController {
     @CurrentUser() user: any,
     @Query() filters: TransactionFilterDto,
   ) {
-    return this.transactionsService.findAll(user.id, filters);
+    return this.transactionsService.findAll(getEffectiveAdvisorId(user), filters);
   }
 
   @Get('clients/:clientId')
@@ -48,7 +51,7 @@ export class TransactionsController {
     @CurrentUser() user: any,
     @Param('clientId') clientId: string,
   ) {
-    return this.transactionsService.findByClient(clientId, user.id);
+    return this.transactionsService.findByClient(clientId, getEffectiveAdvisorId(user));
   }
 
   @Get(':id')
@@ -58,7 +61,7 @@ export class TransactionsController {
     @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.transactionsService.findOne(id, user.id);
+    return this.transactionsService.findOne(id, getEffectiveAdvisorId(user));
   }
 
   @Post('lumpsum')
@@ -68,7 +71,7 @@ export class TransactionsController {
     @CurrentUser() user: any,
     @Body() dto: CreateTransactionDto,
   ) {
-    return this.transactionsService.createLumpsum(user.id, dto);
+    return this.transactionsService.createLumpsum(getEffectiveAdvisorId(user), dto);
   }
 
   @Post('redemption')
@@ -78,7 +81,7 @@ export class TransactionsController {
     @CurrentUser() user: any,
     @Body() dto: CreateTransactionDto,
   ) {
-    return this.transactionsService.createRedemption(user.id, dto);
+    return this.transactionsService.createRedemption(getEffectiveAdvisorId(user), dto);
   }
 
   @Put(':id/status')
@@ -89,7 +92,7 @@ export class TransactionsController {
     @Param('id') id: string,
     @Body() dto: UpdateTransactionStatusDto,
   ) {
-    return this.transactionsService.updateStatus(id, user.id, dto);
+    return this.transactionsService.updateStatus(id, getEffectiveAdvisorId(user), dto);
   }
 
   @Post(':id/cancel')
@@ -99,7 +102,7 @@ export class TransactionsController {
     @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.transactionsService.cancelTransaction(id, user.id);
+    return this.transactionsService.cancelTransaction(id, getEffectiveAdvisorId(user));
   }
 
   // ============================================

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
-import { clientsApi, portfolioApi, sipsApi, transactionsApi, goalsApi, GoalResponse } from '@/services/api'
+import { clientsApi, portfolioApi, sipsApi, transactionsApi, goalsApi, GoalResponse, CreateGoalDto, UpdateGoalDto, AddContributionDto } from '@/services/api'
 import {
   useFATheme,
   formatCurrency,
@@ -21,6 +21,7 @@ import {
   FAIconButton,
   FASectionHeader,
   FAEmptyState,
+  FAShareButton,
   useNotification,
 } from '@/components/advisor/shared'
 import TransactionFormModal from '@/components/advisor/TransactionFormModal'
@@ -82,6 +83,32 @@ const ClientDetailPage = () => {
   const [txnTypeFilter, setTxnTypeFilter] = useState<TxnTypeFilter>('All')
   const [txnStatusFilter, setTxnStatusFilter] = useState<TxnStatusFilter>('All')
   const [txnSort, setTxnSort] = useState<TxnSort>('date-desc')
+  const [sipStatusFilter, setSipStatusFilter] = useState<'All' | 'Active' | 'Paused' | 'Cancelled'>('All')
+
+  // Goal modal state
+  const [showGoalModal, setShowGoalModal] = useState(false)
+  const [goalSubmitting, setGoalSubmitting] = useState(false)
+  const [goalForm, setGoalForm] = useState({
+    name: '',
+    category: 'RETIREMENT',
+    targetAmount: '',
+    targetDate: '',
+    monthlySip: '',
+    priority: 2,
+    notes: '',
+  })
+
+  // Goal edit/contribute/delete state
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
+  const [showEditGoalModal, setShowEditGoalModal] = useState(false)
+  const [editGoalForm, setEditGoalForm] = useState({ name: '', category: '', targetAmount: '', currentAmount: '', targetDate: '', monthlySip: '', priority: 2, notes: '' })
+  const [editGoalSubmitting, setEditGoalSubmitting] = useState(false)
+  const [contributingGoal, setContributingGoal] = useState<Goal | null>(null)
+  const [showContributeModal, setShowContributeModal] = useState(false)
+  const [contributeForm, setContributeForm] = useState({ amount: '', type: 'LUMPSUM', date: new Date().toISOString().split('T')[0], description: '' })
+  const [contributeSubmitting, setContributeSubmitting] = useState(false)
+  const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null)
+  const [deleteGoalSubmitting, setDeleteGoalSubmitting] = useState(false)
 
   // Report state
   const [reportType, setReportType] = useState<string>('portfolio-statement')
@@ -229,6 +256,170 @@ const ClientDetailPage = () => {
       notification.error('Action Failed', err instanceof Error ? err.message : 'Failed to cancel SIP')
     } finally {
       setSipActionLoading(null)
+    }
+  }
+
+  // Goal creation handler
+  const handleCreateGoal = async () => {
+    if (!client || !goalForm.name || !goalForm.targetAmount || !goalForm.targetDate) return
+    setGoalSubmitting(true)
+    try {
+      const payload: CreateGoalDto = {
+        name: goalForm.name,
+        category: goalForm.category,
+        targetAmount: Number(goalForm.targetAmount),
+        targetDate: goalForm.targetDate,
+        monthlySip: goalForm.monthlySip ? Number(goalForm.monthlySip) : undefined,
+        priority: goalForm.priority,
+        notes: goalForm.notes || undefined,
+      }
+      await goalsApi.create(client.id, payload)
+      notification.success('Goal Created', `"${goalForm.name}" has been created successfully.`)
+      setShowGoalModal(false)
+      setGoalForm({ name: '', category: 'RETIREMENT', targetAmount: '', targetDate: '', monthlySip: '', priority: 2, notes: '' })
+      // Refresh goals
+      const goalsData = await goalsApi.getByClient(client.id)
+      setGoals((goalsData || []).map((g: GoalResponse) => ({
+        id: g.id,
+        clientId: g.clientId || client.id,
+        name: g.name,
+        type: (g.category || 'Other') as Goal['type'],
+        targetAmount: Number(g.targetAmount),
+        currentValue: Number(g.currentAmount) || 0,
+        targetDate: g.targetDate?.split('T')[0] || '',
+        startDate: g.createdAt?.split('T')[0] || '',
+        priority: g.priority === 1 ? 'High' : g.priority === 2 ? 'Medium' : 'Low',
+        monthlyRequired: Number(g.monthlySip) || 0,
+        onTrack: g.status === 'ON_TRACK' || g.progress >= 50,
+        progressPercent: Number(g.progress) || 0,
+        linkedSIPs: [],
+        linkedHoldings: g.linkedFundCodes || [],
+        projectedValue: Number(g.targetAmount) || 0,
+        notes: g.notes || undefined,
+      })))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to create goal'
+      if (msg.toLowerCase().includes('user account')) {
+        notification.error('Cannot Create Goal', 'This family member does not have a login account. Goals can only be created for primary account holders (Self).')
+      } else {
+        notification.error('Failed', msg)
+      }
+    } finally {
+      setGoalSubmitting(false)
+    }
+  }
+
+  // Refresh goals helper
+  const refreshGoals = async (clientId: string) => {
+    const goalsData = await goalsApi.getByClient(clientId)
+    setGoals((goalsData || []).map((g: GoalResponse) => ({
+      id: g.id,
+      clientId: g.clientId || clientId,
+      name: g.name,
+      type: (g.category || 'Other') as Goal['type'],
+      targetAmount: Number(g.targetAmount),
+      currentValue: Number(g.currentAmount) || 0,
+      targetDate: g.targetDate?.split('T')[0] || '',
+      startDate: g.createdAt?.split('T')[0] || '',
+      priority: g.priority === 1 ? 'High' : g.priority === 2 ? 'Medium' : 'Low',
+      monthlyRequired: Number(g.monthlySip) || 0,
+      onTrack: g.status === 'ON_TRACK' || g.progress >= 50,
+      progressPercent: Number(g.progress) || 0,
+      linkedSIPs: [],
+      linkedHoldings: g.linkedFundCodes || [],
+      projectedValue: Number(g.targetAmount) || 0,
+      notes: g.notes || undefined,
+    })))
+  }
+
+  // Open edit modal for a goal
+  const handleEditGoal = (goal: Goal) => {
+    setEditingGoal(goal)
+    const categoryMap: Record<string, string> = { Retirement: 'RETIREMENT', Education: 'EDUCATION', Home: 'HOME', Wealth: 'WEALTH', Emergency: 'EMERGENCY', Travel: 'TRAVEL', Wedding: 'WEDDING', Car: 'CAR', Custom: 'CUSTOM' }
+    const priorityMap: Record<string, number> = { High: 1, Medium: 2, Low: 3 }
+    setEditGoalForm({
+      name: goal.name,
+      category: categoryMap[goal.type] || 'CUSTOM',
+      targetAmount: goal.targetAmount.toString(),
+      currentAmount: goal.currentValue ? goal.currentValue.toString() : '',
+      targetDate: goal.targetDate,
+      monthlySip: goal.monthlyRequired ? goal.monthlyRequired.toString() : '',
+      priority: priorityMap[goal.priority] || 2,
+      notes: goal.notes || '',
+    })
+    setShowEditGoalModal(true)
+  }
+
+  // Submit edit goal
+  const handleEditGoalSubmit = async () => {
+    if (!client || !editingGoal || !editGoalForm.name || !editGoalForm.targetAmount || !editGoalForm.targetDate) return
+    setEditGoalSubmitting(true)
+    try {
+      const payload: UpdateGoalDto = {
+        name: editGoalForm.name,
+        category: editGoalForm.category,
+        targetAmount: Number(editGoalForm.targetAmount),
+        currentAmount: editGoalForm.currentAmount ? Number(editGoalForm.currentAmount) : undefined,
+        targetDate: editGoalForm.targetDate,
+        monthlySip: editGoalForm.monthlySip ? Number(editGoalForm.monthlySip) : undefined,
+        priority: editGoalForm.priority,
+        notes: editGoalForm.notes || undefined,
+      }
+      await goalsApi.update(client.id, editingGoal.id, payload)
+      notification.success('Goal Updated', `"${editGoalForm.name}" has been updated.`)
+      setShowEditGoalModal(false)
+      setEditingGoal(null)
+      await refreshGoals(client.id)
+    } catch (err) {
+      notification.error('Failed', err instanceof Error ? err.message : 'Failed to update goal')
+    } finally {
+      setEditGoalSubmitting(false)
+    }
+  }
+
+  // Open contribute modal
+  const handleContributeGoal = (goal: Goal) => {
+    setContributingGoal(goal)
+    setContributeForm({ amount: '', type: 'LUMPSUM', date: new Date().toISOString().split('T')[0], description: '' })
+    setShowContributeModal(true)
+  }
+
+  // Submit contribution
+  const handleContributeSubmit = async () => {
+    if (!client || !contributingGoal || !contributeForm.amount) return
+    setContributeSubmitting(true)
+    try {
+      const payload: AddContributionDto = {
+        amount: Number(contributeForm.amount),
+        type: contributeForm.type,
+        date: contributeForm.date,
+        description: contributeForm.description || undefined,
+      }
+      await goalsApi.addContribution(client.id, contributingGoal.id, payload)
+      notification.success('Contribution Added', `${formatCurrency(Number(contributeForm.amount))} added to "${contributingGoal.name}".`)
+      setShowContributeModal(false)
+      setContributingGoal(null)
+      await refreshGoals(client.id)
+    } catch (err) {
+      notification.error('Failed', err instanceof Error ? err.message : 'Failed to add contribution')
+    } finally {
+      setContributeSubmitting(false)
+    }
+  }
+
+  // Delete goal
+  const handleDeleteGoal = async (goalId: string) => {
+    if (!client) return
+    setDeleteGoalSubmitting(true)
+    try {
+      await goalsApi.delete(client.id, goalId)
+      notification.success('Goal Deleted', 'The goal has been removed.')
+      setDeletingGoalId(null)
+      await refreshGoals(client.id)
+    } catch (err) {
+      notification.error('Failed', err instanceof Error ? err.message : 'Failed to delete goal')
+    } finally {
+      setDeleteGoalSubmitting(false)
     }
   }
 
@@ -528,22 +719,27 @@ const ClientDetailPage = () => {
                   <FAChip color={getRiskColor(client.riskProfile, colors)} size="sm">
                     {client.riskProfile}
                   </FAChip>
+                  <FAShareButton
+                    clientId={client.id}
+                    clientName={client.name}
+                    label="Share"
+                  />
                 </div>
-                <div className="flex items-center gap-4 mt-2 text-sm" style={{ color: colors.textSecondary }}>
-                  <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <div className="flex items-center flex-wrap gap-x-6 gap-y-1 mt-2 text-sm" style={{ color: colors.textSecondary }}>
+                  <span className="flex items-center gap-1.5 whitespace-nowrap">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                     {client.email}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <span className="flex items-center gap-1.5 whitespace-nowrap">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
                     {client.phone}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <span className="flex items-center gap-1.5 whitespace-nowrap">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     Client since {formatDate(client.joinedDate)}
@@ -551,71 +747,57 @@ const ClientDetailPage = () => {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <FAButton variant="secondary" icon={
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              }>
-                Edit Profile
+            <div className="flex items-center gap-2">
+              <FAButton
+                size="sm"
+                variant="secondary"
+                onClick={() => {}}
+                icon={
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                }
+              >
+                Edit
               </FAButton>
               <FAButton
+                size="sm"
                 onClick={() => handleQuickAction('Buy')}
                 icon={
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
                 }
               >
-                New Transaction
+                Transaction
               </FAButton>
             </div>
           </div>
-        </FACard>
 
-        {/* Portfolio Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          <FACard padding="md">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>
-              Total Invested
-            </p>
-            <p className="text-xl font-bold mt-1" style={{ color: colors.textPrimary }}>
-              {formatCurrency(totalInvested)}
-            </p>
-          </FACard>
-          <FACard padding="md">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>
-              Current Value
-            </p>
-            <p className="text-xl font-bold mt-1" style={{ color: colors.textPrimary }}>
-              {formatCurrency(totalCurrent)}
-            </p>
-          </FACard>
-          <FACard padding="md">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>
-              Total Gain
-            </p>
-            <p className="text-xl font-bold mt-1" style={{ color: totalGain >= 0 ? colors.success : colors.error }}>
-              {totalGain >= 0 ? '+' : ''}{formatCurrency(totalGain)}
-            </p>
-          </FACard>
-          <FACard padding="md">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>
-              Returns
-            </p>
-            <p className="text-xl font-bold mt-1" style={{ color: overallReturn >= 0 ? colors.success : colors.error }}>
-              {overallReturn >= 0 ? '+' : ''}{overallReturn.toFixed(1)}%
-            </p>
-          </FACard>
-          <FACard padding="md">
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>
-              Monthly SIP
-            </p>
-            <p className="text-xl font-bold mt-1" style={{ color: colors.textPrimary }}>
-              {formatCurrency(sips.filter(s => s.status === 'Active').reduce((sum, s) => sum + s.amount, 0))}
-            </p>
-          </FACard>
-        </div>
+          {/* Portfolio Stats Row */}
+          <div
+            className="flex items-center gap-6 mt-5 pt-5"
+            style={{ borderTop: `1px solid ${colors.cardBorder}` }}
+          >
+            {[
+              { label: 'Invested', value: formatCurrency(totalInvested) },
+              { label: 'Current Value', value: formatCurrency(totalCurrent) },
+              { label: 'Gain/Loss', value: `${totalGain >= 0 ? '+' : ''}${formatCurrency(totalGain)}`, color: totalGain >= 0 ? colors.success : colors.error },
+              { label: 'Returns', value: `${overallReturn >= 0 ? '+' : ''}${overallReturn.toFixed(1)}%`, color: overallReturn >= 0 ? colors.success : colors.error },
+              { label: 'Monthly SIP', value: formatCurrency(sips.filter(s => s.status === 'Active').reduce((sum, s) => sum + s.amount, 0)) },
+            ].map((stat, i) => (
+              <div key={stat.label} className="flex items-center gap-6">
+                {i > 0 && (
+                  <div className="w-px h-8" style={{ background: colors.cardBorder }} />
+                )}
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider" style={{ color: colors.textTertiary }}>{stat.label}</p>
+                  <p className="text-lg font-bold mt-0.5" style={{ color: stat.color || colors.textPrimary }}>{stat.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </FACard>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
@@ -658,101 +840,80 @@ const ClientDetailPage = () => {
                 </FACard>
               )}
 
-              {/* Quick Stats */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <FACard padding="md">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${colors.primary}15` }}>
-                      <svg className="w-5 h-5" style={{ color: colors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {/* Holdings Summary */}
+              <FACard padding="md">
+                <FASectionHeader
+                  title="Holdings"
+                  action={
+                    holdings.length > 0 ? (
+                      <button
+                        onClick={() => setActiveTab('holdings')}
+                        className="text-xs font-medium transition-opacity hover:opacity-80"
+                        style={{ color: colors.primary }}
+                      >
+                        View All ({holdings.length})
+                      </button>
+                    ) : undefined
+                  }
+                />
+                {holdings.length === 0 ? (
+                  <FAEmptyState
+                    icon={
+                      <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                       </svg>
-                    </div>
-                    <div>
-                      <p className="text-xs" style={{ color: colors.textTertiary }}>Holdings</p>
-                      <p className="text-lg font-bold" style={{ color: colors.textPrimary }}>{holdings.length}</p>
-                    </div>
+                    }
+                    title="No Holdings"
+                    description="This client has no portfolio holdings yet"
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                          <th className="text-left py-2.5 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Fund</th>
+                          <th className="text-right py-2.5 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Value</th>
+                          <th className="text-right py-2.5 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Returns</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...holdings]
+                          .sort((a, b) => b.currentValue - a.currentValue)
+                          .slice(0, 5)
+                          .map((holding) => (
+                          <tr key={holding.id} style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                            <td className="py-2.5 pr-4">
+                              <p className="font-medium text-sm" style={{ color: colors.textPrimary }}>{holding.fundName}</p>
+                              <p className="text-xs mt-0.5" style={{ color: colors.textTertiary }}>{holding.assetClass} &middot; {holding.units.toFixed(2)} units</p>
+                            </td>
+                            <td className="py-2.5 pr-4 text-right">
+                              <p className="font-medium" style={{ color: colors.textPrimary }}>{formatCurrencyCompact(holding.currentValue)}</p>
+                            </td>
+                            <td className="py-2.5 text-right">
+                              <span className="font-medium" style={{ color: holding.absoluteGainPercent >= 0 ? colors.success : colors.error }}>
+                                {holding.absoluteGainPercent >= 0 ? '+' : ''}{holding.absoluteGainPercent.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {holdings.length > 5 && (
+                      <button
+                        onClick={() => setActiveTab('holdings')}
+                        className="w-full text-center text-xs font-medium py-3 transition-opacity hover:opacity-80"
+                        style={{ color: colors.primary }}
+                      >
+                        +{holdings.length - 5} more holdings
+                      </button>
+                    )}
                   </div>
-                </FACard>
-                <FACard padding="md">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${colors.success}15` }}>
-                      <svg className="w-5 h-5" style={{ color: colors.success }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-xs" style={{ color: colors.textTertiary }}>Active SIPs</p>
-                      <p className="text-lg font-bold" style={{ color: colors.textPrimary }}>{sips.filter(s => s.status === 'Active').length}</p>
-                    </div>
-                  </div>
-                </FACard>
-                <FACard padding="md">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${colors.secondary}15` }}>
-                      <svg className="w-5 h-5" style={{ color: colors.secondary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-xs" style={{ color: colors.textTertiary }}>Goals</p>
-                      <p className="text-lg font-bold" style={{ color: colors.textPrimary }}>{goals.length}</p>
-                    </div>
-                  </div>
-                </FACard>
-                <FACard padding="md">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: `${colors.warning}15` }}>
-                      <svg className="w-5 h-5" style={{ color: colors.warning }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-xs" style={{ color: colors.textTertiary }}>Risk Profile</p>
-                      <p className="text-lg font-bold" style={{ color: colors.textPrimary }}>{client.riskProfile}</p>
-                    </div>
-                  </div>
-                </FACard>
-              </div>
+                )}
+              </FACard>
             </div>
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Asset Allocation */}
-              <FACard padding="md">
-                <FASectionHeader title="Asset Allocation" />
-                {allocationData.length > 0 ? (
-                  <AssetAllocationChart allocation={allocationData} height={240} />
-                ) : (
-                  <div className="space-y-3">
-                    {Object.entries(holdings.reduce((acc, h) => {
-                      acc[h.assetClass] = (acc[h.assetClass] || 0) + h.currentValue
-                      return acc
-                    }, {} as Record<string, number>)).map(([asset, value]) => {
-                      const percentage = totalCurrent > 0 ? (value / totalCurrent) * 100 : 0
-                      return (
-                        <div key={asset}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm" style={{ color: colors.textPrimary }}>{asset}</span>
-                            <span className="text-sm font-medium" style={{ color: colors.textPrimary }}>
-                              {percentage.toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="h-2 rounded-full overflow-hidden" style={{ background: colors.progressBg }}>
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${percentage}%`,
-                                background: asset === 'Equity' ? colors.primary : asset === 'Debt' ? colors.secondary : colors.warning,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </FACard>
-
               {/* Client Details */}
               <FACard padding="md">
                 <FASectionHeader title="Client Details" />
@@ -787,34 +948,6 @@ const ClientDetailPage = () => {
                   )}
                 </div>
               </FACard>
-
-              {/* Quick Actions */}
-              <FACard padding="md">
-                <FASectionHeader title="Quick Actions" />
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { label: 'New SIP', icon: 'M12 4v16m8-8H4', type: 'SIP' as TransactionType },
-                    { label: 'Lumpsum', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', type: 'Buy' as TransactionType },
-                    { label: 'Redeem', icon: 'M20 12H4', type: 'Sell' as TransactionType },
-                    { label: 'Switch', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', type: 'Switch' as TransactionType },
-                  ].map((action) => (
-                    <button
-                      key={action.label}
-                      onClick={() => handleQuickAction(action.type)}
-                      className="p-3 rounded-lg text-sm font-medium transition-all flex flex-col items-center gap-2 hover:scale-105 hover:shadow-md cursor-pointer"
-                      style={{
-                        background: isDark ? 'rgba(147, 197, 253, 0.08)' : 'rgba(59, 130, 246, 0.04)',
-                        border: `1px solid ${colors.cardBorder}`,
-                      }}
-                    >
-                      <svg className="w-5 h-5" style={{ color: colors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d={action.icon} />
-                      </svg>
-                      <span style={{ color: colors.textPrimary }}>{action.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </FACard>
             </div>
           </div>
         )}
@@ -834,62 +967,81 @@ const ClientDetailPage = () => {
                 description="This client is not part of a family group"
               />
             ) : (
-              <div className="space-y-3">
-                {familyMembers.map((member) => (
-                  <FATintedCard
-                    key={member.id}
-                    padding="md"
-                    accentColor={member.relationship === 'SELF' ? colors.primary : colors.secondary}
-                    onClick={() => router.push(`/advisor/clients/${member.clientId}`)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-semibold"
-                          style={{ background: `linear-gradient(135deg, ${member.relationship === 'SELF' ? colors.primary : colors.secondary} 0%, ${member.relationship === 'SELF' ? colors.primaryDark : colors.secondaryDark} 100%)` }}
-                        >
-                          {member.name.split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-base font-semibold" style={{ color: colors.textPrimary }}>{member.name}</p>
-                            <FAChip
-                              size="xs"
-                              color={member.relationship === 'SELF' ? colors.primary : colors.secondary}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                      <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Member</th>
+                      <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Relationship</th>
+                      <th className="text-center py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>KYC</th>
+                      <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Holdings</th>
+                      <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>SIPs</th>
+                      <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>AUM</th>
+                      <th className="text-right py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Returns</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...familyMembers]
+                      .sort((a, b) => {
+                        if (a.relationship === 'SELF') return -1
+                        if (b.relationship === 'SELF') return 1
+                        return b.aum - a.aum
+                      })
+                      .map((member) => (
+                      <tr
+                        key={member.id}
+                        className="cursor-pointer transition-colors"
+                        style={{ borderBottom: `1px solid ${colors.cardBorder}` }}
+                        onClick={() => router.push(`/advisor/clients/${member.clientId}`)}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? 'rgba(147, 197, 253, 0.04)' : 'rgba(59, 130, 246, 0.02)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                      >
+                        <td className="py-3 pr-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-semibold flex-shrink-0"
+                              style={{ background: `linear-gradient(135deg, ${member.relationship === 'SELF' ? colors.primary : colors.secondary} 0%, ${member.relationship === 'SELF' ? colors.primaryDark : colors.secondaryDark} 100%)` }}
                             >
-                              {getRelationshipLabel(member.relationship)}
-                            </FAChip>
-                            {member.kycStatus === 'VERIFIED' && (
-                              <FAChip size="xs" color={colors.success}>KYC</FAChip>
-                            )}
+                              {member.name.split(' ').map(n => n[0]).join('')}
+                            </div>
+                            <span className="font-medium" style={{ color: colors.textPrimary }}>{member.name}</span>
                           </div>
-                          <div className="flex items-center gap-4 mt-1 text-xs" style={{ color: colors.textTertiary }}>
-                            <span>{member.holdingsCount} holdings</span>
-                            <span>{member.sipCount} SIPs</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-base font-bold" style={{ color: colors.textPrimary }}>
-                          {formatCurrency(member.aum)}
-                        </p>
-                        <p className="text-sm" style={{ color: member.returns >= 0 ? colors.success : colors.error }}>
-                          {member.returns >= 0 ? '+' : ''}{member.returns.toFixed(1)}%
-                        </p>
-                      </div>
-                    </div>
-                  </FATintedCard>
-                ))}
-
-                {/* Family Total */}
-                <div className="pt-3 mt-3" style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold" style={{ color: colors.textSecondary }}>Family Total AUM</p>
-                    <p className="text-lg font-bold" style={{ color: colors.primary }}>
-                      {formatCurrency(familyMembers.reduce((sum, m) => sum + m.aum, 0))}
-                    </p>
-                  </div>
-                </div>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <FAChip size="xs" color={member.relationship === 'SELF' ? colors.primary : colors.secondary}>
+                            {getRelationshipLabel(member.relationship)}
+                          </FAChip>
+                        </td>
+                        <td className="py-3 pr-4 text-center">
+                          <FAChip size="xs" color={member.kycStatus === 'VERIFIED' ? colors.success : colors.warning}>
+                            {member.kycStatus === 'VERIFIED' ? 'Verified' : 'Pending'}
+                          </FAChip>
+                        </td>
+                        <td className="py-3 pr-4 text-right" style={{ color: colors.textSecondary }}>{member.holdingsCount}</td>
+                        <td className="py-3 pr-4 text-right" style={{ color: colors.textSecondary }}>{member.sipCount}</td>
+                        <td className="py-3 pr-4 text-right font-medium" style={{ color: colors.textPrimary }}>{formatCurrency(member.aum)}</td>
+                        <td className="py-3 text-right">
+                          <span className="font-medium" style={{ color: member.returns >= 0 ? colors.success : colors.error }}>
+                            {member.returns >= 0 ? '+' : ''}{member.returns.toFixed(1)}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={5} className="py-3 pr-4 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>
+                        Family Total
+                      </td>
+                      <td className="py-3 pr-4 text-right font-bold" style={{ color: colors.primary }}>
+                        {formatCurrency(familyMembers.reduce((sum, m) => sum + m.aum, 0))}
+                      </td>
+                      <td className="py-3 text-right font-bold" style={{ color: (() => { const avg = familyMembers.length > 0 ? familyMembers.reduce((s, m) => s + m.returns, 0) / familyMembers.length : 0; return avg >= 0 ? colors.success : colors.error })() }}>
+                        {(() => { const avg = familyMembers.length > 0 ? familyMembers.reduce((s, m) => s + m.returns, 0) / familyMembers.length : 0; return `${avg >= 0 ? '+' : ''}${avg.toFixed(1)}%` })()}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             )}
           </FACard>
@@ -1128,178 +1280,710 @@ const ClientDetailPage = () => {
         )}
 
         {/* ==================== SIPS TAB ==================== */}
-        {activeTab === 'sips' && (
-          <FACard padding="md">
-            <FASectionHeader
-              title="SIP Management"
-              action={
-                <FAButton size="sm" onClick={() => handleQuickAction('SIP')} icon={
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                }>
-                  New SIP
-                </FAButton>
-              }
-            />
-            {sips.length === 0 ? (
-              <FAEmptyState
-                icon={
-                  <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
+        {activeTab === 'sips' && (() => {
+          const filteredSips = sips.filter(s => {
+            if (sipStatusFilter === 'All') return true
+            return s.status?.toLowerCase() === sipStatusFilter.toLowerCase()
+          }).sort((a, b) => b.amount - a.amount)
+
+          return (
+            <FACard padding="md">
+              <FASectionHeader
+                title="SIP Management"
+                action={
+                  <FAButton size="sm" onClick={() => handleQuickAction('SIP')} icon={
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  }>
+                    New SIP
+                  </FAButton>
                 }
-                title="No SIPs"
-                description="Create a new SIP for this client"
               />
-            ) : (
-              <div className="space-y-3">
-                {sips.map((sip) => (
-                  <FATintedCard key={sip.id} padding="md" accentColor={getSipStatusColor(sip.status)}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-base font-semibold" style={{ color: colors.textPrimary }}>{sip.fundName}</p>
-                          <FAChip color={getSipStatusColor(sip.status)} size="xs">{sip.status}</FAChip>
-                        </div>
-                        <div className="flex items-center gap-4 mt-1.5 text-xs" style={{ color: colors.textTertiary }}>
-                          <span>{formatCurrency(sip.amount)} / {sip.frequency.toLowerCase()}</span>
-                          <span>Day {sip.sipDate}</span>
-                          <span>{sip.completedInstallments} installments</span>
-                          {sip.nextSipDate && <span>Next: {formatDate(sip.nextSipDate)}</span>}
-                        </div>
-                        <div className="flex items-center gap-4 mt-1 text-xs" style={{ color: colors.textSecondary }}>
-                          <span>Invested: {formatCurrency(sip.totalInvested)}</span>
-                          <span>Current: {formatCurrency(sip.currentValue)}</span>
-                          {sip.returnsPercent !== 0 && (
-                            <span style={{ color: sip.returnsPercent >= 0 ? colors.success : colors.error }}>
-                              {sip.returnsPercent >= 0 ? '+' : ''}{sip.returnsPercent.toFixed(1)}%
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        {sip.status === 'Active' && (
-                          <button
-                            onClick={() => handleSipPause(sip.id)}
-                            disabled={sipActionLoading === sip.id}
-                            className="p-2 rounded-lg text-xs font-medium transition-all hover:scale-105"
-                            style={{ background: `${colors.warning}15`, color: colors.warning }}
-                            title="Pause SIP"
-                          >
-                            {sipActionLoading === sip.id ? (
-                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            )}
-                          </button>
-                        )}
-                        {sip.status === 'Paused' && (
-                          <button
-                            onClick={() => handleSipResume(sip.id)}
-                            disabled={sipActionLoading === sip.id}
-                            className="p-2 rounded-lg text-xs font-medium transition-all hover:scale-105"
-                            style={{ background: `${colors.success}15`, color: colors.success }}
-                            title="Resume SIP"
-                          >
-                            {sipActionLoading === sip.id ? (
-                              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                            )}
-                          </button>
-                        )}
-                        {(sip.status === 'Active' || sip.status === 'Paused') && (
-                          <button
-                            onClick={() => handleSipCancel(sip.id)}
-                            disabled={sipActionLoading === sip.id}
-                            className="p-2 rounded-lg text-xs font-medium transition-all hover:scale-105"
-                            style={{ background: `${colors.error}15`, color: colors.error }}
-                            title="Cancel SIP"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </FATintedCard>
+
+              {/* Status Filters */}
+              <div className="flex items-center gap-2 mb-4">
+                {(['All', 'Active', 'Paused', 'Cancelled'] as const).map(status => (
+                  <button
+                    key={status}
+                    onClick={() => setSipStatusFilter(status)}
+                    className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                    style={{
+                      background: sipStatusFilter === status
+                        ? `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`
+                        : colors.chipBg,
+                      color: sipStatusFilter === status ? '#FFFFFF' : colors.textSecondary,
+                    }}
+                  >
+                    {status}
+                  </button>
                 ))}
               </div>
-            )}
-          </FACard>
-        )}
+
+              {filteredSips.length === 0 ? (
+                <FAEmptyState
+                  icon={
+                    <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  }
+                  title="No SIPs Found"
+                  description={sipStatusFilter !== 'All' ? `No ${sipStatusFilter.toLowerCase()} SIPs` : 'Create a new SIP for this client'}
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                        <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Fund Name</th>
+                        <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Status</th>
+                        <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Amount</th>
+                        <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Invested</th>
+                        <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Current</th>
+                        <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Returns</th>
+                        <th className="text-right py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSips.map((sip) => {
+                        const sipStatus = sip.status?.toLowerCase()
+                        const isActive = sipStatus === 'active'
+                        const isPaused = sipStatus === 'paused'
+                        const sipReturns = sip.returnsPercent !== 0
+                          ? sip.returnsPercent
+                          : sip.totalInvested > 0
+                            ? ((sip.currentValue - sip.totalInvested) / sip.totalInvested) * 100
+                            : 0
+
+                        return (
+                          <tr key={sip.id} style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                            <td className="py-3 pr-4">
+                              <p className="font-medium" style={{ color: colors.textPrimary }}>{sip.fundName}</p>
+                              <div className="flex items-center gap-3 mt-0.5 text-xs" style={{ color: colors.textTertiary }}>
+                                <span>Day {sip.sipDate}</span>
+                                <span>{sip.completedInstallments} installments</span>
+                                {sip.nextSipDate && <span>Next: {formatDate(sip.nextSipDate)}</span>}
+                              </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <FAChip color={getSipStatusColor(sip.status)} size="xs">{sip.status}</FAChip>
+                            </td>
+                            <td className="py-3 pr-4 text-right">
+                              <p className="font-medium" style={{ color: colors.textPrimary }}>{formatCurrency(sip.amount)}</p>
+                              <p className="text-xs" style={{ color: colors.textTertiary }}>/ {sip.frequency.toLowerCase()}</p>
+                            </td>
+                            <td className="py-3 pr-4 text-right" style={{ color: colors.textSecondary }}>{formatCurrency(sip.totalInvested)}</td>
+                            <td className="py-3 pr-4 text-right font-medium" style={{ color: colors.textPrimary }}>{formatCurrency(sip.currentValue)}</td>
+                            <td className="py-3 pr-4 text-right">
+                              {sipReturns !== 0 ? (
+                                <span className="font-medium" style={{ color: sipReturns >= 0 ? colors.success : colors.error }}>
+                                  {sipReturns >= 0 ? '+' : ''}{sipReturns.toFixed(1)}%
+                                </span>
+                              ) : (
+                                <span style={{ color: colors.textTertiary }}>&mdash;</span>
+                              )}
+                            </td>
+                            <td className="py-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {isActive && (
+                                  <button
+                                    onClick={() => handleSipPause(sip.id)}
+                                    disabled={sipActionLoading === sip.id}
+                                    className="p-1.5 rounded-md transition-all hover:scale-110"
+                                    style={{ background: `${colors.warning}15`, color: colors.warning }}
+                                    title="Pause SIP"
+                                  >
+                                    {sipActionLoading === sip.id ? (
+                                      <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                )}
+                                {isPaused && (
+                                  <button
+                                    onClick={() => handleSipResume(sip.id)}
+                                    disabled={sipActionLoading === sip.id}
+                                    className="p-1.5 rounded-md transition-all hover:scale-110"
+                                    style={{ background: `${colors.success}15`, color: colors.success }}
+                                    title="Resume SIP"
+                                  >
+                                    {sipActionLoading === sip.id ? (
+                                      <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                )}
+                                {(isActive || isPaused) && (
+                                  <button
+                                    onClick={() => handleSipCancel(sip.id)}
+                                    disabled={sipActionLoading === sip.id}
+                                    className="p-1.5 rounded-md transition-all hover:scale-110"
+                                    style={{ background: `${colors.error}15`, color: colors.error }}
+                                    title="Cancel SIP"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </FACard>
+          )
+        })()}
 
         {/* ==================== GOALS TAB ==================== */}
         {activeTab === 'goals' && (
-          <FACard padding="md">
-            <FASectionHeader
-              title="Financial Goals"
-              action={
-                <FAButton size="sm" variant="secondary">
-                  + New Goal
-                </FAButton>
-              }
-            />
-            {goals.length === 0 ? (
-              <FAEmptyState
-                icon={
-                  <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-                  </svg>
+          <>
+            <FACard padding="md">
+              <FASectionHeader
+                title="Financial Goals"
+                action={
+                  <FAButton size="sm" onClick={() => setShowGoalModal(true)} icon={
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                  }>
+                    New Goal
+                  </FAButton>
                 }
-                title="No Goals Set"
-                description="Create financial goals to help your client plan for the future"
               />
-            ) : (
-              <div className="space-y-3">
-                {goals.map((goal) => (
-                  <FATintedCard key={goal.id} padding="md" accentColor={goal.onTrack ? colors.success : colors.warning}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-base font-semibold" style={{ color: colors.textPrimary }}>{goal.name}</p>
-                          <FAChip size="xs">{goal.type}</FAChip>
-                          <FAChip color={goal.onTrack ? colors.success : colors.warning} size="xs">
-                            {goal.onTrack ? 'On Track' : 'Behind'}
-                          </FAChip>
-                        </div>
-                        <p className="text-sm mt-1" style={{ color: colors.textTertiary }}>
-                          Target: {formatDate(goal.targetDate)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-base font-bold" style={{ color: colors.textPrimary }}>
-                          {formatCurrency(goal.currentValue)}
-                        </p>
-                        <p className="text-sm" style={{ color: colors.textSecondary }}>
-                          of {formatCurrencyCompact(goal.targetAmount)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="h-2 rounded-full overflow-hidden" style={{ background: colors.progressBg }}>
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${Math.min(goal.progressPercent, 100)}%`,
-                          background: `linear-gradient(90deg, ${colors.primary} 0%, ${colors.success} 100%)`,
-                        }}
+              {goals.length === 0 ? (
+                <FAEmptyState
+                  icon={
+                    <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                    </svg>
+                  }
+                  title="No Goals Set"
+                  description="Create financial goals to help your client plan for the future"
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                        <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Goal</th>
+                        <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Status</th>
+                        <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Current</th>
+                        <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Target</th>
+                        <th className="text-left py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Progress</th>
+                        <th className="text-right py-3 pr-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Monthly SIP</th>
+                        <th className="text-right py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {goals.map((goal) => (
+                        <tr key={goal.id} style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                          <td className="py-3 pr-4">
+                            <p className="font-medium" style={{ color: colors.textPrimary }}>{goal.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <FAChip size="xs">{goal.type}</FAChip>
+                              <span className="text-xs" style={{ color: colors.textTertiary }}>Target: {formatDate(goal.targetDate)}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <FAChip color={goal.onTrack ? colors.success : colors.warning} size="xs">
+                              {goal.onTrack ? 'On Track' : 'Behind'}
+                            </FAChip>
+                          </td>
+                          <td className="py-3 pr-4 text-right font-medium" style={{ color: colors.textPrimary }}>{formatCurrency(goal.currentValue)}</td>
+                          <td className="py-3 pr-4 text-right" style={{ color: colors.textSecondary }}>{formatCurrencyCompact(goal.targetAmount)}</td>
+                          <td className="py-3 pr-4" style={{ minWidth: 140 }}>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: colors.progressBg }}>
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${Math.min(goal.progressPercent, 100)}%`,
+                                    background: `linear-gradient(90deg, ${colors.primary} 0%, ${colors.success} 100%)`,
+                                  }}
+                                />
+                              </div>
+                              <span className="text-xs font-medium whitespace-nowrap" style={{ color: colors.textSecondary }}>{goal.progressPercent.toFixed(0)}%</span>
+                            </div>
+                          </td>
+                          <td className="py-3 pr-4 text-right font-medium" style={{ color: colors.textPrimary }}>{formatCurrency(goal.monthlyRequired)}</td>
+                          <td className="py-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {/* Add Contribution */}
+                              <button
+                                onClick={() => handleContributeGoal(goal)}
+                                title="Add Contribution"
+                                className="p-1.5 rounded-lg transition-all hover:scale-105"
+                                style={{ background: `${colors.success}12`, color: colors.success }}
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
+                                </svg>
+                              </button>
+                              {/* Edit */}
+                              <button
+                                onClick={() => handleEditGoal(goal)}
+                                title="Edit Goal"
+                                className="p-1.5 rounded-lg transition-all hover:scale-105"
+                                style={{ background: `${colors.primary}12`, color: colors.primary }}
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                                </svg>
+                              </button>
+                              {/* Delete */}
+                              <button
+                                onClick={() => setDeletingGoalId(goal.id)}
+                                title="Delete Goal"
+                                className="p-1.5 rounded-lg transition-all hover:scale-105"
+                                style={{ background: `${colors.error}12`, color: colors.error }}
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </FACard>
+
+            {/* Edit Goal Modal */}
+            {showEditGoalModal && editingGoal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                <div
+                  className="w-full max-w-lg rounded-2xl p-6 mx-4"
+                  style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, boxShadow: `0 24px 48px rgba(0,0,0,0.2)` }}
+                >
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-lg font-bold" style={{ color: colors.textPrimary }}>Edit Goal</h2>
+                    <button
+                      onClick={() => { setShowEditGoalModal(false); setEditingGoal(null) }}
+                      className="p-1.5 rounded-lg transition-colors hover:opacity-70"
+                      style={{ color: colors.textTertiary }}
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Goal Name</label>
+                      <input
+                        type="text"
+                        value={editGoalForm.name}
+                        onChange={(e) => setEditGoalForm(f => ({ ...f, name: e.target.value }))}
+                        className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
                       />
                     </div>
-                    <p className="text-xs mt-2" style={{ color: colors.textTertiary }}>
-                      {goal.progressPercent.toFixed(1)}% achieved • Monthly requirement: {formatCurrency(goal.monthlyRequired)}
-                    </p>
-                  </FATintedCard>
-                ))}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Category</label>
+                        <select
+                          value={editGoalForm.category}
+                          onChange={(e) => setEditGoalForm(f => ({ ...f, category: e.target.value }))}
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        >
+                          <option value="RETIREMENT">Retirement</option>
+                          <option value="EDUCATION">Education</option>
+                          <option value="HOME">Home</option>
+                          <option value="WEALTH">Wealth Creation</option>
+                          <option value="EMERGENCY">Emergency Fund</option>
+                          <option value="TRAVEL">Travel</option>
+                          <option value="WEDDING">Wedding</option>
+                          <option value="CAR">Car</option>
+                          <option value="CUSTOM">Custom</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Priority</label>
+                        <select
+                          value={editGoalForm.priority}
+                          onChange={(e) => setEditGoalForm(f => ({ ...f, priority: Number(e.target.value) }))}
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        >
+                          <option value={1}>High</option>
+                          <option value={2}>Medium</option>
+                          <option value={3}>Low</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Target Amount</label>
+                        <input
+                          type="number"
+                          value={editGoalForm.targetAmount}
+                          onChange={(e) => setEditGoalForm(f => ({ ...f, targetAmount: e.target.value }))}
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.success }}>Current Amount</label>
+                        <input
+                          type="number"
+                          value={editGoalForm.currentAmount}
+                          onChange={(e) => setEditGoalForm(f => ({ ...f, currentAmount: e.target.value }))}
+                          placeholder="0"
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.success}30`, color: colors.textPrimary }}
+                        />
+                        {editGoalForm.targetAmount && editGoalForm.currentAmount && (
+                          <p className="text-xs mt-1" style={{ color: colors.success }}>
+                            Progress: {Math.min(100, Math.round((Number(editGoalForm.currentAmount) / Number(editGoalForm.targetAmount)) * 100))}%
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Target Date</label>
+                        <input
+                          type="date"
+                          value={editGoalForm.targetDate}
+                          onChange={(e) => setEditGoalForm(f => ({ ...f, targetDate: e.target.value }))}
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Monthly SIP (Optional)</label>
+                        <input
+                          type="number"
+                          value={editGoalForm.monthlySip}
+                          onChange={(e) => setEditGoalForm(f => ({ ...f, monthlySip: e.target.value }))}
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Notes (Optional)</label>
+                      <input
+                        type="text"
+                        value={editGoalForm.notes}
+                        onChange={(e) => setEditGoalForm(f => ({ ...f, notes: e.target.value }))}
+                        className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 mt-6">
+                    <FAButton variant="secondary" size="sm" onClick={() => { setShowEditGoalModal(false); setEditingGoal(null) }}>Cancel</FAButton>
+                    <FAButton
+                      size="sm"
+                      onClick={handleEditGoalSubmit}
+                      disabled={editGoalSubmitting || !editGoalForm.name || !editGoalForm.targetAmount || !editGoalForm.targetDate}
+                      icon={editGoalSubmitting ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : undefined}
+                    >
+                      {editGoalSubmitting ? 'Saving...' : 'Save Changes'}
+                    </FAButton>
+                  </div>
+                </div>
               </div>
             )}
-          </FACard>
+
+            {/* Add Contribution Modal */}
+            {showContributeModal && contributingGoal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                <div
+                  className="w-full max-w-md rounded-2xl p-6 mx-4"
+                  style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, boxShadow: `0 24px 48px rgba(0,0,0,0.2)` }}
+                >
+                  <div className="flex items-center justify-between mb-5">
+                    <div>
+                      <h2 className="text-lg font-bold" style={{ color: colors.textPrimary }}>Add Contribution</h2>
+                      <p className="text-xs mt-0.5" style={{ color: colors.textTertiary }}>
+                        {contributingGoal.name} — {formatCurrency(contributingGoal.currentValue)} / {formatCurrency(contributingGoal.targetAmount)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { setShowContributeModal(false); setContributingGoal(null) }}
+                      className="p-1.5 rounded-lg transition-colors hover:opacity-70"
+                      style={{ color: colors.textTertiary }}
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Amount</label>
+                      <input
+                        type="number"
+                        value={contributeForm.amount}
+                        onChange={(e) => setContributeForm(f => ({ ...f, amount: e.target.value }))}
+                        placeholder="e.g. 50000"
+                        className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Type</label>
+                        <select
+                          value={contributeForm.type}
+                          onChange={(e) => setContributeForm(f => ({ ...f, type: e.target.value }))}
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        >
+                          <option value="LUMPSUM">Lumpsum</option>
+                          <option value="SIP">SIP</option>
+                          <option value="RETURNS">Returns</option>
+                          <option value="DIVIDEND">Dividend</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Date</label>
+                        <input
+                          type="date"
+                          value={contributeForm.date}
+                          onChange={(e) => setContributeForm(f => ({ ...f, date: e.target.value }))}
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Description (Optional)</label>
+                      <input
+                        type="text"
+                        value={contributeForm.description}
+                        onChange={(e) => setContributeForm(f => ({ ...f, description: e.target.value }))}
+                        placeholder="e.g. Monthly SIP for Jan 2025"
+                        className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 mt-6">
+                    <FAButton variant="secondary" size="sm" onClick={() => { setShowContributeModal(false); setContributingGoal(null) }}>Cancel</FAButton>
+                    <FAButton
+                      size="sm"
+                      onClick={handleContributeSubmit}
+                      disabled={contributeSubmitting || !contributeForm.amount}
+                      icon={contributeSubmitting ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : undefined}
+                    >
+                      {contributeSubmitting ? 'Adding...' : 'Add Contribution'}
+                    </FAButton>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Delete Goal Confirmation */}
+            {deletingGoalId && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                <div
+                  className="w-full max-w-sm rounded-2xl p-6 mx-4"
+                  style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, boxShadow: `0 24px 48px rgba(0,0,0,0.2)` }}
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${colors.error}12` }}>
+                      <svg className="w-5 h-5" style={{ color: colors.error }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-base font-bold" style={{ color: colors.textPrimary }}>Delete Goal</h2>
+                      <p className="text-xs" style={{ color: colors.textTertiary }}>This action cannot be undone</p>
+                    </div>
+                  </div>
+
+                  <p className="text-sm mb-6" style={{ color: colors.textSecondary }}>
+                    Are you sure you want to delete <strong style={{ color: colors.textPrimary }}>{goals.find(g => g.id === deletingGoalId)?.name || 'this goal'}</strong>? All contributions and progress data will be permanently removed.
+                  </p>
+
+                  <div className="flex items-center justify-end gap-3">
+                    <FAButton variant="secondary" size="sm" onClick={() => setDeletingGoalId(null)}>Cancel</FAButton>
+                    <button
+                      onClick={() => handleDeleteGoal(deletingGoalId)}
+                      disabled={deleteGoalSubmitting}
+                      className="px-4 py-2 rounded-full text-sm font-semibold text-white transition-all hover:shadow-lg disabled:opacity-50"
+                      style={{ background: `linear-gradient(135deg, ${colors.error} 0%, #DC2626 100%)` }}
+                    >
+                      {deleteGoalSubmitting ? 'Deleting...' : 'Delete Goal'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Goal Creation Modal */}
+            {showGoalModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                <div
+                  className="w-full max-w-lg rounded-2xl p-6 mx-4"
+                  style={{ background: colors.background, border: `1px solid ${colors.cardBorder}`, boxShadow: `0 24px 48px rgba(0,0,0,0.2)` }}
+                >
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-lg font-bold" style={{ color: colors.textPrimary }}>Create New Goal</h2>
+                    <button
+                      onClick={() => setShowGoalModal(false)}
+                      className="p-1.5 rounded-lg transition-colors hover:opacity-70"
+                      style={{ color: colors.textTertiary }}
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Goal Name */}
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Goal Name</label>
+                      <input
+                        type="text"
+                        value={goalForm.name}
+                        onChange={(e) => setGoalForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="e.g. Retirement Fund, Child Education"
+                        className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                      />
+                    </div>
+
+                    {/* Category + Priority */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Category</label>
+                        <select
+                          value={goalForm.category}
+                          onChange={(e) => setGoalForm(f => ({ ...f, category: e.target.value }))}
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        >
+                          <option value="RETIREMENT">Retirement</option>
+                          <option value="EDUCATION">Education</option>
+                          <option value="HOME">Home</option>
+                          <option value="WEALTH">Wealth Creation</option>
+                          <option value="EMERGENCY">Emergency Fund</option>
+                          <option value="TRAVEL">Travel</option>
+                          <option value="WEDDING">Wedding</option>
+                          <option value="CAR">Car</option>
+                          <option value="CUSTOM">Custom</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Priority</label>
+                        <select
+                          value={goalForm.priority}
+                          onChange={(e) => setGoalForm(f => ({ ...f, priority: Number(e.target.value) }))}
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        >
+                          <option value={1}>High</option>
+                          <option value={2}>Medium</option>
+                          <option value={3}>Low</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Target Amount + Target Date */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Target Amount</label>
+                        <input
+                          type="number"
+                          value={goalForm.targetAmount}
+                          onChange={(e) => setGoalForm(f => ({ ...f, targetAmount: e.target.value }))}
+                          placeholder="e.g. 5000000"
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Target Date</label>
+                        <input
+                          type="date"
+                          value={goalForm.targetDate}
+                          onChange={(e) => setGoalForm(f => ({ ...f, targetDate: e.target.value }))}
+                          className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                          style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Monthly SIP */}
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Monthly SIP (Optional)</label>
+                      <input
+                        type="number"
+                        value={goalForm.monthlySip}
+                        onChange={(e) => setGoalForm(f => ({ ...f, monthlySip: e.target.value }))}
+                        placeholder="e.g. 10000"
+                        className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                      />
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Notes (Optional)</label>
+                      <input
+                        type="text"
+                        value={goalForm.notes}
+                        onChange={(e) => setGoalForm(f => ({ ...f, notes: e.target.value }))}
+                        placeholder="Any additional notes"
+                        className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-3 mt-6">
+                    <FAButton variant="secondary" size="sm" onClick={() => setShowGoalModal(false)}>Cancel</FAButton>
+                    <FAButton
+                      size="sm"
+                      onClick={handleCreateGoal}
+                      disabled={goalSubmitting || !goalForm.name || !goalForm.targetAmount || !goalForm.targetDate}
+                      icon={goalSubmitting ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : undefined}
+                    >
+                      {goalSubmitting ? 'Creating...' : 'Create Goal'}
+                    </FAButton>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* ==================== REPORTS TAB ==================== */}

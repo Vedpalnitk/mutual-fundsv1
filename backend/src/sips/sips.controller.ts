@@ -16,14 +16,17 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { StaffPageGuard, RequiredPage } from '../common/guards/staff-page.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { SipsService } from './sips.service';
 import { CreateSIPDto, UpdateSIPDto } from './dto/create-sip.dto';
 import { SIPResponseDto, PaginatedSIPsResponseDto } from './dto/sip-response.dto';
 
 @ApiTags('sips')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffPageGuard)
+@RequiredPage('/advisor/transactions')
 @Controller('api/v1/sips')
 export class SipsController {
   constructor(private sipsService: SipsService) {}
@@ -44,7 +47,7 @@ export class SipsController {
     @Query('clientId') clientId?: string,
     @Query('search') search?: string,
   ) {
-    return this.sipsService.findAll(user.id, {
+    return this.sipsService.findAll(getEffectiveAdvisorId(user), {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
       status,
@@ -60,7 +63,7 @@ export class SipsController {
     @CurrentUser() user: any,
     @Param('clientId') clientId: string,
   ) {
-    return this.sipsService.findByClient(clientId, user.id);
+    return this.sipsService.findByClient(clientId, getEffectiveAdvisorId(user));
   }
 
   @Get(':id')
@@ -70,7 +73,7 @@ export class SipsController {
     @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.sipsService.findOne(id, user.id);
+    return this.sipsService.findOne(id, getEffectiveAdvisorId(user));
   }
 
   @Post()
@@ -80,7 +83,7 @@ export class SipsController {
     @CurrentUser() user: any,
     @Body() dto: CreateSIPDto,
   ) {
-    return this.sipsService.create(user.id, dto);
+    return this.sipsService.create(getEffectiveAdvisorId(user), dto);
   }
 
   @Put(':id')
@@ -91,7 +94,7 @@ export class SipsController {
     @Param('id') id: string,
     @Body() dto: UpdateSIPDto,
   ) {
-    return this.sipsService.update(id, user.id, dto);
+    return this.sipsService.update(id, getEffectiveAdvisorId(user), dto);
   }
 
   @Post(':id/pause')
@@ -101,7 +104,7 @@ export class SipsController {
     @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.sipsService.pause(id, user.id);
+    return this.sipsService.pause(id, getEffectiveAdvisorId(user));
   }
 
   @Post(':id/resume')
@@ -111,7 +114,7 @@ export class SipsController {
     @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.sipsService.resume(id, user.id);
+    return this.sipsService.resume(id, getEffectiveAdvisorId(user));
   }
 
   @Post(':id/cancel')
@@ -121,6 +124,6 @@ export class SipsController {
     @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.sipsService.cancel(id, user.id);
+    return this.sipsService.cancel(id, getEffectiveAdvisorId(user));
   }
 }

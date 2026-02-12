@@ -16,7 +16,9 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { StaffPageGuard, RequiredPage } from '../common/guards/staff-page.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
@@ -29,7 +31,8 @@ import {
 
 @ApiTags('clients')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, StaffPageGuard)
+@RequiredPage('/advisor/clients')
 @Controller('api/v1/clients')
 export class ClientsController {
   constructor(private clientsService: ClientsService) {}
@@ -41,7 +44,7 @@ export class ClientsController {
     @CurrentUser() user: any,
     @Query() filters: ClientFilterDto,
   ) {
-    return this.clientsService.findAll(user.id, filters);
+    return this.clientsService.findAll(getEffectiveAdvisorId(user), filters);
   }
 
   @Get(':id')
@@ -51,7 +54,7 @@ export class ClientsController {
     @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.clientsService.findOne(id, user.id);
+    return this.clientsService.findOne(id, getEffectiveAdvisorId(user));
   }
 
   @Post()
@@ -61,7 +64,7 @@ export class ClientsController {
     @CurrentUser() user: any,
     @Body() dto: CreateClientDto,
   ) {
-    return this.clientsService.create(user.id, dto);
+    return this.clientsService.create(getEffectiveAdvisorId(user), dto);
   }
 
   @Put(':id')
@@ -72,7 +75,7 @@ export class ClientsController {
     @Param('id') id: string,
     @Body() dto: UpdateClientDto,
   ) {
-    return this.clientsService.update(id, user.id, dto);
+    return this.clientsService.update(id, getEffectiveAdvisorId(user), dto);
   }
 
   @Delete(':id')
@@ -82,6 +85,6 @@ export class ClientsController {
     @CurrentUser() user: any,
     @Param('id') id: string,
   ) {
-    return this.clientsService.deactivate(id, user.id);
+    return this.clientsService.deactivate(id, getEffectiveAdvisorId(user));
   }
 }

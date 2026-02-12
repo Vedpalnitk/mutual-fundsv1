@@ -38,3 +38,6 @@ export {
   FANotificationProvider,
   useNotification,
 } from './FANotification'
+
+// Communication Components
+export { FAShareButton } from './FAShareButton'

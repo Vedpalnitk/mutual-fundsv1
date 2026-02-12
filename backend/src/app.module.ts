@@ -25,6 +25,8 @@ import { PortfolioAnalysisModule } from './portfolio-analysis/portfolio-analysis
 import { NotificationsModule } from './notifications/notifications.module';
 import { AdvisorDashboardModule } from './advisor-dashboard/advisor-dashboard.module';
 import { SavedAnalysisModule } from './saved-analysis/saved-analysis.module';
+import { CommunicationsModule } from './communications/communications.module';
+import { StaffModule } from './staff/staff.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
@@ -64,6 +66,10 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     AdvisorDashboardModule,
     // Saved Deep Analysis (save, version, edit, PDF)
     SavedAnalysisModule,
+    // FA Communications (email/WhatsApp sharing)
+    CommunicationsModule,
+    // FA Staff Role Management
+    StaffModule,
   ],
   controllers: [],
   providers: [
