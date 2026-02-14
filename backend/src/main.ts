@@ -24,7 +24,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:3500', // Next.js web app
-      'http://localhost:3502', // ML Service
+      'http://localhost:8000', // ML Service
       'http://localhost:8081', // Expo web
       'http://localhost:19006', // Expo web alt
     ],

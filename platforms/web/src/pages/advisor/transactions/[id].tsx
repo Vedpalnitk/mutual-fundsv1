@@ -20,34 +20,6 @@ import {
   useNotification,
 } from '@/components/advisor/shared'
 
-// Mock transaction for development
-const mockTransaction: Transaction = {
-  id: '1',
-  clientId: '1',
-  clientName: 'Rajesh Sharma',
-  type: 'Buy',
-  fundName: 'HDFC Flexi Cap Fund - Direct Growth',
-  fundSchemeCode: '118989',
-  fundCategory: 'Flexi Cap',
-  folioNumber: 'FOL123456',
-  amount: 50000,
-  units: 35.08,
-  nav: 1425.3,
-  date: '2025-01-15',
-  status: 'Pending',
-  orderId: 'ORD123456789',
-  paymentMode: 'Net Banking',
-  remarks: 'Lumpsum investment for portfolio rebalancing',
-}
-
-// Status timeline mock
-const mockStatusHistory = [
-  { status: 'Order Placed', date: '2025-01-15 10:30 AM', description: 'Transaction order created' },
-  { status: 'Payment Initiated', date: '2025-01-15 10:35 AM', description: 'Net Banking payment initiated' },
-  { status: 'Payment Confirmed', date: '2025-01-15 10:40 AM', description: 'Payment successfully received' },
-  { status: 'Processing', date: '2025-01-15 11:00 AM', description: 'Order sent to AMC for processing' },
-]
-
 const TransactionDetailPage = () => {
   const router = useRouter()
   const { id } = router.query
@@ -100,8 +72,6 @@ const TransactionDetailPage = () => {
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load transaction')
-        // Fall back to mock data
-        setTransaction(mockTransaction)
       } finally {
         setLoading(false)
       }
@@ -363,37 +333,20 @@ const TransactionDetailPage = () => {
 
             {/* Status Timeline */}
             <FACard padding="md">
-              <FASectionHeader title="Status History" />
-              <div className="space-y-4">
-                {mockStatusHistory.map((item, index) => (
-                  <div key={index} className="flex gap-4">
-                    <div className="flex flex-col items-center">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ background: index === mockStatusHistory.length - 1 ? colors.primary : colors.success }}
-                      />
-                      {index < mockStatusHistory.length - 1 && (
-                        <div
-                          className="w-0.5 flex-1 my-1"
-                          style={{ background: colors.cardBorder }}
-                        />
-                      )}
-                    </div>
-                    <div className="flex-1 pb-4">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                          {item.status}
-                        </p>
-                        <p className="text-xs" style={{ color: colors.textTertiary }}>
-                          {item.date}
-                        </p>
-                      </div>
-                      <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-                        {item.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+              <FASectionHeader title="Status" />
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ background: transaction.status === 'Completed' ? colors.success : transaction.status === 'Failed' ? '#EF4444' : colors.primary }}
+                />
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                    {transaction.status}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: colors.textTertiary }}>
+                    {formatDate(transaction.date)}
+                  </p>
+                </div>
               </div>
             </FACard>
           </div>

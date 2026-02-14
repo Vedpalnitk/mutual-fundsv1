@@ -1,22 +1,56 @@
-import { Controller, Get, Post, Query, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Query, Param, ParseIntPipe, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
-import { MfApiService, FundWithMetrics, MFScheme } from './mfapi.service';
 import { FundSyncService } from './fund-sync.service';
+import { BackfillService } from './backfill.service';
+import { MetricsCalculatorService } from './metrics-calculator.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-@ApiTags('Funds (Live Data)')
+// Shared response type (same shape as old FundWithMetrics for frontend compatibility)
+interface FundResponse {
+  schemeCode: number | null;
+  schemeName: string;
+  fundHouse: string;
+  category: string;
+  schemeType: string | null;
+  assetClass: string;
+  currentNav: number | null;
+  dayChange: number | null;
+  dayChangePercent: number | null;
+  navDate: Date | null;
+  return1Y: number | null;
+  return3Y: number | null;
+  return5Y: number | null;
+  riskRating: number | null;
+  volatility: number | null;
+  sharpeRatio: number | null;
+  sortinoRatio: number | null;
+  alpha: number | null;
+  beta: number | null;
+  maxDrawdown: number | null;
+  isin: string;
+  expenseRatio: number | null;
+  aum: number | null;
+  fundManager: string | null;
+  fundRating: number | null;
+  crisilRating: string | null;
+}
+
+@ApiTags('Funds')
 @Controller('api/v1/funds/live')
 export class FundsController {
   constructor(
-    private readonly mfApiService: MfApiService,
     private readonly fundSyncService: FundSyncService,
+    private readonly backfillService: BackfillService,
+    private readonly metricsCalculator: MetricsCalculatorService,
     private readonly prisma: PrismaService,
   ) {}
 
+  // ============= DB-Backed Endpoints (same URLs, same response shape) =============
+
   @Public()
   @Get('search')
-  @ApiOperation({ summary: 'Search mutual funds by name (Live from MFAPI.in)' })
+  @ApiOperation({ summary: 'Search mutual funds by name (DB query)' })
   @ApiQuery({ name: 'q', required: true, description: 'Search query (min 2 characters)' })
   @ApiQuery({ name: 'direct_only', required: false, type: Boolean, description: 'Filter for Direct plans only' })
   @ApiQuery({ name: 'growth_only', required: false, type: Boolean, description: 'Filter for Growth plans only' })
@@ -24,30 +58,68 @@ export class FundsController {
     @Query('q') query: string,
     @Query('direct_only') directOnly?: string,
     @Query('growth_only') growthOnly?: string,
-  ): Promise<MFScheme[]> {
-    let results = await this.mfApiService.searchFunds(query);
+  ) {
+    if (!query || query.length < 2) return [];
 
-    // Apply filters
+    const where: any = {
+      name: { contains: query, mode: 'insensitive' },
+    };
+
     if (directOnly === 'true') {
-      results = results.filter(fund => fund.schemeName.includes('Direct'));
+      where.plan = 'direct';
     }
     if (growthOnly === 'true') {
-      results = results.filter(fund => fund.schemeName.includes('Growth'));
+      where.option = 'growth';
     }
 
-    return results.slice(0, 50); // Limit results
+    const plans = await this.prisma.schemePlan.findMany({
+      where,
+      select: {
+        mfapiSchemeCode: true,
+        name: true,
+      },
+      take: 50,
+      orderBy: { name: 'asc' },
+    });
+
+    return plans.map(p => ({
+      schemeCode: p.mfapiSchemeCode,
+      schemeName: p.name,
+    }));
   }
 
   @Public()
   @Get('popular')
-  @ApiOperation({ summary: 'Get popular mutual funds with metrics (Live from MFAPI.in)' })
-  async getPopularFunds(): Promise<FundWithMetrics[]> {
-    return this.mfApiService.getPopularFunds();
+  @ApiOperation({ summary: 'Get popular mutual funds with metrics (DB query)' })
+  async getPopularFunds(): Promise<FundResponse[]> {
+    const plans = await this.prisma.schemePlan.findMany({
+      where: {
+        plan: 'direct',
+        option: 'growth',
+        status: 'active',
+      },
+      include: {
+        scheme: {
+          include: {
+            provider: true,
+            category: { include: { parent: true } },
+          },
+        },
+        nav: true,
+        metrics: true,
+      },
+      take: 50,
+      orderBy: [
+        { metrics: { return1y: 'desc' } },
+      ],
+    });
+
+    return plans.map(p => this.mapToFundResponse(p));
   }
 
   @Public()
   @Get('category/:category')
-  @ApiOperation({ summary: 'Get funds by category with full metrics (Live from MFAPI.in + Kuvera)' })
+  @ApiOperation({ summary: 'Get funds by category (DB query)' })
   @ApiParam({
     name: 'category',
     description: 'Fund category: large_cap, mid_cap, small_cap, flexi_cap, elss, hybrid, debt, liquid, index, sectoral, international, gold'
@@ -56,89 +128,199 @@ export class FundsController {
   async getFundsByCategory(
     @Param('category') category: string,
     @Query('limit') limit?: string,
-  ): Promise<FundWithMetrics[]> {
-    return this.mfApiService.getFundsByCategory(category, limit ? parseInt(limit) : 20);
+  ): Promise<FundResponse[]> {
+    // Map URL category slug to ONDC L3 category ID
+    const categoryMap: Record<string, string[]> = {
+      'large_cap': ['L3-LARGE_CAP'],
+      'large_mid_cap': ['L3-LARGE_MID_CAP'],
+      'mid_cap': ['L3-MID_CAP'],
+      'small_cap': ['L3-SMALL_CAP'],
+      'flexi_cap': ['L3-FLEXI_CAP'],
+      'multi_cap': ['L3-MULTI_CAP'],
+      'elss': ['L3-ELSS'],
+      'focused': ['L3-FOCUSED'],
+      'value': ['L3-VALUE', 'L3-CONTRA'],
+      'hybrid': ['L3-AGGRESSIVE_HYBRID', 'L3-CONSERVATIVE_HYBRID', 'L3-DYNAMIC_ALLOCATION', 'L3-MULTI_ASSET', 'L3-ARBITRAGE', 'L3-EQUITY_SAVINGS'],
+      'balanced_advantage': ['L3-DYNAMIC_ALLOCATION'],
+      'arbitrage': ['L3-ARBITRAGE'],
+      'debt': ['L3-SHORT_DURATION', 'L3-MEDIUM_DURATION', 'L3-LONG_DURATION', 'L3-DYNAMIC_BOND', 'L3-CORPORATE_BOND', 'L3-CREDIT_RISK', 'L3-BANKING_PSU', 'L3-GILT', 'L3-GILT_10Y', 'L3-FLOATER', 'L3-ULTRA_SHORT', 'L3-LOW_DURATION', 'L3-MEDIUM_LONG_DURATION'],
+      'corporate_bond': ['L3-CORPORATE_BOND'],
+      'banking_psu': ['L3-BANKING_PSU'],
+      'gilt': ['L3-GILT', 'L3-GILT_10Y'],
+      'liquid': ['L3-LIQUID', 'L3-MONEY_MARKET', 'L3-OVERNIGHT'],
+      'overnight': ['L3-OVERNIGHT'],
+      'money_market': ['L3-MONEY_MARKET'],
+      'index': ['L3-INDEX'],
+      'sectoral': ['L3-SECTORAL'],
+      'banking': ['L3-SECTORAL'],
+      'pharma': ['L3-SECTORAL'],
+      'infrastructure': ['L3-SECTORAL'],
+      'international': ['L3-FOF_OVERSEAS', 'L3-FOF_DOMESTIC'],
+      'gold': ['L3-GOLD'],
+      'retirement': ['L3-RETIREMENT'],
+      'children': ['L3-CHILDRENS'],
+    };
+
+    const categoryIds = categoryMap[category.toLowerCase()];
+    if (!categoryIds) {
+      throw new BadRequestException(`Unknown category: ${category}`);
+    }
+
+    const plans = await this.prisma.schemePlan.findMany({
+      where: {
+        plan: 'direct',
+        option: 'growth',
+        scheme: {
+          categoryId: { in: categoryIds },
+        },
+      },
+      include: {
+        scheme: {
+          include: {
+            provider: true,
+            category: { include: { parent: true } },
+          },
+        },
+        nav: true,
+        metrics: true,
+      },
+      take: limit ? parseInt(limit) : 20,
+      orderBy: { name: 'asc' },
+    });
+
+    return plans.map(p => this.mapToFundResponse(p));
+  }
+
+  @Public()
+  @Get('batch/details')
+  @ApiOperation({ summary: 'Get multiple funds by scheme codes (DB query)' })
+  @ApiQuery({ name: 'codes', required: true, description: 'Comma-separated scheme codes' })
+  async getBatchDetails(
+    @Query('codes') codes: string,
+  ): Promise<FundResponse[]> {
+    const schemeCodes = codes.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c));
+
+    if (schemeCodes.length === 0) return [];
+    if (schemeCodes.length > 20) {
+      throw new BadRequestException('Maximum 20 funds per request');
+    }
+
+    const plans = await this.prisma.schemePlan.findMany({
+      where: {
+        mfapiSchemeCode: { in: schemeCodes },
+      },
+      include: {
+        scheme: {
+          include: {
+            provider: true,
+            category: { include: { parent: true } },
+          },
+        },
+        nav: true,
+        metrics: true,
+      },
+    });
+
+    return plans.map(p => this.mapToFundResponse(p));
   }
 
   @Public()
   @Get('search-category/:category')
-  @ApiOperation({ summary: 'Search funds by category name (Live from MFAPI.in)' })
+  @ApiOperation({ summary: 'Search funds by category name (DB query)' })
   @ApiParam({ name: 'category', description: 'Fund category name (e.g., "Large Cap", "Mid Cap")' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max results (default 10)' })
   async searchByCategory(
     @Param('category') category: string,
     @Query('limit') limit?: string,
-  ): Promise<MFScheme[]> {
-    return this.mfApiService.searchByCategory(category, limit ? parseInt(limit) : 10);
+  ) {
+    const plans = await this.prisma.schemePlan.findMany({
+      where: {
+        plan: 'direct',
+        option: 'growth',
+        scheme: {
+          category: {
+            name: { contains: category, mode: 'insensitive' },
+          },
+        },
+      },
+      select: {
+        mfapiSchemeCode: true,
+        name: true,
+      },
+      take: limit ? parseInt(limit) : 10,
+      orderBy: { name: 'asc' },
+    });
+
+    return plans.map(p => ({
+      schemeCode: p.mfapiSchemeCode,
+      schemeName: p.name,
+    }));
   }
 
   @Public()
   @Get(':schemeCode')
-  @ApiOperation({ summary: 'Get fund details with metrics (Live from MFAPI.in)' })
+  @ApiOperation({ summary: 'Get fund details with metrics (DB query)' })
   @ApiParam({ name: 'schemeCode', description: 'AMFI Scheme Code' })
   async getFundDetails(
     @Param('schemeCode', ParseIntPipe) schemeCode: number,
-  ): Promise<FundWithMetrics> {
-    return this.mfApiService.getFundWithMetrics(schemeCode);
-  }
+  ): Promise<FundResponse> {
+    const plan = await this.prisma.schemePlan.findFirst({
+      where: { mfapiSchemeCode: schemeCode },
+      include: {
+        scheme: {
+          include: {
+            provider: true,
+            category: { include: { parent: true } },
+          },
+        },
+        nav: true,
+        metrics: true,
+      },
+    });
 
-  @Public()
-  @Get('batch/details')
-  @ApiOperation({ summary: 'Get multiple funds by scheme codes (Live from MFAPI.in)' })
-  @ApiQuery({ name: 'codes', required: true, description: 'Comma-separated scheme codes' })
-  async getBatchDetails(
-    @Query('codes') codes: string,
-  ): Promise<FundWithMetrics[]> {
-    const schemeCodes = codes.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c));
-
-    if (schemeCodes.length === 0) {
-      return [];
+    if (!plan) {
+      throw new NotFoundException(`Fund with scheme code ${schemeCode} not found`);
     }
 
-    if (schemeCodes.length > 20) {
-      throw new Error('Maximum 20 funds per request');
-    }
-
-    return this.mfApiService.getMultipleFunds(schemeCodes);
-  }
-
-  // ============= Sync & Database Endpoints =============
-
-  @Public()
-  @Post('sync/popular')
-  @ApiOperation({ summary: 'Sync popular funds to database (ONDC schema)' })
-  async syncPopularFunds() {
-    return this.fundSyncService.syncPopularFunds();
+    return this.mapToFundResponse(plan);
   }
 
   @Public()
-  @Post('sync/category/:category')
-  @ApiOperation({ summary: 'Sync funds by category to database' })
-  @ApiParam({ name: 'category', description: 'Category: large_cap, mid_cap, small_cap, flexi_cap, elss, hybrid, debt, liquid, index' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max funds to sync (default 30)' })
-  async syncByCategory(
-    @Param('category') category: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.fundSyncService.syncByCategory(category, limit ? parseInt(limit) : 30);
-  }
-
-  @Public()
-  @Post('sync/fund/:schemeCode')
-  @ApiOperation({ summary: 'Sync single fund with full NAV history' })
+  @Get(':schemeCode/nav-history')
+  @ApiOperation({ summary: 'Get NAV history for a fund' })
   @ApiParam({ name: 'schemeCode', description: 'AMFI Scheme Code' })
-  async syncFundWithHistory(
-    @Param('schemeCode', ParseIntPipe) schemeCode: number,
-  ) {
-    await this.fundSyncService.syncFundWithHistory(schemeCode);
-    return { success: true, schemeCode };
+  async getFundNavHistory(@Param('schemeCode', ParseIntPipe) schemeCode: number) {
+    const plan = await this.prisma.schemePlan.findFirst({
+      where: { mfapiSchemeCode: schemeCode },
+      include: {
+        navHistory: { orderBy: { navDate: 'asc' }, take: 1250 },
+      },
+    });
+    if (!plan) throw new NotFoundException(`Fund ${schemeCode} not found`);
+    return plan.navHistory.map(h => ({ date: h.navDate, nav: Number(h.nav) }));
+  }
+
+  // ============= Sync Endpoints =============
+
+  @Public()
+  @Post('sync/amfi')
+  @ApiOperation({ summary: 'Trigger manual AMFI sync' })
+  async syncFromAmfi() {
+    return this.fundSyncService.syncFromAmfi();
   }
 
   @Public()
-  @Post('sync/nav-update')
-  @ApiOperation({ summary: 'Update NAV for all synced funds' })
-  async updateAllNavs() {
-    return this.fundSyncService.updateAllNavs();
+  @Post('sync/backfill')
+  @ApiOperation({ summary: 'Trigger historical NAV backfill from MFAPI.in (one-time)' })
+  async backfillHistory() {
+    return this.backfillService.backfillAllHistory();
+  }
+
+  @Public()
+  @Post('sync/recalculate')
+  @ApiOperation({ summary: 'Trigger metrics recalculation for all funds' })
+  async recalculateMetrics() {
+    return this.metricsCalculator.recalculateAll();
   }
 
   @Public()
@@ -231,7 +413,6 @@ export class FundsController {
   @ApiOperation({ summary: 'Get single fund details from database' })
   @ApiParam({ name: 'id', description: 'Scheme Plan ID or MFAPI scheme code' })
   async getDbFundDetails(@Param('id') id: string) {
-    // Try to find by ID first, then by scheme code
     let schemePlan = await this.prisma.schemePlan.findUnique({
       where: { id },
       include: {
@@ -251,13 +432,12 @@ export class FundsController {
         metrics: true,
         navHistory: {
           orderBy: { navDate: 'desc' },
-          take: 365, // Last 1 year
+          take: 365,
         },
       },
     });
 
     if (!schemePlan) {
-      // Try by scheme code
       const schemeCode = parseInt(id);
       if (!isNaN(schemeCode)) {
         schemePlan = await this.prisma.schemePlan.findFirst({
@@ -286,9 +466,7 @@ export class FundsController {
       }
     }
 
-    if (!schemePlan) {
-      return null;
-    }
+    if (!schemePlan) return null;
 
     return {
       id: schemePlan.id,
@@ -322,13 +500,23 @@ export class FundsController {
         dayChangePercent: Number(schemePlan.nav.dayChangePct),
       } : null,
       metrics: schemePlan.metrics ? {
+        return1W: schemePlan.metrics.return1w ? Number(schemePlan.metrics.return1w) : null,
+        return1M: schemePlan.metrics.return1m ? Number(schemePlan.metrics.return1m) : null,
+        return3M: schemePlan.metrics.return3m ? Number(schemePlan.metrics.return3m) : null,
+        return6M: schemePlan.metrics.return6m ? Number(schemePlan.metrics.return6m) : null,
         return1Y: schemePlan.metrics.return1y ? Number(schemePlan.metrics.return1y) : null,
         return3Y: schemePlan.metrics.return3y ? Number(schemePlan.metrics.return3y) : null,
         return5Y: schemePlan.metrics.return5y ? Number(schemePlan.metrics.return5y) : null,
+        returnSinceInception: schemePlan.metrics.returnSinceInception ? Number(schemePlan.metrics.returnSinceInception) : null,
         riskRating: schemePlan.metrics.riskRating,
         crisilRating: schemePlan.metrics.crisilRating,
         fundRating: schemePlan.metrics.fundRating,
         volatility: schemePlan.metrics.volatility ? Number(schemePlan.metrics.volatility) : null,
+        sharpeRatio: schemePlan.metrics.sharpeRatio ? Number(schemePlan.metrics.sharpeRatio) : null,
+        sortinoRatio: schemePlan.metrics.sortinoRatio ? Number(schemePlan.metrics.sortinoRatio) : null,
+        alpha: schemePlan.metrics.alpha ? Number(schemePlan.metrics.alpha) : null,
+        beta: schemePlan.metrics.beta ? Number(schemePlan.metrics.beta) : null,
+        maxDrawdown: schemePlan.metrics.maxDrawdown ? Number(schemePlan.metrics.maxDrawdown) : null,
         expenseRatio: schemePlan.metrics.expenseRatio ? Number(schemePlan.metrics.expenseRatio) : null,
         aum: schemePlan.metrics.aum ? Number(schemePlan.metrics.aum) : null,
       } : null,
@@ -425,13 +613,11 @@ export class FundsController {
       orderBy: { name: 'asc' },
     });
 
-    // Map to ML-compatible format
     let funds = schemePlans.map(plan => {
-      // Determine asset class from category hierarchy
       const categoryName = plan.scheme.category.name.toLowerCase();
       const parentName = plan.scheme.category.parent?.name?.toLowerCase() || '';
 
-      let fundAssetClass = 'equity'; // default
+      let fundAssetClass = 'equity';
       if (categoryName.includes('liquid') || categoryName.includes('overnight') || categoryName.includes('money market')) {
         fundAssetClass = 'liquid';
       } else if (categoryName.includes('gilt') || categoryName.includes('bond') || categoryName.includes('debt') ||
@@ -451,24 +637,30 @@ export class FundsController {
         scheme_name: plan.name,
         fund_house: plan.scheme.provider.name,
         category: plan.scheme.category.name,
+        sub_category: plan.scheme.category.parent?.name || null,
         asset_class: fundAssetClass,
+        nav: plan.nav?.nav ? Number(plan.nav.nav) : 0,
+        nav_date: plan.nav?.navDate || null,
+        day_change: plan.nav?.dayChange ? Number(plan.nav.dayChange) : 0,
+        day_change_percent: plan.nav?.dayChangePct ? Number(plan.nav.dayChangePct) : 0,
         return_1y: plan.metrics?.return1y ? Number(plan.metrics.return1y) : 0,
         return_3y: plan.metrics?.return3y ? Number(plan.metrics.return3y) : 0,
         return_5y: plan.metrics?.return5y ? Number(plan.metrics.return5y) : 0,
+        risk_rating: plan.metrics?.riskRating || null,
+        fund_rating: plan.metrics?.fundRating || null,
         volatility: plan.metrics?.volatility ? Number(plan.metrics.volatility) : 15,
         sharpe_ratio: plan.metrics?.sharpeRatio ? Number(plan.metrics.sharpeRatio) : 0.8,
         expense_ratio: plan.metrics?.expenseRatio ? Number(plan.metrics.expenseRatio) : 0.5,
-        nav: plan.nav?.nav ? Number(plan.nav.nav) : 0,
+        aum: plan.metrics?.aum ? Number(plan.metrics.aum) : null,
+        fund_manager: plan.scheme.fundManager || null,
         last_updated: plan.nav?.updatedAt || plan.updatedAt,
       };
     });
 
-    // Filter by asset class if specified
     if (assetClass) {
       funds = funds.filter(f => f.asset_class === assetClass.toLowerCase());
     }
 
-    // Get unique categories and asset classes for filters
     const categories = [...new Set(funds.map(f => f.category))].sort();
     const assetClasses = [...new Set(funds.map(f => f.asset_class))].sort();
 
@@ -489,7 +681,6 @@ export class FundsController {
     const result = await this.getMlFunds();
     const funds = result.funds;
 
-    // Calculate stats
     const byAssetClass: Record<string, number> = {};
     const byCategory: Record<string, number> = {};
     let totalReturn1y = 0;
@@ -500,13 +691,9 @@ export class FundsController {
     let countWithExpense = 0;
 
     for (const fund of funds) {
-      // Count by asset class
       byAssetClass[fund.asset_class] = (byAssetClass[fund.asset_class] || 0) + 1;
-
-      // Count by category
       byCategory[fund.category] = (byCategory[fund.category] || 0) + 1;
 
-      // Sum for averages
       if (fund.return_1y) {
         totalReturn1y += fund.return_1y;
         countWithReturn1y++;
@@ -531,5 +718,49 @@ export class FundsController {
         expense_ratio: countWithExpense > 0 ? totalExpense / countWithExpense : 0,
       },
     };
+  }
+
+  // ============= Private Helpers =============
+
+  private mapToFundResponse(plan: any): FundResponse {
+    return {
+      schemeCode: plan.mfapiSchemeCode,
+      schemeName: plan.name,
+      fundHouse: plan.scheme.provider.name,
+      category: plan.scheme.category.name,
+      schemeType: plan.scheme.category.parent?.name || plan.scheme.category.name,
+      assetClass: this.deriveAssetClass(plan.scheme.category.parent?.name || plan.scheme.category.name),
+      currentNav: plan.nav?.nav ? Number(plan.nav.nav) : null,
+      dayChange: plan.nav?.dayChange ? Number(plan.nav.dayChange) : null,
+      dayChangePercent: plan.nav?.dayChangePct ? Number(plan.nav.dayChangePct) : null,
+      navDate: plan.nav?.navDate || null,
+      return1Y: plan.metrics?.return1y ? Number(plan.metrics.return1y) : null,
+      return3Y: plan.metrics?.return3y ? Number(plan.metrics.return3y) : null,
+      return5Y: plan.metrics?.return5y ? Number(plan.metrics.return5y) : null,
+      riskRating: plan.metrics?.riskRating || null,
+      volatility: plan.metrics?.volatility ? Number(plan.metrics.volatility) : null,
+      sharpeRatio: plan.metrics?.sharpeRatio ? Number(plan.metrics.sharpeRatio) : null,
+      sortinoRatio: plan.metrics?.sortinoRatio ? Number(plan.metrics.sortinoRatio) : null,
+      alpha: plan.metrics?.alpha ? Number(plan.metrics.alpha) : null,
+      beta: plan.metrics?.beta ? Number(plan.metrics.beta) : null,
+      maxDrawdown: plan.metrics?.maxDrawdown ? Number(plan.metrics.maxDrawdown) : null,
+      isin: plan.isin,
+      expenseRatio: plan.metrics?.expenseRatio ? Number(plan.metrics.expenseRatio) : null,
+      aum: plan.metrics?.aum ? Number(plan.metrics.aum) : null,
+      fundManager: plan.scheme.fundManager || null,
+      fundRating: plan.metrics?.fundRating || null,
+      crisilRating: plan.metrics?.crisilRating || null,
+    };
+  }
+
+  private deriveAssetClass(categoryName: string): string {
+    const lower = (categoryName || '').toLowerCase();
+    if (lower.includes('equity') || lower.includes('cap') || lower.includes('elss') || lower.includes('index') || lower.includes('sectoral') || lower.includes('thematic')) return 'equity';
+    if (lower.includes('debt') || lower.includes('bond') || lower.includes('gilt') || lower.includes('credit') || lower.includes('duration') || lower.includes('banking and psu') || lower.includes('floater')) return 'debt';
+    if (lower.includes('hybrid') || lower.includes('balanced') || lower.includes('arbitrage') || lower.includes('multi asset') || lower.includes('equity savings')) return 'hybrid';
+    if (lower.includes('liquid') || lower.includes('money market') || lower.includes('overnight')) return 'liquid';
+    if (lower.includes('gold')) return 'gold';
+    if (lower.includes('international') || lower.includes('overseas') || lower.includes('global')) return 'international';
+    return 'equity';
   }
 }

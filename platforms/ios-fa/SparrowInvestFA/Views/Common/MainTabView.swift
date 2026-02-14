@@ -57,7 +57,6 @@ struct MainTabView: View {
                     }
                 }
                 .tint(AppTheme.primary)
-                .tabBarMinimizeBehavior(.onScrollDown)
             } else {
                 TabView(selection: $selectedTab) {
                     DashboardView()

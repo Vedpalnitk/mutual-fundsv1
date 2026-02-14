@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
 import { useFATheme, formatCurrency, formatDate } from '@/utils/fa'
-import { Report, ReportType, ReportFormat, ScheduledReport, SavedAnalysisSummary } from '@/utils/faTypes'
+import { Report, ReportType, ReportFormat, ReportFrequency, ScheduledReport, SavedAnalysisSummary } from '@/utils/faTypes'
 import { savedAnalysisApi } from '@/services/api'
 import {
   FACard,
@@ -18,11 +18,14 @@ import {
   FASelect,
   FAButton,
   FAInput,
+  FALabel,
   FASectionHeader,
   FAEmptyState,
   FATintedCard,
   FAFormSection,
   FASpinner,
+  FAShareButton,
+  FACheckbox,
 } from '@/components/advisor/shared'
 
 // Report types configuration
@@ -74,6 +77,18 @@ const ReportsPage = () => {
   const [isGenerating, setIsGenerating] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [generatedReport, setGeneratedReport] = useState<Report | null>(null)
+
+  // Scheduled reports state
+  const [scheduledReports, setScheduledReports] = useState<ScheduledReport[]>(MOCK_SCHEDULED)
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [editingSchedule, setEditingSchedule] = useState<ScheduledReport | null>(null)
+  const [scheduleForm, setScheduleForm] = useState({
+    name: '',
+    type: '' as ReportType | '',
+    clients: 'all' as string[] | 'all',
+    frequency: 'Monthly' as ReportFrequency,
+    nextRun: '',
+  })
 
   // Deep Analysis state
   const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysisSummary[]>([])
@@ -155,6 +170,79 @@ const ReportsPage = () => {
     setGeneratedReport(newReport)
     setIsGenerating(false)
     setShowPreview(true)
+  }
+
+  const openScheduleModal = (report?: ScheduledReport) => {
+    if (report) {
+      setEditingSchedule(report)
+      setScheduleForm({
+        name: report.name,
+        type: report.type,
+        clients: report.clients,
+        frequency: report.frequency,
+        nextRun: report.nextRun,
+      })
+    } else {
+      setEditingSchedule(null)
+      setScheduleForm({
+        name: '',
+        type: '',
+        clients: 'all',
+        frequency: 'Monthly',
+        nextRun: '',
+      })
+    }
+    setShowScheduleModal(true)
+  }
+
+  const handleSaveSchedule = () => {
+    if (!scheduleForm.name || !scheduleForm.type || !scheduleForm.nextRun) return
+
+    if (editingSchedule) {
+      setScheduledReports(prev =>
+        prev.map(r =>
+          r.id === editingSchedule.id
+            ? { ...r, name: scheduleForm.name, type: scheduleForm.type as ReportType, clients: scheduleForm.clients, frequency: scheduleForm.frequency, nextRun: scheduleForm.nextRun }
+            : r
+        )
+      )
+    } else {
+      const newSchedule: ScheduledReport = {
+        id: `sr${Date.now()}`,
+        name: scheduleForm.name,
+        type: scheduleForm.type as ReportType,
+        clients: scheduleForm.clients,
+        frequency: scheduleForm.frequency,
+        nextRun: scheduleForm.nextRun,
+        status: 'Active',
+      }
+      setScheduledReports(prev => [...prev, newSchedule])
+    }
+    setShowScheduleModal(false)
+  }
+
+  const handleDeleteSchedule = (id: string) => {
+    if (!confirm('Delete this scheduled report?')) return
+    setScheduledReports(prev => prev.filter(r => r.id !== id))
+  }
+
+  const handleToggleScheduleStatus = (id: string) => {
+    setScheduledReports(prev =>
+      prev.map(r =>
+        r.id === id ? { ...r, status: r.status === 'Active' ? 'Paused' : 'Active' } : r
+      )
+    )
+  }
+
+  const getFrequencyColor = (frequency: string) => {
+    switch (frequency) {
+      case 'Daily': return colors.error
+      case 'Weekly': return colors.warning
+      case 'Monthly': return colors.primary
+      case 'Quarterly': return colors.secondary
+      case 'Annually': return colors.success
+      default: return colors.textTertiary
+    }
   }
 
   const renderPreviewModal = () => {
@@ -289,11 +377,16 @@ const ReportsPage = () => {
                 <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr style={{ background: colors.chipBg }}>
-                      <th className="text-left p-3 text-xs font-semibold" style={{ color: colors.textTertiary }}>Fund Name</th>
-                      <th className="text-right p-3 text-xs font-semibold" style={{ color: colors.textTertiary }}>Invested</th>
-                      <th className="text-right p-3 text-xs font-semibold" style={{ color: colors.textTertiary }}>Current</th>
-                      <th className="text-right p-3 text-xs font-semibold" style={{ color: colors.textTertiary }}>Returns</th>
+                    <tr style={{
+                      background: isDark
+                        ? `linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)`
+                        : `linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)`,
+                      borderBottom: `1px solid ${colors.cardBorder}`,
+                    }}>
+                      <th className="text-left px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Fund Name</th>
+                      <th className="text-right px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Invested</th>
+                      <th className="text-right px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Current</th>
+                      <th className="text-right px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Returns</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -360,16 +453,14 @@ const ReportsPage = () => {
                 </svg>
                 Download
               </FAButton>
-              <FAButton
-                variant="ghost"
-                className="flex items-center gap-2"
-                onClick={() => alert('Email sent to client!')}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                Email
-              </FAButton>
+              <FAShareButton
+                clientId={generatedReport.clientId || ''}
+                clientName={generatedReport.client}
+                templateType="REPORT_SHARING"
+                contextData={{ reportName: generatedReport.name, reportType: generatedReport.type }}
+                label="Share"
+                size="md"
+              />
             </div>
           </div>
         </div>
@@ -558,12 +649,17 @@ const ReportsPage = () => {
             <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr style={{ background: colors.chipBg }}>
-                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Report Name</th>
-                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Client</th>
-                  <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Generated</th>
-                  <th className="text-right p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Size</th>
-                  <th className="text-center p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Format</th>
+                <tr style={{
+                      background: isDark
+                        ? `linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)`
+                        : `linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)`,
+                      borderBottom: `1px solid ${colors.cardBorder}`,
+                    }}>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Report Name</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Client</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Generated</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Size</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Format</th>
                   <th className="p-4"></th>
                 </tr>
               </thead>
@@ -605,16 +701,13 @@ const ReportsPage = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                           </svg>
                         </button>
-                        <button
-                          onClick={() => alert('Email sent!')}
-                          className="p-2 rounded-lg transition-all hover:scale-105"
-                          style={{ background: colors.chipBg, color: colors.primary }}
-                          title="Email"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                        </button>
+                        <FAShareButton
+                          clientId={report.clientId || ''}
+                          clientName={report.client}
+                          templateType="REPORT_SHARING"
+                          contextData={{ reportName: report.name, reportType: report.type }}
+                          size="sm"
+                        />
                       </div>
                     </td>
                   </tr>
@@ -641,7 +734,7 @@ const ReportsPage = () => {
         {activeTab === 'scheduled' && (
           <div className="space-y-6">
             <div className="flex justify-end">
-              <FAButton className="flex items-center gap-2">
+              <FAButton onClick={() => openScheduleModal()} className="flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
@@ -649,61 +742,105 @@ const ReportsPage = () => {
               </FAButton>
             </div>
 
-            <div className="space-y-3">
-              {MOCK_SCHEDULED.map(report => (
-                <FATintedCard key={report.id}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: colors.chipBg }}>
-                        <svg className="w-6 h-6" style={{ color: colors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d={getReportIcon(report.type)} />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="font-semibold" style={{ color: colors.textPrimary }}>{report.name}</h3>
-                        <p className="text-sm" style={{ color: colors.textSecondary }}>
-                          {report.clients === 'all' ? 'All Clients' : `${(report.clients as string[]).length} Clients`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="text-right">
-                        <p className="text-xs uppercase tracking-wider" style={{ color: colors.textTertiary }}>Frequency</p>
-                        <p className="font-medium" style={{ color: colors.textPrimary }}>{report.frequency}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs uppercase tracking-wider" style={{ color: colors.textTertiary }}>Next Run</p>
-                        <p className="font-medium" style={{ color: colors.textPrimary }}>{report.nextRun}</p>
-                      </div>
-                      <FAChip color={colors.success}>{report.status}</FAChip>
-                      <div className="flex items-center gap-2">
-                        <button
-                          className="p-2 rounded-lg transition-all hover:scale-105"
-                          style={{ background: colors.chipBg, color: colors.primary }}
-                          title="Edit"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          className="p-2 rounded-lg transition-all hover:scale-105"
-                          style={{ background: colors.chipBg, color: colors.error }}
-                          title="Delete"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </FATintedCard>
-              ))}
-            </div>
-
-            {MOCK_SCHEDULED.length === 0 && (
-              <FACard>
+            <FACard padding="none" className="overflow-hidden">
+              {scheduledReports.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr style={{
+                        background: isDark
+                          ? `linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)`
+                          : `linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)`,
+                        borderBottom: `1px solid ${colors.cardBorder}`,
+                      }}>
+                        <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Schedule Name</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Clients</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Frequency</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Next Run</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Last Run</th>
+                        <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Status</th>
+                        <th className="w-8 px-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scheduledReports.map((report, i) => (
+                        <tr key={report.id} style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: colors.chipBg }}>
+                                <svg className="w-4 h-4" style={{ color: colors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d={getReportIcon(report.type)} />
+                                </svg>
+                              </div>
+                              <div>
+                                <span className="font-medium text-sm" style={{ color: colors.textPrimary }}>{report.name}</span>
+                                <p className="text-xs" style={{ color: colors.textTertiary }}>{getReportName(report.type)}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm" style={{ color: colors.textSecondary }}>
+                            {report.clients === 'all' ? 'All Clients' : `${(report.clients as string[]).length} Clients`}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <FAChip color={getFrequencyColor(report.frequency)}>{report.frequency}</FAChip>
+                          </td>
+                          <td className="px-4 py-3 text-sm" style={{ color: colors.textSecondary }}>
+                            {new Date(report.nextRun).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </td>
+                          <td className="px-4 py-3 text-sm" style={{ color: colors.textTertiary }}>
+                            {report.lastRun
+                              ? new Date(report.lastRun).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <FAChip color={report.status === 'Active' ? colors.success : colors.warning}>{report.status}</FAChip>
+                          </td>
+                          <td className="px-2 py-3">
+                            <div className="flex items-center gap-2 justify-end">
+                              <button
+                                onClick={() => handleToggleScheduleStatus(report.id)}
+                                className="p-2 rounded-lg transition-all hover:scale-105"
+                                style={{ background: colors.chipBg, color: report.status === 'Active' ? colors.warning : colors.success }}
+                                title={report.status === 'Active' ? 'Pause' : 'Resume'}
+                              >
+                                {report.status === 'Active' ? (
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+                                  </svg>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => openScheduleModal(report)}
+                                className="p-2 rounded-lg transition-all hover:scale-105"
+                                style={{ background: colors.chipBg, color: colors.primary }}
+                                title="Edit"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSchedule(report.id)}
+                                className="p-2 rounded-lg transition-all hover:scale-105"
+                                style={{ background: colors.chipBg, color: colors.error }}
+                                title="Delete"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
                 <FAEmptyState
                   icon={
                     <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -711,10 +848,10 @@ const ReportsPage = () => {
                     </svg>
                   }
                   title="No scheduled reports"
-                  description="Schedule automatic report generation"
+                  description="Automate your reporting by scheduling periodic report generation"
                 />
-              </FACard>
-            )}
+              )}
+            </FACard>
           </div>
         )}
         {/* Deep Analysis Tab */}
@@ -738,11 +875,16 @@ const ReportsPage = () => {
               <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr style={{ background: colors.chipBg }}>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Title</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Status</th>
-                    <th className="text-center p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Versions</th>
-                    <th className="text-left p-4 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>Updated</th>
+                  <tr style={{
+                      background: isDark
+                        ? `linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)`
+                        : `linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)`,
+                      borderBottom: `1px solid ${colors.cardBorder}`,
+                    }}>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Title</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Status</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Versions</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Updated</th>
                     <th className="p-4"></th>
                   </tr>
                 </thead>
@@ -823,6 +965,121 @@ const ReportsPage = () => {
 
       {/* Preview Modal */}
       {renderPreviewModal()}
+
+      {/* Schedule Report Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowScheduleModal(false)}
+          />
+          <div
+            className="relative w-full max-w-lg mx-4 rounded-2xl overflow-hidden"
+            style={{
+              background: colors.cardBackground,
+              border: `1px solid ${colors.cardBorder}`,
+              boxShadow: `0 25px 50px -12px ${colors.glassShadow}`,
+            }}
+          >
+            {/* Header */}
+            <div
+              className="flex items-center justify-between px-6 py-4 border-b"
+              style={{ borderColor: colors.cardBorder }}
+            >
+              <h2 className="text-base font-semibold" style={{ color: colors.textPrimary }}>
+                {editingSchedule ? 'Edit Schedule' : 'Schedule New Report'}
+              </h2>
+              <button
+                onClick={() => setShowScheduleModal(false)}
+                className="p-2 rounded-lg transition-all hover:scale-105"
+                style={{ background: colors.chipBg, color: colors.textSecondary }}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="p-6 space-y-4">
+              <div>
+                <FALabel>Schedule Name</FALabel>
+                <FAInput
+                  value={scheduleForm.name}
+                  onChange={(e) => setScheduleForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g., Monthly Portfolio Statement"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FALabel>Report Type</FALabel>
+                  <FASelect
+                    options={[
+                      { value: '', label: 'Select type...' },
+                      ...REPORT_TYPES.map(t => ({ value: t.id, label: t.name })),
+                    ]}
+                    value={scheduleForm.type}
+                    onChange={(e) => setScheduleForm(f => ({ ...f, type: e.target.value as ReportType }))}
+                  />
+                </div>
+                <div>
+                  <FALabel>Frequency</FALabel>
+                  <FASelect
+                    options={[
+                      { value: 'Daily', label: 'Daily' },
+                      { value: 'Weekly', label: 'Weekly' },
+                      { value: 'Monthly', label: 'Monthly' },
+                      { value: 'Quarterly', label: 'Quarterly' },
+                      { value: 'Annually', label: 'Annually' },
+                    ]}
+                    value={scheduleForm.frequency}
+                    onChange={(e) => setScheduleForm(f => ({ ...f, frequency: e.target.value as ReportFrequency }))}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FALabel>Clients</FALabel>
+                  <FASelect
+                    options={[
+                      { value: 'all', label: 'All Clients' },
+                      ...MOCK_CLIENTS.filter(c => c.id !== 'all').map(c => ({ value: c.id, label: c.name })),
+                    ]}
+                    value={scheduleForm.clients === 'all' ? 'all' : 'selected'}
+                    onChange={(e) => setScheduleForm(f => ({ ...f, clients: e.target.value === 'all' ? 'all' : [e.target.value] }))}
+                  />
+                </div>
+                <div>
+                  <FALabel>Next Run Date</FALabel>
+                  <FAInput
+                    type="date"
+                    value={scheduleForm.nextRun}
+                    onChange={(e) => setScheduleForm(f => ({ ...f, nextRun: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div
+              className="flex items-center justify-end gap-3 px-6 py-4 border-t"
+              style={{ borderColor: colors.cardBorder }}
+            >
+              <FAButton variant="secondary" onClick={() => setShowScheduleModal(false)}>
+                Cancel
+              </FAButton>
+              <FAButton
+                onClick={handleSaveSchedule}
+                disabled={!scheduleForm.name || !scheduleForm.type || !scheduleForm.nextRun}
+              >
+                {editingSchedule ? 'Save Changes' : 'Create Schedule'}
+              </FAButton>
+            </div>
+          </div>
+        </div>
+      )}
     </AdvisorLayout>
   )
 }

@@ -29,9 +29,10 @@ fun PortfolioValueChart(
     modifier: Modifier = Modifier
 ) {
     val periods = listOf("1M", "6M", "1Y", "3Y", "ALL")
-    val primaryColor = Color(0xFF3B82F6)
-    val gradientTop = Color(0xFF3B82F6).copy(alpha = 0.15f)
-    val gradientBottom = Color(0xFF3B82F6).copy(alpha = 0f)
+    val isDark = com.sparrowinvest.fa.ui.theme.LocalIsDarkTheme.current
+    val primaryColor = if (isDark) Color(0xFF93C5FD) else Color(0xFF3B82F6)
+    val gradientTop = primaryColor.copy(alpha = if (isDark) 0.20f else 0.15f)
+    val gradientBottom = primaryColor.copy(alpha = 0f)
 
     var animationPlayed by remember { mutableStateOf(false) }
     val animationProgress by animateFloatAsState(
@@ -106,7 +107,10 @@ fun PortfolioValueChart(
                             .clip(RoundedCornerShape(6.dp))
                             .background(
                                 if (selectedPeriod == period)
-                                    Brush.linearGradient(listOf(Color(0xFF3B82F6), Color(0xFF2563EB)))
+                                    Brush.linearGradient(
+                                        if (isDark) listOf(Color(0xFF1E3A6E), Color(0xFF152C54))
+                                        else listOf(Color(0xFF3B82F6), Color(0xFF2563EB))
+                                    )
                                 else
                                     Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
                             )
@@ -184,7 +188,8 @@ fun PortfolioValueChart(
                     drawPath(
                         path = linePath,
                         brush = Brush.horizontalGradient(
-                            colors = listOf(Color(0xFF3B82F6), Color(0xFF38BDF8))
+                            colors = if (isDark) listOf(Color(0xFF93C5FD), Color(0xFF7DD3FC))
+                                else listOf(Color(0xFF3B82F6), Color(0xFF38BDF8))
                         ),
                         style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                     )

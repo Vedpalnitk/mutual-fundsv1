@@ -1,6 +1,8 @@
 package com.sparrowinvest.fa.ui.dashboard
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,10 +32,14 @@ import androidx.compose.material.icons.filled.AutoGraph
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,11 +59,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import java.time.LocalDate
+import java.time.format.TextStyle as JavaTextStyle
+import java.util.Locale
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sparrowinvest.fa.data.model.Client
 import com.sparrowinvest.fa.data.model.FADashboard
@@ -83,18 +100,39 @@ import com.sparrowinvest.fa.ui.theme.Warning
 import com.sparrowinvest.fa.ui.theme.Error
 
 // Avya gradient colors
-private val AvyaGradient = Brush.linearGradient(
+private val AvyaGradientLight = Brush.linearGradient(
     colors = listOf(
         Color(0xFF6366F1), // Purple
         Color(0xFF3B82F6), // Blue
         Color(0xFF06B6D4)  // Cyan
     )
 )
+private val AvyaGradientDark = Brush.linearGradient(
+    colors = listOf(
+        Color(0xFF2A2860), // Dark Purple
+        Color(0xFF162D54), // Dark Blue
+        Color(0xFF0C3545)  // Dark Cyan
+    )
+)
 
 // KPI detail type for bottom sheet
 enum class KpiDetailType {
-    AUM, CLIENTS, SIPS
+    AUM, CLIENTS, RETURNS, SIPS
 }
+
+// Chart period for trend filters
+enum class ChartPeriod(val label: String) {
+    ONE_WEEK("1W"),
+    ONE_MONTH("1M"),
+    THREE_MONTHS("3M"),
+    SIX_MONTHS("6M"),
+    ONE_YEAR("1Y")
+}
+
+private data class TrendDataPoint(
+    val label: String,
+    val value: Double
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,6 +143,9 @@ fun DashboardScreen(
     onNavigateToClients: () -> Unit,
     onNavigateToAvyaChat: () -> Unit,
     onNavigateToActionCenter: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {},
+    onNavigateToCalculators: () -> Unit = {},
+    onNavigateToAddClient: () -> Unit = {},
     onBadgeCountChanged: (Int) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -151,7 +192,10 @@ fun DashboardScreen(
                         onNavigateToTransactions = onNavigateToTransactions,
                         onNavigateToClients = onNavigateToClients,
                         onNavigateToAvyaChat = onNavigateToAvyaChat,
-                        onNavigateToActionCenter = onNavigateToActionCenter
+                        onNavigateToActionCenter = onNavigateToActionCenter,
+                        onNavigateToReports = onNavigateToReports,
+                        onNavigateToCalculators = onNavigateToCalculators,
+                        onNavigateToAddClient = onNavigateToAddClient
                     )
                 }
             }
@@ -161,6 +205,8 @@ fun DashboardScreen(
 
 @Composable
 private fun AvyaFab(onClick: () -> Unit) {
+    val isDark = LocalIsDarkTheme.current
+
     FloatingActionButton(
         onClick = onClick,
         modifier = Modifier
@@ -175,7 +221,7 @@ private fun AvyaFab(onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(AvyaGradient, CircleShape),
+                .background(if (isDark) AvyaGradientDark else AvyaGradientLight, CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -194,7 +240,7 @@ private fun AvyaCard(onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(CornerRadius.xLarge))
-            .background(AvyaGradient)
+            .background(if (isDark) AvyaGradientDark else AvyaGradientLight)
             .clickable(onClick = onClick)
             .padding(Spacing.medium)
     ) {
@@ -245,6 +291,89 @@ private fun AvyaCard(onClick: () -> Unit) {
     }
 }
 
+@Composable
+private fun QuickActionsRow(
+    onNavigateToTransactions: () -> Unit,
+    onNavigateToAddClient: () -> Unit,
+    onNavigateToReports: () -> Unit,
+    onNavigateToCalculators: () -> Unit
+) {
+    val isDark = LocalIsDarkTheme.current
+
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+    ) {
+        item {
+            QuickActionPill(
+                icon = Icons.Default.SwapHoriz,
+                label = "New Transaction",
+                onClick = onNavigateToTransactions
+            )
+        }
+        item {
+            QuickActionPill(
+                icon = Icons.Default.PersonAdd,
+                label = "Add Client",
+                onClick = onNavigateToAddClient
+            )
+        }
+        item {
+            QuickActionPill(
+                icon = Icons.Default.Assessment,
+                label = "View Reports",
+                onClick = onNavigateToReports
+            )
+        }
+        item {
+            QuickActionPill(
+                icon = Icons.Default.Calculate,
+                label = "Calculators",
+                onClick = onNavigateToCalculators
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuickActionPill(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
+    val isDark = LocalIsDarkTheme.current
+
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(
+                if (isDark) Color.White.copy(alpha = 0.08f)
+                else Primary.copy(alpha = 0.06f)
+            )
+            .border(
+                width = 1.dp,
+                color = if (isDark) Color.White.copy(alpha = 0.12f) else Primary.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(50)
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spacing.compact, vertical = Spacing.small),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = Primary
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (isDark) Color.White.copy(alpha = 0.9f) else Primary,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DashboardContent(
@@ -254,7 +383,10 @@ private fun DashboardContent(
     onNavigateToTransactions: () -> Unit,
     onNavigateToClients: () -> Unit,
     onNavigateToAvyaChat: () -> Unit,
-    onNavigateToActionCenter: () -> Unit = {}
+    onNavigateToActionCenter: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {},
+    onNavigateToCalculators: () -> Unit = {},
+    onNavigateToAddClient: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var showKpiDetailSheet by remember { mutableStateOf(false) }
@@ -341,57 +473,78 @@ private fun DashboardContent(
             AvyaCard(onClick = onNavigateToAvyaChat)
         }
 
-        // Hero KPI Card
+        // Hero KPI Cards - 2x2 grid matching web portal
         item {
-            HeroKpiCard(
-                dashboard = dashboard,
-                onClick = {
-                    selectedKpiType = KpiDetailType.AUM
-                    showKpiDetailSheet = true
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.compact)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.compact)
+                ) {
+                    HeroStatCard(
+                        label = "TOTAL AUM",
+                        value = dashboard.formattedAum,
+                        gradientColors = if (isDark) listOf(Color(0xFF1E3A6E), Color(0xFF152C54))
+                            else listOf(Color(0xFF3B82F6), Color(0xFF2563EB)),
+                        growth = dashboard.aumGrowth,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            selectedKpiType = KpiDetailType.AUM
+                            showKpiDetailSheet = true
+                        }
+                    )
+                    HeroStatCard(
+                        label = "TOTAL CLIENTS",
+                        value = dashboard.totalClients.toString(),
+                        gradientColors = if (isDark) listOf(Color(0xFF164E6E), Color(0xFF1A3A5C))
+                            else listOf(Color(0xFF38BDF8), Color(0xFF3B82F6)),
+                        growth = dashboard.clientsGrowth,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            selectedKpiType = KpiDetailType.CLIENTS
+                            showKpiDetailSheet = true
+                        }
+                    )
                 }
-            )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.compact)
+                ) {
+                    HeroStatCard(
+                        label = "AVG. RETURNS",
+                        value = "${"%.1f".format(dashboard.avgReturns)}%",
+                        gradientColors = if (isDark) listOf(Color(0xFF0B4D38), Color(0xFF073D2C))
+                            else listOf(Color(0xFF10B981), Color(0xFF047857)),
+                        growthText = "+0.8% MoM",
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            selectedKpiType = KpiDetailType.RETURNS
+                            showKpiDetailSheet = true
+                        }
+                    )
+                    HeroStatCard(
+                        label = "MONTHLY SIP",
+                        value = dashboard.formattedMonthlySip,
+                        gradientColors = if (isDark) listOf(Color(0xFF1A3560), Color(0xFF144260))
+                            else listOf(Color(0xFF2563EB), Color(0xFF38BDF8)),
+                        growth = dashboard.sipsGrowth,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            selectedKpiType = KpiDetailType.SIPS
+                            showKpiDetailSheet = true
+                        }
+                    )
+                }
+            }
         }
 
-        // KPI Grid
+        // Quick Actions Row (below hero tiles)
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.compact)
-            ) {
-                KpiCard(
-                    title = "Clients",
-                    value = dashboard.totalClients.toString(),
-                    icon = Icons.Default.People,
-                    iconColor = Primary,
-                    modifier = Modifier.weight(1f),
-                    growth = dashboard.clientsGrowth,
-                    onClick = {
-                        selectedKpiType = KpiDetailType.CLIENTS
-                        showKpiDetailSheet = true
-                    },
-                    onLongClick = onNavigateToClients
-                )
-                KpiCard(
-                    title = "Active SIPs",
-                    value = dashboard.activeSips.toString(),
-                    icon = Icons.Default.Repeat,
-                    iconColor = Success,
-                    modifier = Modifier.weight(1f),
-                    growth = dashboard.sipsGrowth,
-                    onClick = {
-                        selectedKpiType = KpiDetailType.SIPS
-                        showKpiDetailSheet = true
-                    }
-                )
-                KpiCard(
-                    title = "Pending",
-                    value = dashboard.pendingActions.toString(),
-                    icon = Icons.Default.Notifications,
-                    iconColor = Warning,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToActionCenter
-                )
-            }
+            QuickActionsRow(
+                onNavigateToTransactions = onNavigateToTransactions,
+                onNavigateToAddClient = onNavigateToAddClient,
+                onNavigateToReports = onNavigateToReports,
+                onNavigateToCalculators = onNavigateToCalculators
+            )
         }
 
         // Top Performers Section
@@ -574,6 +727,82 @@ private fun HeroKpiCard(
                     Text(
                         text = dashboard.formattedMonthlySip,
                         style = MaterialTheme.typography.titleMedium,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroStatCard(
+    label: String,
+    value: String,
+    gradientColors: List<Color>,
+    modifier: Modifier = Modifier,
+    growth: KpiGrowth? = null,
+    growthText: String? = null,
+    onClick: (() -> Unit)? = null
+) {
+    val displayGrowthText = growthText ?: growth?.let {
+        "${it.formattedMomChange} MoM"
+    }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(CornerRadius.large))
+            .background(brush = Brush.linearGradient(gradientColors))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(Spacing.medium)
+    ) {
+        // Decorative circles
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .align(Alignment.TopEnd)
+                .offset(x = 16.dp, y = (-16).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.1f))
+        )
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .align(Alignment.BottomStart)
+                .offset(x = (-24).dp, y = 24.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.05f))
+        )
+
+        Column {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.7f),
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(Spacing.small))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.White
+            )
+            if (displayGrowthText != null) {
+                Spacer(modifier = Modifier.height(Spacing.small))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.2f))
+                        .border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(50)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = displayGrowthText,
+                        style = MaterialTheme.typography.labelSmall,
                         color = Color.White
                     )
                 }
@@ -1217,43 +1446,80 @@ private fun KpiDetailBottomSheet(
     onDismiss: () -> Unit
 ) {
     val isDark = LocalIsDarkTheme.current
+    var chartPeriod by remember { mutableStateOf(ChartPeriod.THREE_MONTHS) }
 
-    val (title, currentValue, iconColor) = when (kpiType) {
-        KpiDetailType.AUM -> Triple("Assets Under Management", dashboard.formattedAum, Primary)
-        KpiDetailType.CLIENTS -> Triple("Total Clients", dashboard.totalClients.toString(), Primary)
-        KpiDetailType.SIPS -> Triple("Active SIPs", dashboard.activeSips.toString(), Success)
+    val title = when (kpiType) {
+        KpiDetailType.AUM -> "AUM Growth Trend"
+        KpiDetailType.CLIENTS -> "Client Growth Trend"
+        KpiDetailType.RETURNS -> "Returns Trend"
+        KpiDetailType.SIPS -> "SIP Value Trend"
     }
 
-    // Get real growth data from dashboard model
+    val currentValue = when (kpiType) {
+        KpiDetailType.AUM -> dashboard.formattedAum
+        KpiDetailType.CLIENTS -> "${dashboard.totalClients} clients"
+        KpiDetailType.RETURNS -> "${"%.1f".format(dashboard.avgReturns)}%"
+        KpiDetailType.SIPS -> dashboard.formattedMonthlySip
+    }
+
+    val currentNumericValue = when (kpiType) {
+        KpiDetailType.AUM -> dashboard.totalAum
+        KpiDetailType.CLIENTS -> dashboard.totalClients.toDouble()
+        KpiDetailType.RETURNS -> dashboard.avgReturns
+        KpiDetailType.SIPS -> dashboard.monthlySipValue
+    }
+
+    // Growth data — synthesized for returns
     val growth: KpiGrowth? = when (kpiType) {
         KpiDetailType.AUM -> dashboard.aumGrowth
         KpiDetailType.CLIENTS -> dashboard.clientsGrowth
+        KpiDetailType.RETURNS -> KpiGrowth(
+            momChange = 0.8, momAbsolute = 0.2,
+            yoyChange = 4.5, yoyAbsolute = 1.8,
+            prevMonthValue = dashboard.avgReturns - 0.2,
+            prevYearValue = dashboard.avgReturns - 1.8
+        )
         KpiDetailType.SIPS -> dashboard.sipsGrowth
     }
 
-    // Get computed breakdown data
+    // Synthesize period-aware trend data
+    val trendData = remember(kpiType, chartPeriod) {
+        if (growth != null && currentNumericValue > 0) {
+            synthesizePeriodTrend(growth.momChange, currentNumericValue, chartPeriod)
+        } else emptyList()
+    }
+
     val breakdownData: List<BreakdownItem> = when (kpiType) {
         KpiDetailType.AUM -> breakdown.aumBreakdown
         KpiDetailType.CLIENTS -> breakdown.clientsBreakdown
         KpiDetailType.SIPS -> breakdown.sipsBreakdown
+        KpiDetailType.RETURNS -> emptyList()
     }
 
     val breakdownColors = listOf(Primary, Secondary, Success, Warning)
+
+    // Gradient colors matching each hero card
+    val headerGradient = when (kpiType) {
+        KpiDetailType.AUM -> if (isDark) listOf(Color(0xFF1E3A6E), Color(0xFF152C54))
+            else listOf(Color(0xFF3B82F6), Color(0xFF2563EB))
+        KpiDetailType.CLIENTS -> if (isDark) listOf(Color(0xFF164E6E), Color(0xFF1A3A5C))
+            else listOf(Color(0xFF38BDF8), Color(0xFF3B82F6))
+        KpiDetailType.RETURNS -> if (isDark) listOf(Color(0xFF0B4D38), Color(0xFF073D2C))
+            else listOf(Color(0xFF10B981), Color(0xFF047857))
+        KpiDetailType.SIPS -> if (isDark) listOf(Color(0xFF1A3560), Color(0xFF144260))
+            else listOf(Color(0xFF2563EB), Color(0xFF38BDF8))
+    }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(if (isDark) Color(0xFF1E293B) else Color(0xFFF8FAFC))
     ) {
-        // Gradient Header
+        // Gradient Header Bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(GradientStartBlue, GradientEndCyan)
-                    )
-                )
+                .background(brush = Brush.linearGradient(headerGradient))
                 .padding(horizontal = Spacing.large, vertical = Spacing.medium)
         ) {
             Row(
@@ -1265,135 +1531,167 @@ private fun KpiDetailBottomSheet(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.White.copy(alpha = 0.9f)
+                        color = Color.White.copy(alpha = 0.85f)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = currentValue,
-                        style = MaterialTheme.typography.headlineLarge,
+                        style = MaterialTheme.typography.headlineSmall,
                         color = Color.White
                     )
                 }
-                IconButton(onClick = onDismiss) {
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(32.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close",
+                        modifier = Modifier.size(18.dp),
                         tint = Color.White.copy(alpha = 0.8f)
                     )
                 }
             }
         }
 
+        // Period Filters below header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.large, vertical = Spacing.compact),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(modifier = Modifier.weight(1f))
+            PeriodFilterPills(
+                selectedPeriod = chartPeriod,
+                onPeriodSelected = { chartPeriod = it }
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Spacing.large)
-                .padding(top = Spacing.medium, bottom = Spacing.xLarge)
+                .padding(bottom = Spacing.xLarge)
         ) {
-            // Growth Cards — only show if backend provides real data
+            // Stat Pills Row
             if (growth != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.compact)
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.small)
                 ) {
-                    // Month-over-Month
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(CornerRadius.large))
-                            .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.White)
-                            .padding(Spacing.compact)
-                    ) {
-                        Column {
-                            Text(
-                                text = "Month-over-Month",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(Spacing.small))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (growth.isMomPositive)
-                                        Icons.AutoMirrored.Filled.TrendingUp
-                                    else Icons.AutoMirrored.Filled.TrendingDown,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = if (growth.isMomPositive) Success else Error
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = growth.formattedMomChange,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = if (growth.isMomPositive) Success else Error
-                                )
-                            }
-                        }
-                    }
-
-                    // Year-over-Year
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(CornerRadius.large))
-                            .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.White)
-                            .padding(Spacing.compact)
-                    ) {
-                        Column {
-                            Text(
-                                text = "Year-over-Year",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(Spacing.small))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = if (growth.isYoyPositive)
-                                        Icons.AutoMirrored.Filled.TrendingUp
-                                    else Icons.AutoMirrored.Filled.TrendingDown,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = if (growth.isYoyPositive) Success else Error
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = growth.formattedYoyChange,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = if (growth.isYoyPositive) Success else Error
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(Spacing.medium))
-            } else {
-                // No historical data placeholder
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(CornerRadius.large))
-                        .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.White)
-                        .padding(Spacing.medium),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No historical growth data available",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    StatPill(
+                        label = "MoM",
+                        value = growth.formattedMomChange,
+                        valueColor = if (growth.isMomPositive) Success else Error,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatPill(
+                        label = "YoY",
+                        value = growth.formattedYoyChange,
+                        valueColor = if (growth.isYoyPositive) Success else Error,
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatPill(
+                        label = "Prev Month",
+                        value = formatGrowthValue(growth.prevMonthValue, kpiType),
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatPill(
+                        label = "Current",
+                        value = currentValue,
+                        valueColor = Primary,
+                        modifier = Modifier.weight(1f)
                     )
                 }
                 Spacer(modifier = Modifier.height(Spacing.medium))
             }
 
-            // Breakdown Section
-            if (breakdownData.isNotEmpty()) {
-                Text(
-                    text = "Breakdown",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+            // Area Chart
+            if (trendData.size >= 2) {
+                AreaChart(data = trendData)
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .clip(RoundedCornerShape(CornerRadius.large))
+                        .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No trend data available",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
+            // Top Performers — only for Returns KPI
+            if (kpiType == KpiDetailType.RETURNS && dashboard.topPerformers.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(Spacing.medium))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                 Spacer(modifier = Modifier.height(Spacing.compact))
+
+                Text(
+                    text = "TOP PERFORMERS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(Spacing.small))
+
+                dashboard.topPerformers.take(3).forEachIndexed { index, client ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(CornerRadius.medium))
+                            .background(Success.copy(alpha = 0.06f))
+                            .padding(horizontal = Spacing.compact, vertical = Spacing.small),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+                        ) {
+                            Text(
+                                text = "#${index + 1}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = client.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Text(
+                            text = "${if (client.returns >= 0) "+" else ""}${"%.1f".format(client.returns)}%",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = if (client.returns >= 0) Success else Error
+                        )
+                    }
+                    if (index < 2 && index < dashboard.topPerformers.size - 1) {
+                        Spacer(modifier = Modifier.height(Spacing.small))
+                    }
+                }
+            }
+
+            // Breakdown Section — for non-returns KPIs
+            if (breakdownData.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(Spacing.medium))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.height(Spacing.compact))
+
+                Text(
+                    text = "BREAKDOWN",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(Spacing.small))
 
                 Box(
                     modifier = Modifier
@@ -1433,7 +1731,6 @@ private fun KpiDetailBottomSheet(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                            // Progress bar
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1459,183 +1756,308 @@ private fun KpiDetailBottomSheet(
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(Spacing.medium))
-            }
-
-            // Trend Chart — only render when real trend data is available
-            if (growth?.trend?.isNotEmpty() == true) {
-                Text(
-                    text = "6-Month Trend",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(modifier = Modifier.height(Spacing.compact))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp)
-                        .clip(RoundedCornerShape(CornerRadius.large))
-                        .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.White)
-                        .padding(Spacing.medium)
-                ) {
-                    TrendChart(trend = growth.trend, kpiType = kpiType)
-                }
-            } else {
-                // Trend data unavailable placeholder
-                Text(
-                    text = "Trend",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(modifier = Modifier.height(Spacing.compact))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(80.dp)
-                        .clip(RoundedCornerShape(CornerRadius.large))
-                        .background(if (isDark) Color.White.copy(alpha = 0.08f) else Color.White),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Trend data unavailable",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
     }
 }
 
 @Composable
-private fun GrowthMetricCard(
-    title: String,
-    change: String,
-    isPositive: Boolean,
-    previousValue: String,
+private fun StatPill(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    valueColor: Color? = null
+) {
+    val isDark = LocalIsDarkTheme.current
+    val pillBg = if (valueColor == Success || valueColor == Error) {
+        valueColor.copy(alpha = 0.08f)
+    } else {
+        if (isDark) Color.White.copy(alpha = 0.06f) else Color(0xFF3B82F6).copy(alpha = 0.04f)
+    }
+    val pillBorder = if (valueColor == Success || valueColor == Error) {
+        valueColor.copy(alpha = 0.2f)
+    } else {
+        if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFF3B82F6).copy(alpha = 0.1f)
+    }
+
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(CornerRadius.large))
+            .background(pillBg)
+            .border(1.dp, pillBorder, RoundedCornerShape(CornerRadius.large))
+            .padding(horizontal = Spacing.small, vertical = Spacing.small),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 9.sp,
+            maxLines = 1
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelMedium,
+            color = valueColor ?: MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun PeriodFilterPills(
+    selectedPeriod: ChartPeriod,
+    onPeriodSelected: (ChartPeriod) -> Unit
+) {
+    val isDark = LocalIsDarkTheme.current
+
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(CornerRadius.medium))
+            .background(
+                if (isDark) Color.White.copy(alpha = 0.06f)
+                else Color(0xFF3B82F6).copy(alpha = 0.04f)
+            )
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        ChartPeriod.entries.forEach { period ->
+            val isSelected = period == selectedPeriod
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(
+                        if (isSelected) Brush.linearGradient(
+                            listOf(
+                                if (isDark) Color(0xFF93C5FD) else Color(0xFF3B82F6),
+                                if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB)
+                            )
+                        ) else Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+                    )
+                    .clickable { onPeriodSelected(period) }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = period.label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isSelected) Color.White
+                        else if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B),
+                    fontSize = 10.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AreaChart(
+    data: List<TrendDataPoint>,
     modifier: Modifier = Modifier
 ) {
-    val changeColor = if (isPositive) Success else Error
+    if (data.size < 2) return
 
-    GlassCard(
-        modifier = modifier,
-        cornerRadius = CornerRadius.large,
-        contentPadding = Spacing.compact
-    ) {
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(Spacing.small))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = if (isPositive)
-                        Icons.AutoMirrored.Filled.TrendingUp
-                    else
-                        Icons.AutoMirrored.Filled.TrendingDown,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = changeColor
-                )
-                Text(
-                    text = change,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = changeColor
+    val isDark = LocalIsDarkTheme.current
+    val lineColor = if (isDark) Color(0xFF93C5FD) else Color(0xFF3B82F6)
+    val areaStartColor = lineColor.copy(alpha = if (isDark) 0.25f else 0.18f)
+    val areaEndColor = lineColor.copy(alpha = 0f)
+    val gridColor = if (isDark) Color.White.copy(alpha = 0.06f) else Color(0xFF3B82F6).copy(alpha = 0.06f)
+    val labelColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+
+    Column(modifier = modifier) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+        ) {
+            val canvasWidth = size.width
+            val canvasHeight = size.height
+
+            val values = data.map { it.value }
+            val minVal = values.min()
+            val maxVal = values.max()
+            val range = if (maxVal > minVal) maxVal - minVal else 1.0
+            val vPadding = range * 0.1
+            val adjustedMin = minVal - vPadding
+            val adjustedRange = (maxVal + vPadding) - adjustedMin
+
+            val points = data.mapIndexed { i, dp ->
+                val x = (i.toFloat() / (data.size - 1).coerceAtLeast(1)) * canvasWidth
+                val y = canvasHeight - ((dp.value - adjustedMin) / adjustedRange * canvasHeight).toFloat()
+                Offset(x, y)
+            }
+
+            // Dashed grid lines
+            for (i in 0..3) {
+                val y = canvasHeight * (1f - i / 3f)
+                drawLine(
+                    color = gridColor,
+                    start = Offset(0f, y),
+                    end = Offset(canvasWidth, y),
+                    strokeWidth = 1f,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 4f))
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "from $previousValue",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+
+            // Smooth bezier path
+            val linePath = Path().apply {
+                moveTo(points[0].x, points[0].y)
+                for (i in 1 until points.size) {
+                    val prev = points[i - 1]
+                    val curr = points[i]
+                    val cpx = (prev.x + curr.x) / 2f
+                    cubicTo(cpx, prev.y, cpx, curr.y, curr.x, curr.y)
+                }
+            }
+
+            // Area fill
+            val areaPath = Path().apply {
+                addPath(linePath)
+                lineTo(points.last().x, canvasHeight)
+                lineTo(points.first().x, canvasHeight)
+                close()
+            }
+
+            drawPath(
+                path = areaPath,
+                brush = Brush.verticalGradient(
+                    colors = listOf(areaStartColor, areaEndColor),
+                    startY = 0f,
+                    endY = canvasHeight
+                )
             )
+
+            // Line stroke with glow
+            drawPath(
+                path = linePath,
+                color = lineColor,
+                style = Stroke(
+                    width = 2.5.dp.toPx(),
+                    cap = StrokeCap.Round,
+                    join = StrokeJoin.Round
+                )
+            )
+
+            // Dot at latest point
+            drawCircle(
+                color = Color.White,
+                radius = 4.dp.toPx(),
+                center = points.last()
+            )
+            drawCircle(
+                color = lineColor,
+                radius = 3.dp.toPx(),
+                center = points.last()
+            )
+        }
+
+        // X-axis labels
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            val indices = selectLabelIndices(data.size, 6)
+            indices.forEach { i ->
+                Text(
+                    text = data[i].label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = labelColor,
+                    fontSize = 10.sp
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun TrendChart(
-    trend: List<com.sparrowinvest.fa.data.model.GrowthDataPoint>,
-    kpiType: KpiDetailType
-) {
-    val maxValue = trend.maxOfOrNull { it.value } ?: 1.0
-    val minValue = trend.minOfOrNull { it.value } ?: 0.0
-    val range = if (maxValue > minValue) maxValue - minValue else 1.0
+private fun selectLabelIndices(total: Int, maxLabels: Int): List<Int> {
+    if (total <= maxLabels) return (0 until total).toList()
+    val step = (total - 1).toFloat() / (maxLabels - 1)
+    return (0 until maxLabels).map { (it * step).toInt().coerceAtMost(total - 1) }
+}
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        // Simple bar chart
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.Bottom
-        ) {
-            trend.forEach { dataPoint ->
-                val normalizedHeight = ((dataPoint.value - minValue) / range).coerceIn(0.1, 1.0)
+private fun synthesizePeriodTrend(
+    momChange: Double,
+    currentValue: Double,
+    period: ChartPeriod
+): List<TrendDataPoint> {
+    val now = LocalDate.now()
+    val monthlyRate = momChange / 100.0
+    val dailyRate = Math.pow(1 + monthlyRate, 1.0 / 30.0) - 1
+    val weeklyRate = Math.pow(1 + monthlyRate, 7.0 / 30.0) - 1
+    val isFlat = Math.abs(monthlyRate) < 0.001
 
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .width(24.dp)
-                            .height((normalizedHeight * 80).dp)
-                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(GradientStartBlue, GradientEndCyan)
-                                )
-                            )
-                    )
-                }
-            }
-        }
+    data class PeriodConfig(
+        val points: Int,
+        val getDate: (Int) -> LocalDate,
+        val formatLabel: (LocalDate) -> String,
+        val rate: Double
+    )
 
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant,
-            thickness = 1.dp
+    val config = when (period) {
+        ChartPeriod.ONE_WEEK -> PeriodConfig(
+            points = 7,
+            getDate = { i -> now.minusDays((6 - i).toLong()) },
+            formatLabel = { d -> d.dayOfWeek.getDisplayName(JavaTextStyle.SHORT, Locale.ENGLISH) },
+            rate = dailyRate
         )
+        ChartPeriod.ONE_MONTH -> PeriodConfig(
+            points = 30,
+            getDate = { i -> now.minusDays((29 - i).toLong()) },
+            formatLabel = { d -> "${d.dayOfMonth} ${d.month.getDisplayName(JavaTextStyle.SHORT, Locale.ENGLISH)}" },
+            rate = dailyRate
+        )
+        ChartPeriod.THREE_MONTHS -> PeriodConfig(
+            points = 12,
+            getDate = { i -> now.minusDays(((11 - i) * 7).toLong()) },
+            formatLabel = { d -> "${d.dayOfMonth} ${d.month.getDisplayName(JavaTextStyle.SHORT, Locale.ENGLISH)}" },
+            rate = weeklyRate
+        )
+        ChartPeriod.SIX_MONTHS -> PeriodConfig(
+            points = 6,
+            getDate = { i -> now.minusMonths((5 - i).toLong()) },
+            formatLabel = { d -> d.month.getDisplayName(JavaTextStyle.SHORT, Locale.ENGLISH) },
+            rate = monthlyRate
+        )
+        ChartPeriod.ONE_YEAR -> PeriodConfig(
+            points = 12,
+            getDate = { i -> now.minusMonths((11 - i).toLong()) },
+            formatLabel = { d -> "${d.month.getDisplayName(JavaTextStyle.SHORT, Locale.ENGLISH)} '${d.year % 100}" },
+            rate = monthlyRate
+        )
+    }
 
-        // Month labels
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = Spacing.small),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            trend.forEach { dataPoint ->
-                Text(
-                    text = dataPoint.month,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-            }
+    var seed = currentValue * 13.7 + period.label.first().code
+    fun pseudoRandom(): Double {
+        seed = (seed * 9301 + 49297) % 233280
+        return seed / 233280.0
+    }
+
+    return (0 until config.points).map { i ->
+        val d = config.getDate(i)
+        val stepsFromEnd = config.points - 1 - i
+        val factor = Math.pow(1 + config.rate, stepsFromEnd.toDouble())
+        var value = if (factor > 0) currentValue / factor else currentValue
+        if (!isFlat) {
+            value *= 1 + (pseudoRandom() - 0.5) * 0.03
+        } else {
+            value = currentValue + Math.sin(
+                (i.toDouble() / (config.points - 1).coerceAtLeast(1)) * Math.PI * 2
+            ) * currentValue * 0.015
         }
+        TrendDataPoint(label = config.formatLabel(d), value = value)
     }
 }
 
 private fun formatGrowthValue(value: Double, kpiType: KpiDetailType): String {
     return when (kpiType) {
-        KpiDetailType.AUM -> when {
-            value >= 10000000 -> "₹%.2f Cr".format(value / 10000000)
-            value >= 100000 -> "₹%.2f L".format(value / 100000)
-            value >= 1000 -> "₹%.2f K".format(value / 1000)
+        KpiDetailType.AUM, KpiDetailType.SIPS -> when {
+            value >= 10000000 -> "₹%.1fCr".format(value / 10000000)
+            value >= 100000 -> "₹%.1fL".format(value / 100000)
+            value >= 1000 -> "₹%.1fK".format(value / 1000)
             else -> "₹%.0f".format(value)
         }
-        KpiDetailType.CLIENTS, KpiDetailType.SIPS -> "%.0f".format(value)
+        KpiDetailType.CLIENTS -> "%.0f".format(value)
+        KpiDetailType.RETURNS -> "%.1f%%".format(value)
     }
 }

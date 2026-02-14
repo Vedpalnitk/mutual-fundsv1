@@ -55,9 +55,13 @@ export class PortfolioService {
       color: ASSET_COLORS[assetClass] || ASSET_COLORS.Other,
     }));
 
-    // Mock day change (would come from NAV service in production)
-    const dayChange = currentValue * 0.005; // 0.5% mock change
-    const dayChangePercent = 0.5;
+    // Calculate XIRR from holdings (purchase date + invested → current value today)
+    const xirr = this.calculatePortfolioXirr(holdings, currentValue);
+
+    // Day change: requires NAV history tracking (not yet in FAHolding model)
+    // Will be populated once daily NAV sync updates holdings with previous NAV
+    const dayChange = 0;
+    const dayChangePercent = 0;
 
     return {
       clientId,
@@ -65,9 +69,9 @@ export class PortfolioService {
       currentValue: Math.round(currentValue * 100) / 100,
       absoluteGain: Math.round(absoluteGain * 100) / 100,
       absoluteGainPercent: Math.round(absoluteGainPercent * 100) / 100,
-      xirr: 12.5, // TODO: Calculate actual XIRR
+      xirr: xirr !== null ? Math.round(xirr * 100) / 100 : null,
       dayChange: Math.round(dayChange * 100) / 100,
-      dayChangePercent,
+      dayChangePercent: Math.round(dayChangePercent * 100) / 100,
       holdings: holdings.map((h) => this.transformHolding(h)),
       assetAllocation,
       lastUpdated: new Date().toISOString(),
@@ -308,5 +312,79 @@ export class PortfolioService {
       xirr: h.xirr ? Number(h.xirr) : undefined,
       lastTransactionDate: h.lastTxnDate.toISOString().split('T')[0],
     };
+  }
+
+  /**
+   * Calculate portfolio XIRR using Newton-Raphson method.
+   * Each holding's purchase date + invested amount = cash outflow,
+   * and today's current value = cash inflow.
+   */
+  private calculatePortfolioXirr(holdings: any[], currentValue: number): number | null {
+    if (holdings.length === 0 || currentValue <= 0) return null;
+
+    const today = new Date();
+    const cashflows: { date: Date; amount: number }[] = [];
+
+    for (const h of holdings) {
+      const invested = Number(h.investedValue);
+      const purchaseDate = h.lastTxnDate ? new Date(h.lastTxnDate) : h.createdAt ? new Date(h.createdAt) : null;
+      if (!purchaseDate || invested <= 0) continue;
+      cashflows.push({ date: purchaseDate, amount: -invested }); // outflow
+    }
+
+    if (cashflows.length === 0) return null;
+
+    // Add today's value as inflow
+    cashflows.push({ date: today, amount: currentValue });
+
+    // Sort by date
+    cashflows.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    const daysBetween = (d1: Date, d2: Date) =>
+      (d1.getTime() - d2.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+
+    const d0 = cashflows[0].date;
+
+    // NPV function
+    const npv = (rate: number): number => {
+      let sum = 0;
+      for (const cf of cashflows) {
+        const years = daysBetween(cf.date, d0);
+        sum += cf.amount / Math.pow(1 + rate, years);
+      }
+      return sum;
+    };
+
+    // Derivative of NPV
+    const dnpv = (rate: number): number => {
+      let sum = 0;
+      for (const cf of cashflows) {
+        const years = daysBetween(cf.date, d0);
+        if (years === 0) continue;
+        sum += -years * cf.amount / Math.pow(1 + rate, years + 1);
+      }
+      return sum;
+    };
+
+    // Newton-Raphson iteration
+    let rate = 0.1; // Initial guess: 10%
+    for (let i = 0; i < 100; i++) {
+      const f = npv(rate);
+      const df = dnpv(rate);
+      if (Math.abs(df) < 1e-12) break;
+      const newRate = rate - f / df;
+      if (Math.abs(newRate - rate) < 1e-9) {
+        rate = newRate;
+        break;
+      }
+      rate = newRate;
+      // Guard against divergence
+      if (rate < -0.99 || rate > 10) return null;
+    }
+
+    // Validate result
+    if (isNaN(rate) || !isFinite(rate) || rate < -0.99 || rate > 10) return null;
+
+    return rate * 100; // Return as percentage
   }
 }

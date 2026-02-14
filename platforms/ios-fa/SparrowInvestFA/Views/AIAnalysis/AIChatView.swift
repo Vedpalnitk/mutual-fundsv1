@@ -33,7 +33,6 @@ struct AIChatView: View {
 
     @State private var messageText = ""
     @State private var hasProcessedInitialQuery = false
-    @FocusState private var isInputFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -86,7 +85,6 @@ struct AIChatView: View {
                 ChatInputBar(
                     messageText: $messageText,
                     isProcessing: chatStore.isProcessing,
-                    isInputFocused: $isInputFocused,
                     onSend: sendMessage
                 )
             }
@@ -114,7 +112,10 @@ struct AIChatView: View {
                     }
                 }
             }
-            .alert("Error", isPresented: .constant(chatStore.errorMessage != nil)) {
+            .alert("Error", isPresented: Binding(
+                get: { chatStore.errorMessage != nil },
+                set: { if !$0 { chatStore.errorMessage = nil } }
+            )) {
                 Button("OK") {
                     chatStore.errorMessage = nil
                 }
@@ -138,7 +139,7 @@ struct AIChatView: View {
 
         let content = messageText
         messageText = ""
-        isInputFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
 
         Task {
             try? await chatStore.sendMessage(content)
@@ -430,8 +431,6 @@ struct TypingIndicator: View {
 struct ChatInputBar: View {
     @Binding var messageText: String
     var isProcessing: Bool
-    @FocusState.Binding var isInputFocused: Bool
-
     let onSend: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -442,40 +441,38 @@ struct ChatInputBar: View {
 
             HStack(spacing: ChatSpacing.compact) {
                 // Text Input
-                HStack(spacing: ChatSpacing.small) {
-                    TextField("Ask Avya...", text: $messageText, axis: .vertical)
-                        .font(AppTheme.Typography.body(15))
-                        .lineLimit(1...4)
-                        .focused($isInputFocused)
-                        .disabled(isProcessing)
-
-                    if !messageText.isEmpty {
-                        Button(action: { messageText = "" }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
-                                .foregroundColor(Color(UIColor.tertiaryLabel))
-                        }
-                    }
-                }
-                .padding(.horizontal, ChatSpacing.medium)
-                .padding(.vertical, 10)
-                .background(inputBackground)
-                .overlay(inputBorder)
+                TextField("Ask Avya...", text: $messageText, axis: .vertical)
+                    .font(AppTheme.Typography.body(15))
+                    .lineLimit(1...4)
+                    .textFieldStyle(.plain)
+                    .disabled(isProcessing)
+                    .submitLabel(.send)
+                    .onSubmit { onSend() }
+                    .padding(.horizontal, ChatSpacing.medium)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(colorScheme == .dark ? Color.white.opacity(0.06) : Color(UIColor.tertiarySystemFill))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(
+                                colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05),
+                                lineWidth: 1
+                            )
+                            .allowsHitTesting(false)
+                    )
 
                 // Send Button
                 Button(action: onSend) {
                     ZStack {
-                        if messageText.isEmpty || isProcessing {
-                            Circle()
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 40, height: 40)
-                        } else {
-                            Circle()
-                                .fill(
-                                    AppTheme.avyaBubbleGradient
-                                )
-                                .frame(width: 40, height: 40)
-                        }
+                        Circle()
+                            .fill(
+                                messageText.isEmpty || isProcessing
+                                    ? AnyShapeStyle(Color.gray.opacity(0.3))
+                                    : AnyShapeStyle(AppTheme.avyaBubbleGradient)
+                            )
+                            .frame(width: 40, height: 40)
 
                         if isProcessing {
                             ProgressView()
@@ -492,33 +489,8 @@ struct ChatInputBar: View {
             }
             .padding(.horizontal, ChatSpacing.medium)
             .padding(.vertical, ChatSpacing.compact)
-            .background(
-                colorScheme == .dark
-                    ? AppTheme.background
-                    : Color.white
-            )
+            .background(colorScheme == .dark ? AppTheme.background : Color.white)
         }
-    }
-
-    @ViewBuilder
-    private var inputBackground: some View {
-        if colorScheme == .dark {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.white.opacity(0.06))
-        } else {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(UIColor.tertiarySystemFill))
-        }
-    }
-
-    private var inputBorder: some View {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .stroke(
-                colorScheme == .dark
-                    ? Color.white.opacity(0.1)
-                    : Color.black.opacity(0.05),
-                lineWidth: 1
-            )
     }
 }
 

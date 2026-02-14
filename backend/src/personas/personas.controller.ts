@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -14,7 +15,9 @@ import {
   ApiResponse,
   ApiQuery,
 } from '@nestjs/swagger';
-import { Public } from '../common/decorators/public.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { PersonasService } from './personas.service';
 import {
   CreatePersonaDto,
@@ -29,7 +32,8 @@ import {
 } from './dto/persona.dto';
 
 @ApiTags('admin/personas')
-@Public() // TODO: Remove in production - add proper auth
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'super_admin')
 @Controller('api/v1/admin/personas')
 export class PersonasController {
   constructor(private personasService: PersonasService) {}

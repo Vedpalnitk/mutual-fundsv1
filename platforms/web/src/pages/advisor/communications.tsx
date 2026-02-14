@@ -13,6 +13,7 @@ import {
   FAChip,
 } from '@/components/advisor/shared'
 import ShareModal from '@/components/advisor/ShareModal'
+import BulkComposeModal from '@/components/advisor/BulkComposeModal'
 
 const CommunicationsPage = () => {
   const { colors } = useFATheme()
@@ -28,8 +29,9 @@ const CommunicationsPage = () => {
   const [typeFilter, setTypeFilter] = useState('')
   const [clientSearch, setClientSearch] = useState('')
 
-  // Compose modal
+  // Compose modals
   const [showCompose, setShowCompose] = useState(false)
+  const [showBulkCompose, setShowBulkCompose] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -89,7 +91,16 @@ const CommunicationsPage = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-sm" style={{ color: colors.textSecondary }}>Track and manage client communications</p>
-          <FAButton onClick={() => setShowCompose(true)}>Quick Compose</FAButton>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowBulkCompose(true)}
+              className="px-4 py-2.5 rounded-full text-sm font-medium transition-all"
+              style={{ color: colors.primary, background: colors.chipBg, border: `1px solid ${colors.cardBorder}` }}
+            >
+              Bulk Send
+            </button>
+            <FAButton onClick={() => setShowCompose(true)}>Quick Compose</FAButton>
+          </div>
         </div>
 
         {/* KPI Row */}
@@ -247,12 +258,19 @@ const CommunicationsPage = () => {
         </FACard>
       </div>
 
-      {/* Quick Compose Modal - uses empty clientId since it's a general compose */}
+      {/* Quick Compose Modal */}
       {showCompose && (
         <ShareModal
           clientId=""
           clientName="Client"
           onClose={() => { setShowCompose(false); loadData() }}
+        />
+      )}
+
+      {/* Bulk Compose Modal */}
+      {showBulkCompose && (
+        <BulkComposeModal
+          onClose={() => { setShowBulkCompose(false); loadData() }}
         />
       )}
     </AdvisorLayout>

@@ -55,6 +55,10 @@ export class ClientsService {
           where: { status: 'ACTIVE' },
         },
         bankAccounts: true,
+        goals: {
+          where: { status: { not: 'CANCELLED' } },
+          select: { id: true },
+        },
       },
       skip: (page - 1) * limit,
       take: limit,
@@ -219,6 +223,7 @@ export class ClientsService {
   private transformClient(client: any) {
     const holdings = client.holdings || [];
     const sips = client.sips || [];
+    const goals = client.goals || [];
 
     // Calculate AUM from holdings
     const aum = holdings.reduce((sum: number, h: any) => sum + Number(h.currentValue || 0), 0);
@@ -260,7 +265,7 @@ export class ClientsService {
       riskProfile: riskProfileMap[client.riskProfile] || 'Moderate',
       lastActive: this.formatLastActive(client.lastActiveAt),
       sipCount: sips.length,
-      goalsCount: 0, // TODO: Implement goals
+      goalsCount: goals.length,
       joinedDate: client.createdAt.toISOString().split('T')[0],
       status: statusMap[client.status] || 'Active',
       kycStatus: kycStatusMap[client.kycStatus],

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsInt, Min } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsInt, IsArray, Min } from 'class-validator';
 
 export class PreviewCommunicationDto {
   @IsString()
@@ -34,6 +34,28 @@ export class SendCommunicationDto {
 
   @IsString()
   body: string;
+
+  @IsOptional()
+  metadata?: Record<string, any>;
+}
+
+export class BulkSendCommunicationDto {
+  @IsArray()
+  @IsString({ each: true })
+  clientIds: string[];
+
+  @IsEnum(['EMAIL', 'WHATSAPP'])
+  channel: 'EMAIL' | 'WHATSAPP';
+
+  @IsString()
+  type: string;
+
+  @IsString()
+  subject: string;
+
+  @IsOptional()
+  @IsString()
+  customBody?: string;
 
   @IsOptional()
   metadata?: Record<string, any>;

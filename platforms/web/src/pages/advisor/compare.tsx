@@ -116,7 +116,7 @@ const ComparePage = () => {
 
   return (
     <AdvisorLayout title="Fund Comparison">
-      <div style={{ background: colors.background, minHeight: '100%', margin: '-2rem', padding: '2rem' }}>
+      <div style={{ background: colors.background, minHeight: '100%', margin: '-2rem', padding: '2rem', overflow: 'hidden' }}>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -233,9 +233,9 @@ const ComparePage = () => {
         ) : (
           <>
             {/* Selected Funds Header */}
-            <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: `repeat(${selectedFunds.length}, 1fr)` }}>
+            <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: `repeat(${selectedFunds.length + (selectedFunds.length < 4 ? 1 : 0)}, minmax(0, 1fr))` }}>
               {selectedFunds.map((fund, i) => (
-                <FACard key={fund.schemeCode} className="relative">
+                <FACard key={fund.schemeCode} className="relative overflow-hidden">
                   <button
                     onClick={() => removeFund(fund.schemeCode)}
                     className="absolute top-2 right-2 p-1.5 rounded-lg transition-all hover:scale-110"
@@ -263,7 +263,7 @@ const ComparePage = () => {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <FAChip color={colors.primary}>{fund.subCategory || fund.category}</FAChip>
                     {fund.riskRating && (
                       <FAChip color={getRiskColor(fund.riskRating)}>{getRiskLabel(fund.riskRating)} Risk</FAChip>
@@ -302,7 +302,7 @@ const ComparePage = () => {
                 Returns Comparison
               </h3>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full" style={{ tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ background: colors.chipBg }}>
                       <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>
@@ -367,7 +367,7 @@ const ComparePage = () => {
                 Risk Metrics
               </h3>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full" style={{ tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ background: colors.chipBg }}>
                       <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>
@@ -434,7 +434,7 @@ const ComparePage = () => {
                 Fund Details
               </h3>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full" style={{ tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ background: colors.chipBg }}>
                       <th className="text-left p-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textTertiary }}>
@@ -484,7 +484,7 @@ const ComparePage = () => {
               <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: colors.primary }}>
                 Top 5 Holdings
               </h3>
-              <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${selectedFunds.length}, 1fr)` }}>
+              <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${selectedFunds.length}, minmax(0, 1fr))` }}>
                 {selectedFunds.map(fund => (
                   <div key={fund.schemeCode}>
                     <p className="text-xs font-semibold mb-3" style={{ color: colors.textSecondary }}>

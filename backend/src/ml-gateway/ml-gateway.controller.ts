@@ -1,5 +1,6 @@
-import { Controller, Post, Get, Body, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
 import { MlGatewayService } from './ml-gateway.service';
 import {
@@ -20,6 +21,8 @@ import {
 
 @ApiTags('ML Gateway')
 @Controller('api/v1')
+@UseGuards(ThrottlerGuard)
+@Throttle({ default: { limit: 30, ttl: 60000 } })
 export class MlGatewayController {
   constructor(private readonly mlGatewayService: MlGatewayService) {}
 

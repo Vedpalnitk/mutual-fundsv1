@@ -341,11 +341,7 @@ const DeepAnalysisPage = () => {
         const response = await clientsApi.list<ClientOption>({})
         setClients(response.data || [])
       } catch {
-        setClients([
-          { id: '1', name: 'Rajesh Sharma', aum: 4500000 },
-          { id: '2', name: 'Priya Patel', aum: 2800000 },
-          { id: '3', name: 'Amit Kumar', aum: 1200000 },
-        ])
+        setClients([])
       } finally {
         setLoadingClients(false)
       }

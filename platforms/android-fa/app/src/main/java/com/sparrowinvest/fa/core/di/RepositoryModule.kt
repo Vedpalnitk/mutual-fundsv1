@@ -6,6 +6,7 @@ import com.sparrowinvest.fa.core.storage.TokenManager
 import com.sparrowinvest.fa.data.repository.AuthRepository
 import com.sparrowinvest.fa.data.repository.ChatRepository
 import com.sparrowinvest.fa.data.repository.ClientRepository
+import com.sparrowinvest.fa.data.repository.CommunicationRepository
 import com.sparrowinvest.fa.data.repository.FundsRepository
 import com.sparrowinvest.fa.data.repository.InsightsRepository
 import com.sparrowinvest.fa.data.repository.NotificationRepository
@@ -86,5 +87,13 @@ object RepositoryModule {
         apiService: ApiService
     ): NotificationRepository {
         return NotificationRepository(apiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCommunicationRepository(
+        apiService: ApiService
+    ): CommunicationRepository {
+        return CommunicationRepository(apiService)
     }
 }

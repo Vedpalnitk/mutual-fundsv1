@@ -4,6 +4,7 @@ import com.sparrowinvest.fa.core.network.ApiResult
 import com.sparrowinvest.fa.core.network.ApiService
 import com.sparrowinvest.fa.data.model.Fund
 import com.sparrowinvest.fa.data.model.FundDetail
+import com.sparrowinvest.fa.data.model.NavHistoryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -47,6 +48,24 @@ class FundsRepository @Inject constructor(
                         response.code()
                     )
                 }
+            }
+        } catch (e: Exception) {
+            ApiResult.error(e.message ?: "Network error", exception = e)
+        }
+    }
+
+    suspend fun getFundNavHistory(schemeCode: Int): ApiResult<List<NavHistoryPoint>> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getFundNavHistory(schemeCode)
+            if (response.isSuccessful) {
+                response.body()?.let { history ->
+                    ApiResult.success(history)
+                } ?: ApiResult.success(emptyList())
+            } else {
+                ApiResult.error(
+                    response.errorBody()?.string() ?: "Failed to fetch NAV history",
+                    response.code()
+                )
             }
         } catch (e: Exception) {
             ApiResult.error(e.message ?: "Network error", exception = e)

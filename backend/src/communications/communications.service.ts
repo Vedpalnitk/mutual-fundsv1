@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../notifications/channels/email.service';
 import { getTemplate, getTemplateList, COMMUNICATION_TEMPLATES } from './communications.templates';
-import { PreviewCommunicationDto, SendCommunicationDto, CommunicationHistoryFilterDto } from './dto';
+import { PreviewCommunicationDto, SendCommunicationDto, BulkSendCommunicationDto, CommunicationHistoryFilterDto } from './dto';
 import { Prisma } from '@prisma/client';
 
 @Injectable()
@@ -122,6 +122,111 @@ export class CommunicationsService {
     }
 
     throw new BadRequestException('Invalid channel');
+  }
+
+  async sendBulk(advisorId: string, dto: BulkSendCommunicationDto) {
+    const results: { clientId: string; clientName: string; success: boolean; error?: string; logId?: string; waLink?: string }[] = [];
+
+    // Get advisor profile for template context
+    const advisor = await this.prisma.user.findUnique({
+      where: { id: advisorId },
+      include: { profile: true },
+    });
+
+    const template = getTemplate(dto.type);
+    if (!template) throw new BadRequestException('Invalid template type');
+
+    for (const clientId of dto.clientIds) {
+      try {
+        // Verify client belongs to advisor
+        const client = await this.prisma.fAClient.findFirst({
+          where: { id: clientId, advisorId },
+        });
+        if (!client) {
+          results.push({ clientId, clientName: 'Unknown', success: false, error: 'Client not found' });
+          continue;
+        }
+
+        // Build template context per client
+        const ctx: any = {
+          advisorName: advisor?.profile?.name || advisor?.email,
+          clientName: client.name,
+        };
+
+        // Auto-hydrate portfolio data for PORTFOLIO_SUMMARY
+        if (dto.type === 'PORTFOLIO_SUMMARY') {
+          const holdings = await this.prisma.fAHolding.findMany({ where: { clientId } });
+          const totalInvested = holdings.reduce((s, h) => s + Number(h.investedValue), 0);
+          const totalValue = holdings.reduce((s, h) => s + Number(h.currentValue), 0);
+          ctx.totalValue = totalValue;
+          ctx.totalInvested = totalInvested;
+          ctx.totalReturns = totalValue - totalInvested;
+          ctx.returnsPercent = totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0;
+          ctx.holdingsCount = holdings.length;
+        }
+
+        if (dto.type === 'CUSTOM') {
+          ctx.customSubject = dto.subject || '';
+          ctx.customBody = dto.customBody || '';
+        }
+
+        const subject = template.emailSubject(ctx);
+        const body = dto.channel === 'EMAIL' ? template.emailBody(ctx) : template.whatsappBody(ctx);
+
+        if (dto.channel === 'EMAIL') {
+          const emailResult = await this.emailService.send(client.email, subject, body);
+          const log = await this.prisma.fACommunicationLog.create({
+            data: {
+              advisorId,
+              clientId,
+              channel: 'EMAIL',
+              type: dto.type as any,
+              subject,
+              body,
+              status: emailResult.success ? 'SENT' : 'FAILED',
+              externalId: emailResult.messageId || null,
+              error: emailResult.error || null,
+              metadata: dto.metadata || undefined,
+              sentAt: emailResult.success ? new Date() : null,
+            },
+          });
+          results.push({ clientId, clientName: client.name, success: emailResult.success, error: emailResult.error, logId: log.id });
+        } else if (dto.channel === 'WHATSAPP') {
+          const phone = client.phone?.replace(/[^0-9]/g, '') || '';
+          if (!phone) {
+            results.push({ clientId, clientName: client.name, success: false, error: 'No phone number' });
+            continue;
+          }
+          const fullPhone = phone.startsWith('91') ? phone : `91${phone}`;
+          const encodedText = encodeURIComponent(body);
+          const waLink = `https://wa.me/${fullPhone}?text=${encodedText}`;
+
+          const log = await this.prisma.fACommunicationLog.create({
+            data: {
+              advisorId,
+              clientId,
+              channel: 'WHATSAPP',
+              type: dto.type as any,
+              subject,
+              body,
+              status: 'SENT',
+              metadata: dto.metadata || undefined,
+              sentAt: new Date(),
+            },
+          });
+          results.push({ clientId, clientName: client.name, success: true, logId: log.id, waLink });
+        }
+      } catch (err: any) {
+        results.push({ clientId, clientName: 'Unknown', success: false, error: err?.message || 'Unexpected error' });
+      }
+    }
+
+    return {
+      total: dto.clientIds.length,
+      sent: results.filter(r => r.success).length,
+      failed: results.filter(r => !r.success).length,
+      results,
+    };
   }
 
   async getHistory(advisorId: string, filters: CommunicationHistoryFilterDto) {

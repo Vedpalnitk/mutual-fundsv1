@@ -2,16 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import Manrope - modern, versatile, semi-rounded sans-serif */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
-
 /* ============================================
    iOS 26 Liquid Glass Design System
    SF Pro Rounded Style + Pill-Shaped Controls
    ============================================ */
 
 :root {
-  /* Typography - Manrope (modern, semi-rounded sans-serif) */
+  /* Typography - Plus Jakarta Sans (loaded via Google Fonts link in _app.tsx) */
   --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 

@@ -8,6 +8,8 @@ import com.sparrowinvest.fa.data.model.Client
 import com.sparrowinvest.fa.data.model.FADashboard
 import com.sparrowinvest.fa.data.model.FASip
 import com.sparrowinvest.fa.data.model.FATransaction
+import com.sparrowinvest.fa.data.model.GrowthDataPoint
+import com.sparrowinvest.fa.data.model.KpiGrowth
 import com.sparrowinvest.fa.data.repository.ClientRepository
 import com.sparrowinvest.fa.data.repository.SipRepository
 import com.sparrowinvest.fa.data.repository.TransactionRepository
@@ -18,7 +20,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -91,10 +95,12 @@ class DashboardViewModel @Inject constructor(
             val totalAum = clients.sumOf { it.aum }
             val avgReturns = if (clients.isNotEmpty()) clients.map { it.returns }.average() else 0.0
             val activeSips = clients.sumOf { it.sipCount }
-            val monthlySipValue = _sips.value.filter { it.isActive }.sumOf { it.amount }
+            val allSips = _sips.value
+            val activeSipsList = allSips.filter { it.isActive }
+            val monthlySipValue = activeSipsList.sumOf { it.amount }
 
             // Get upcoming SIPs from real data
-            val upcomingSips = _sips.value
+            val upcomingSips = allSips
                 .filter { it.isActive }
                 .sortedBy { it.sipDate }
                 .take(5)
@@ -111,6 +117,11 @@ class DashboardViewModel @Inject constructor(
                 .sortedByDescending { it.returns }
                 .take(5)
 
+            // Compute growth metrics
+            val aumGrowth = computeAumGrowth(totalAum, avgReturns)
+            val clientsGrowth = computeClientsGrowth(clients)
+            val sipsGrowth = computeSipsGrowth(activeSipsList)
+
             val dashboard = FADashboard(
                 totalAum = totalAum,
                 totalClients = clients.size,
@@ -122,7 +133,10 @@ class DashboardViewModel @Inject constructor(
                 pendingTransactions = _pendingTransactions.value.take(5),
                 upcomingSips = upcomingSips,
                 failedSips = failedSips,
-                topPerformers = topPerformers
+                topPerformers = topPerformers,
+                aumGrowth = aumGrowth,
+                clientsGrowth = clientsGrowth,
+                sipsGrowth = sipsGrowth
             )
 
             // Compute breakdown data for KPI detail sheet
@@ -132,15 +146,166 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    private fun computeAumGrowth(totalAum: Double, avgReturns: Double): KpiGrowth {
+        val monthlyRate = avgReturns / 100.0 / 12.0
+        val prevMonthAum = if (monthlyRate > -1.0) totalAum / (1 + monthlyRate) else totalAum
+        val prevYearAum = if (avgReturns > -100.0) totalAum / (1 + avgReturns / 100.0) else totalAum
+
+        val momAbsolute = totalAum - prevMonthAum
+        val momChange = if (prevMonthAum != 0.0) (momAbsolute / prevMonthAum) * 100.0 else 0.0
+        val yoyAbsolute = totalAum - prevYearAum
+        val yoyChange = if (prevYearAum != 0.0) (yoyAbsolute / prevYearAum) * 100.0 else 0.0
+
+        // Generate 6-month backward-projected trend
+        val now = LocalDate.now()
+        val trend = (5 downTo 0).map { monthsAgo ->
+            val date = now.minusMonths(monthsAgo.toLong())
+            val label = date.month.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
+            val projectedValue = totalAum / Math.pow(1 + monthlyRate, monthsAgo.toDouble())
+            GrowthDataPoint(month = label, value = projectedValue)
+        }
+
+        return KpiGrowth(
+            momChange = momChange,
+            momAbsolute = momAbsolute,
+            yoyChange = yoyChange,
+            yoyAbsolute = yoyAbsolute,
+            prevMonthValue = prevMonthAum,
+            prevYearValue = prevYearAum,
+            trend = trend
+        )
+    }
+
+    private fun computeClientsGrowth(clients: List<Client>): KpiGrowth {
+        val now = LocalDate.now()
+        val oneMonthAgo = now.minusMonths(1)
+        val oneYearAgo = now.minusYears(1)
+        val currentCount = clients.size.toDouble()
+
+        // Count clients that existed before the cutoff dates
+        val countBeforeMonth = clients.count { client ->
+            client.joinedDate?.let {
+                try {
+                    LocalDate.parse(it.take(10)).isBefore(oneMonthAgo)
+                } catch (e: Exception) { true }
+            } ?: true // If no joinedDate, assume they existed
+        }.toDouble()
+
+        val countBeforeYear = clients.count { client ->
+            client.joinedDate?.let {
+                try {
+                    LocalDate.parse(it.take(10)).isBefore(oneYearAgo)
+                } catch (e: Exception) { true }
+            } ?: true
+        }.toDouble()
+
+        val momAbsolute = currentCount - countBeforeMonth
+        val momChange = if (countBeforeMonth > 0) (momAbsolute / countBeforeMonth) * 100.0 else 0.0
+        val yoyAbsolute = currentCount - countBeforeYear
+        val yoyChange = if (countBeforeYear > 0) (yoyAbsolute / countBeforeYear) * 100.0 else 0.0
+
+        // Build 6-month trend from join dates
+        val trend = (5 downTo 0).map { monthsAgo ->
+            val date = now.minusMonths(monthsAgo.toLong())
+            val label = date.month.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
+            val endOfMonth = date.withDayOfMonth(date.lengthOfMonth())
+            val countAtMonth = clients.count { client ->
+                client.joinedDate?.let {
+                    try {
+                        !LocalDate.parse(it.take(10)).isAfter(endOfMonth)
+                    } catch (e: Exception) { true }
+                } ?: true
+            }.toDouble()
+            GrowthDataPoint(month = label, value = countAtMonth)
+        }
+
+        return KpiGrowth(
+            momChange = momChange,
+            momAbsolute = momAbsolute,
+            yoyChange = yoyChange,
+            yoyAbsolute = yoyAbsolute,
+            prevMonthValue = countBeforeMonth,
+            prevYearValue = countBeforeYear,
+            trend = trend
+        )
+    }
+
+    private fun computeSipsGrowth(activeSips: List<FASip>): KpiGrowth {
+        val now = LocalDate.now()
+        val oneMonthAgo = now.minusMonths(1)
+        val oneYearAgo = now.minusYears(1)
+        val currentCount = activeSips.size.toDouble()
+
+        val countBeforeMonth = activeSips.count { sip ->
+            sip.startDate?.let {
+                try {
+                    LocalDate.parse(it.take(10)).isBefore(oneMonthAgo)
+                } catch (e: Exception) { true }
+            } ?: true
+        }.toDouble()
+
+        val countBeforeYear = activeSips.count { sip ->
+            sip.startDate?.let {
+                try {
+                    LocalDate.parse(it.take(10)).isBefore(oneYearAgo)
+                } catch (e: Exception) { true }
+            } ?: true
+        }.toDouble()
+
+        val momAbsolute = currentCount - countBeforeMonth
+        val momChange = if (countBeforeMonth > 0) (momAbsolute / countBeforeMonth) * 100.0 else 0.0
+        val yoyAbsolute = currentCount - countBeforeYear
+        val yoyChange = if (countBeforeYear > 0) (yoyAbsolute / countBeforeYear) * 100.0 else 0.0
+
+        // Build 6-month trend from start dates
+        val trend = (5 downTo 0).map { monthsAgo ->
+            val date = now.minusMonths(monthsAgo.toLong())
+            val label = date.month.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)
+            val endOfMonth = date.withDayOfMonth(date.lengthOfMonth())
+            val countAtMonth = activeSips.count { sip ->
+                sip.startDate?.let {
+                    try {
+                        !LocalDate.parse(it.take(10)).isAfter(endOfMonth)
+                    } catch (e: Exception) { true }
+                } ?: true
+            }.toDouble()
+            GrowthDataPoint(month = label, value = countAtMonth)
+        }
+
+        return KpiGrowth(
+            momChange = momChange,
+            momAbsolute = momAbsolute,
+            yoyChange = yoyChange,
+            yoyAbsolute = yoyAbsolute,
+            prevMonthValue = countBeforeMonth,
+            prevYearValue = countBeforeYear,
+            trend = trend
+        )
+    }
+
     private fun computeBreakdown(clients: List<Client>, sips: List<FASip>): DashboardBreakdown {
-        // AUM breakdown: group by rough fund category from client-level data
-        // Since we don't have per-holding category at dashboard level, use client AUM distribution
         val totalAum = clients.sumOf { it.aum }
+
+        // AUM breakdown: top 5 clients by AUM share
+        val aumBreakdown = if (totalAum > 0 && clients.isNotEmpty()) {
+            clients
+                .sortedByDescending { it.aum }
+                .take(5)
+                .map { client ->
+                    val share = (client.aum / totalAum).toFloat()
+                    val formatted = when {
+                        client.aum >= 10000000 -> "₹%.1fCr".format(client.aum / 10000000)
+                        client.aum >= 100000 -> "₹%.1fL".format(client.aum / 100000)
+                        client.aum >= 1000 -> "₹%.1fK".format(client.aum / 1000)
+                        else -> "₹%.0f".format(client.aum)
+                    }
+                    BreakdownItem(client.name, formatted, share)
+                }
+        } else emptyList()
 
         // Clients breakdown
         val now = LocalDate.now()
         val thirtyDaysAgo = now.minusDays(30)
-        val dateFormatter = DateTimeFormatter.ISO_DATE_TIME
 
         val activeCount = clients.count { it.status != "inactive" }
         val newCount = clients.count { client ->
@@ -164,7 +329,7 @@ class DashboardViewModel @Inject constructor(
         val sipTotal = activeSips.size.coerceAtLeast(1).toFloat()
 
         return DashboardBreakdown(
-            aumBreakdown = emptyList(), // We don't have per-holding category at dashboard level
+            aumBreakdown = aumBreakdown,
             clientsBreakdown = listOf(
                 BreakdownItem("Active", activeCount.toString(), activeCount / clientsTotal),
                 BreakdownItem("New (30d)", newCount.toString(), newCount / clientsTotal),

@@ -76,7 +76,6 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   // Add auth token if available and not skipped
   if (!skipAuth) {
     const token = getAuthToken();
-    console.log('[API] Token present:', !!token, token ? `(${token.substring(0, 20)}...)` : '');
     if (token) {
       requestHeaders['Authorization'] = `Bearer ${token}`;
     }
@@ -779,54 +778,7 @@ export const mlApi = {
   optimizePortfolio: (data: OptimizePortfolioRequest) => request<OptimizePortfolioResponse>('/api/v1/recommendations/portfolio', { method: 'POST', body: data }),
 };
 
-// ============= Funds Universe API =============
-
-export interface Fund {
-  scheme_code: number;
-  scheme_name: string;
-  fund_house: string;
-  category: string;
-  asset_class: string;
-  return_1y: number;
-  return_3y: number;
-  return_5y: number;
-  volatility: number;
-  sharpe_ratio: number;
-  expense_ratio: number;
-}
-
-export interface FundsResponse {
-  funds: Fund[];
-  total: number;
-  filters: {
-    categories: string[];
-    asset_classes: string[];
-  };
-}
-
-export interface FundsStatsResponse {
-  total_funds: number;
-  by_asset_class: Record<string, number>;
-  by_category: Record<string, number>;
-  averages: {
-    return_1y: number;
-    return_3y: number;
-    expense_ratio: number;
-  };
-}
-
-export const fundsApi = {
-  getFunds: (params?: { asset_class?: string; category?: string }) => {
-    const query = new URLSearchParams();
-    if (params?.asset_class) query.append('asset_class', params.asset_class);
-    if (params?.category) query.append('category', params.category);
-    const queryString = query.toString();
-    return request<FundsResponse>(`/api/v1/funds${queryString ? `?${queryString}` : ''}`);
-  },
-  getStats: () => request<FundsStatsResponse>('/api/v1/funds/stats'),
-};
-
-// ============= Live Funds API (MFAPI.in) =============
+// ============= Live Funds API =============
 
 export interface LiveFundScheme {
   schemeCode: number;
@@ -1870,6 +1822,9 @@ export const communicationsApi = {
 
   getStats: () =>
     request<CommunicationStats>('/api/v1/communications/history/stats'),
+
+  sendBulk: (data: { clientIds: string[]; channel: string; type: string; subject: string; customBody?: string; metadata?: Record<string, any> }) =>
+    request<{ total: number; sent: number; failed: number; results: { clientId: string; clientName: string; success: boolean; error?: string; logId?: string; waLink?: string }[] }>('/api/v1/communications/send-bulk', { method: 'POST', body: data }),
 };
 
 // ============= Auth Profile API =============

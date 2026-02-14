@@ -39,23 +39,6 @@ const FilterPill = ({
   </button>
 )
 
-// Mock client data (fallback when API is not available)
-const mockClients: Client[] = [
-  // Sharma Family
-  { id: '1', name: 'Rajesh Sharma', email: 'rajesh.sharma@email.com', phone: '+91 98765 43210', aum: 4500000, returns: 18.5, riskProfile: 'Moderate', lastActive: '2 hours ago', sipCount: 3, goalsCount: 2, joinedDate: '2022-03-15', status: 'Active', kycStatus: 'Verified', familyGroupId: 'family-sharma', familyRole: 'SELF', familyHeadId: '1' },
-  { id: '9', name: 'Sunita Sharma', email: 'sunita.sharma@email.com', phone: '+91 98765 43211', aum: 2200000, returns: 16.2, riskProfile: 'Moderate', lastActive: '1 day ago', sipCount: 2, goalsCount: 1, joinedDate: '2022-03-15', status: 'Active', kycStatus: 'Verified', familyGroupId: 'family-sharma', familyRole: 'SPOUSE', familyHeadId: '1' },
-  { id: '10', name: 'Arjun Sharma', email: 'arjun.sharma@email.com', phone: '+91 98765 43212', aum: 800000, returns: 24.5, riskProfile: 'Aggressive', lastActive: '3 hours ago', sipCount: 1, goalsCount: 1, joinedDate: '2023-06-01', status: 'Active', kycStatus: 'Verified', familyGroupId: 'family-sharma', familyRole: 'CHILD', familyHeadId: '1' },
-  // Patel Family
-  { id: '2', name: 'Priya Patel', email: 'priya.patel@email.com', phone: '+91 87654 32109', aum: 2800000, returns: 22.3, riskProfile: 'Aggressive', lastActive: '1 day ago', sipCount: 5, goalsCount: 3, joinedDate: '2021-08-22', status: 'Active', kycStatus: 'Verified', familyGroupId: 'family-patel', familyRole: 'SELF', familyHeadId: '2' },
-  { id: '11', name: 'Vikram Patel', email: 'vikram.patel@email.com', phone: '+91 87654 32110', aum: 3500000, returns: 19.8, riskProfile: 'Moderate', lastActive: '5 hours ago', sipCount: 4, goalsCount: 2, joinedDate: '2021-08-22', status: 'Active', kycStatus: 'Verified', familyGroupId: 'family-patel', familyRole: 'SPOUSE', familyHeadId: '2' },
-  // Individuals
-  { id: '3', name: 'Amit Kumar', email: 'amit.kumar@email.com', phone: '+91 76543 21098', aum: 1200000, returns: 12.8, riskProfile: 'Conservative', lastActive: '3 days ago', sipCount: 2, goalsCount: 1, joinedDate: '2023-01-10', status: 'Active', kycStatus: 'Pending' },
-  { id: '4', name: 'Sneha Gupta', email: 'sneha.gupta@email.com', phone: '+91 65432 10987', aum: 8900000, returns: 15.6, riskProfile: 'Moderate', lastActive: '5 hours ago', sipCount: 4, goalsCount: 4, joinedDate: '2020-11-05', status: 'Active', kycStatus: 'Verified' },
-  { id: '5', name: 'Vikram Singh', email: 'vikram.singh@email.com', phone: '+91 54321 09876', aum: 3400000, returns: 20.1, riskProfile: 'Aggressive', lastActive: '1 hour ago', sipCount: 6, goalsCount: 2, joinedDate: '2022-06-18', status: 'Active', kycStatus: 'Verified' },
-  { id: '6', name: 'Meera Krishnan', email: 'meera.k@email.com', phone: '+91 43210 98765', aum: 6200000, returns: 16.9, riskProfile: 'Moderate', lastActive: '4 hours ago', sipCount: 3, goalsCount: 3, joinedDate: '2021-02-28', status: 'Active', kycStatus: 'Verified' },
-  { id: '8', name: 'Kavita Rao', email: 'kavita.rao@email.com', phone: '+91 21098 76543', aum: 5100000, returns: 19.8, riskProfile: 'Aggressive', lastActive: '6 hours ago', sipCount: 4, goalsCount: 2, joinedDate: '2021-09-30', status: 'Active', kycStatus: 'Verified' },
-]
-
 const SORT_OPTIONS = [
   { value: 'aum', label: 'Sort by AUM' },
   { value: 'name', label: 'Sort by Name' },
@@ -149,10 +132,9 @@ const ClientsPage = () => {
       })
       setClients(response.data)
     } catch (err) {
-      // Fall back to mock data if API fails
       console.error('[Clients] API Error:', err)
-      setError('Using demo data - API not available')
-      setClients(mockClients)
+      setError('Failed to load clients - check backend connection')
+      setClients([])
     } finally {
       setLoading(false)
     }
@@ -174,7 +156,7 @@ const ClientsPage = () => {
       if (!matchesSearch) return false
       switch (clientFilter) {
         case 'kyc-pending': return client.kycStatus !== 'Verified'
-        case 'inactive': return client.lastActive.includes('day') || client.lastActive.includes('week')
+        case 'inactive': return !client.lastActive || client.lastActive === 'Never' || /\d+\s*day/i.test(client.lastActive) || /\d{4}-\d{2}-\d{2}/.test(client.lastActive)
         case 'high-aum': return client.aum >= (totalAum / (clients.length || 1))
         default: return true
       }

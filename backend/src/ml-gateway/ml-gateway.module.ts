@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { join } from 'path';
 import { MlGatewayService } from './ml-gateway.service';
 import { MlGatewayController } from './ml-gateway.controller';
@@ -8,6 +9,7 @@ import { MlGatewayController } from './ml-gateway.controller';
 @Module({
   imports: [
     ConfigModule,
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 30 }]),
     ClientsModule.registerAsync([
       {
         name: 'ML_SERVICE',

@@ -12,7 +12,7 @@ import { StaffPageGuard, RequiredPage } from '../common/guards/staff-page.guard'
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { CommunicationsService } from './communications.service';
-import { PreviewCommunicationDto, SendCommunicationDto, CommunicationHistoryFilterDto } from './dto';
+import { PreviewCommunicationDto, SendCommunicationDto, BulkSendCommunicationDto, CommunicationHistoryFilterDto } from './dto';
 
 @ApiTags('communications')
 @ApiBearerAuth()
@@ -41,6 +41,14 @@ export class CommunicationsController {
     @Body() dto: SendCommunicationDto,
   ) {
     return this.communicationsService.send(getEffectiveAdvisorId(user), dto);
+  }
+
+  @Post('send-bulk')
+  sendBulk(
+    @CurrentUser() user: any,
+    @Body() dto: BulkSendCommunicationDto,
+  ) {
+    return this.communicationsService.sendBulk(getEffectiveAdvisorId(user), dto);
   }
 
   @Get('history')

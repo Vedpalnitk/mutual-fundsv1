@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { MlGatewayService } from '../ml-gateway/ml-gateway.service'
 import {
   AdvisorDashboardDto,
   AdvisorInsightsDto,
@@ -10,6 +11,8 @@ import {
   GoalAlertDto,
   MarketInsightDto,
 } from './dto/dashboard.dto'
+import { DeepAnalysisResponseDto } from './dto/deep-analysis.dto'
+import { StrategicInsightsResponseDto } from './dto/strategic-insights.dto'
 
 // Target allocations by risk profile (used for rebalancing alerts)
 const TARGET_ALLOCATIONS: Record<string, Record<string, number>> = {
@@ -49,7 +52,12 @@ const TXN_STATUS_MAP: Record<string, string> = {
 
 @Injectable()
 export class AdvisorDashboardService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(AdvisorDashboardService.name)
+
+  constructor(
+    private prisma: PrismaService,
+    private mlGateway: MlGatewayService,
+  ) {}
 
   async getDashboard(advisorId: string): Promise<AdvisorDashboardDto> {
     // Run all queries in parallel for performance
@@ -99,20 +107,23 @@ export class AdvisorDashboardService {
         orderBy: { date: 'desc' },
         take: 10,
       }),
-      // Upcoming SIPs (next 7 days)
-      this.prisma.fASIP.findMany({
-        where: {
-          client: { advisorId },
-          status: 'ACTIVE',
-          nextSipDate: {
-            gte: new Date(),
-            lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      // Upcoming SIPs (next 30 days) — use date-only for @db.Date field
+      (() => {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const future = new Date(today)
+        future.setDate(future.getDate() + 30)
+        return this.prisma.fASIP.findMany({
+          where: {
+            client: { advisorId },
+            status: 'ACTIVE',
+            nextSipDate: { gte: today, lte: future },
           },
-        },
-        include: { client: { select: { id: true, name: true } } },
-        orderBy: { nextSipDate: 'asc' },
-        take: 10,
-      }),
+          include: { client: { select: { id: true, name: true } } },
+          orderBy: { nextSipDate: 'asc' },
+          take: 10,
+        })
+      })(),
       // Failed SIPs
       this.prisma.fASIP.findMany({
         where: {
@@ -161,10 +172,14 @@ export class AdvisorDashboardService {
       .slice(0, 5)
       .map(({ invested, createdAt, ...rest }) => rest)
 
-    // Recent clients (last 5 added)
-    const recentClients = clientData
+    // Recent clients (last 5 by join date)
+    const recentClients = [...clientData]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5)
-      .map(({ invested, createdAt, ...rest }) => rest)
+      .map(({ invested, createdAt, ...rest }) => ({
+        ...rest,
+        joinedDate: createdAt ? createdAt.toISOString().split('T')[0] : null,
+      }))
 
     // Compute growth metrics
     const aumGrowth = await this.computeAumGrowth(advisorId, totalAum)
@@ -194,19 +209,33 @@ export class AdvisorDashboardService {
         id: s.id,
         clientId: s.clientId,
         clientName: s.client?.name || '',
+        schemeCode: Number(s.fundSchemeCode || 0),
         fundName: s.fundName,
         amount: Number(s.amount),
+        frequency: s.frequency,
+        sipDate: s.sipDate,
         nextDate: s.nextSipDate.toISOString().split('T')[0],
         status: s.status,
+        totalInvested: Number(s.totalInvested || 0),
+        totalUnits: 0,
+        installmentsPaid: s.completedInstallments || 0,
+        startDate: s.startDate?.toISOString().split('T')[0] || null,
       })),
       failedSips: failedSips.map((s) => ({
         id: s.id,
         clientId: s.clientId,
         clientName: s.client?.name || '',
+        schemeCode: Number(s.fundSchemeCode || 0),
         fundName: s.fundName,
         amount: Number(s.amount),
+        frequency: s.frequency,
+        sipDate: s.sipDate,
         nextDate: s.nextSipDate.toISOString().split('T')[0],
         status: s.status,
+        totalInvested: Number(s.totalInvested || 0),
+        totalUnits: 0,
+        installmentsPaid: s.completedInstallments || 0,
+        startDate: s.startDate?.toISOString().split('T')[0] || null,
       })),
       aumGrowth,
       clientsGrowth,
@@ -265,8 +294,9 @@ export class AdvisorDashboardService {
       }),
     ])
 
-    const prevMonthValue = prevMonthSnap ? Number(prevMonthSnap.totalValue) : currentAum * 0.97
-    const prevYearValue = prevYearSnap ? Number(prevYearSnap.totalValue) : currentAum * 0.88
+    // Use actual historical data; if unavailable, assume no change (don't fake growth)
+    const prevMonthValue = prevMonthSnap ? Number(prevMonthSnap.totalValue) : currentAum
+    const prevYearValue = prevYearSnap ? Number(prevYearSnap.totalValue) : currentAum
 
     const momAbsolute = currentAum - prevMonthValue
     const momChange = prevMonthValue > 0 ? (momAbsolute / prevMonthValue) * 100 : 0
@@ -597,41 +627,371 @@ export class AdvisorDashboardService {
   }
 
   private getMarketInsights(): MarketInsightDto[] {
-    // Seeded market news items — in production this would come from a market data feed
+    // TODO: Replace with real market data feed (e.g., NSE/BSE API, news aggregator)
+    // These are static placeholders shown until a live feed is integrated.
     return [
       {
         id: 'mi-1',
-        title: 'RBI Holds Repo Rate Steady at 6.5%',
-        summary: 'The RBI maintained the repo rate at 6.5% for the eighth consecutive time, signaling continued focus on inflation control while supporting growth.',
+        title: 'RBI Monetary Policy Update',
+        summary: 'Monitor RBI policy decisions for their impact on debt fund yields and overall market liquidity conditions.',
         category: 'Monetary Policy',
         impact: 'neutral',
         date: new Date().toISOString().split('T')[0],
       },
       {
         id: 'mi-2',
-        title: 'Equity Markets Hit All-Time High',
-        summary: 'Nifty 50 crossed the 25,000 mark driven by strong FII inflows and robust Q3 earnings across IT and banking sectors.',
+        title: 'Equity Market Outlook',
+        summary: 'Indian equity markets remain supported by domestic flows and earnings growth. Review portfolio allocation to stay aligned with client goals.',
         category: 'Markets',
         impact: 'positive',
         date: new Date().toISOString().split('T')[0],
       },
       {
         id: 'mi-3',
-        title: 'SEBI Tightens Small-Cap Fund Regulations',
-        summary: 'New stress testing norms for small-cap and mid-cap funds may impact fund managers\' ability to deploy in smaller companies.',
+        title: 'SEBI Regulatory Updates',
+        summary: 'SEBI continues to enhance mutual fund regulations around stress testing and risk disclosure. Ensure client portfolios comply with new norms.',
         category: 'Regulation',
-        impact: 'negative',
+        impact: 'neutral',
         date: new Date().toISOString().split('T')[0],
       },
       {
         id: 'mi-4',
-        title: 'Gold ETFs See Record Inflows',
-        summary: 'Amid global uncertainty, gold ETFs attracted ₹2,800 Cr in the last quarter, highest in 3 years.',
+        title: 'Gold as Portfolio Diversifier',
+        summary: 'Gold ETFs continue to attract inflows amid global uncertainty. Consider gold allocation for conservative and moderate risk profiles.',
         category: 'Commodities',
         impact: 'positive',
         date: new Date().toISOString().split('T')[0],
       },
     ]
+  }
+
+  // ============================================================
+  // Tier 2: Deep Analysis (per-client, ML-powered)
+  // ============================================================
+
+  async getDeepAnalysis(advisorId: string, clientId: string): Promise<DeepAnalysisResponseDto> {
+    // Verify client belongs to this advisor and fetch data
+    const client = await this.prisma.fAClient.findFirst({
+      where: { id: clientId, advisorId },
+      include: {
+        holdings: true,
+        sips: { where: { status: 'ACTIVE' } },
+        goals: { where: { status: 'ACTIVE' } },
+      },
+    })
+
+    if (!client) {
+      throw new Error('Client not found or not assigned to this advisor')
+    }
+
+    const holdings = client.holdings || []
+    const sips = client.sips || []
+    const goals = client.goals || []
+    const riskProfile = RISK_PROFILE_MAP[client.riskProfile] || 'Moderate'
+    const targets = TARGET_ALLOCATIONS[riskProfile] || TARGET_ALLOCATIONS.Moderate
+
+    // Build ML request data
+    const totalSipAmount = sips.reduce((sum, s) => sum + Number(s.amount || 0), 0)
+    const totalAum = holdings.reduce((sum, h) => sum + Number(h.currentValue || 0), 0)
+    const primaryGoal = goals[0]
+
+    const horizonYears = primaryGoal
+      ? Math.max(1, Math.ceil((new Date(primaryGoal.targetDate).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)))
+      : 10
+
+    // Calculate age from DOB (fallback to risk-profile-based estimate)
+    let clientAge = 35
+    if (client.dateOfBirth) {
+      const today = new Date()
+      const dob = new Date(client.dateOfBirth)
+      clientAge = today.getFullYear() - dob.getFullYear()
+      const monthDiff = today.getMonth() - dob.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        clientAge--
+      }
+    }
+
+    // Derive liquidity & knowledge from risk profile and age
+    const liquidityMap: Record<string, string> = { Conservative: 'High', Moderate: 'Medium', Aggressive: 'Low' }
+    const knowledgeMap: Record<string, string> = { Conservative: 'Beginner', Moderate: 'Intermediate', Aggressive: 'Advanced' }
+
+    const profileForClassify = {
+      age: clientAge,
+      goal: primaryGoal?.name || 'Wealth Creation',
+      target_amount: primaryGoal ? Number(primaryGoal.targetAmount) : totalAum * 2,
+      target_year: primaryGoal ? new Date(primaryGoal.targetDate).getFullYear() : new Date().getFullYear() + 10,
+      monthly_sip: totalSipAmount,
+      lump_sum: totalAum,
+      liquidity: liquidityMap[riskProfile] || 'Medium',
+      risk_tolerance: riskProfile,
+      knowledge: knowledgeMap[riskProfile] || 'Intermediate',
+      volatility: riskProfile === 'Aggressive' ? 'High' : riskProfile === 'Conservative' ? 'Low' : 'Medium',
+      horizon_years: horizonYears,
+    } as any
+
+    const holdingsForAnalysis = holdings
+      .filter(h => h.fundSchemeCode)
+      .map(h => ({
+        scheme_code: Number(h.fundSchemeCode) || 0,
+        scheme_name: h.fundName,
+        amount: Number(h.currentValue || 0),
+        units: Number(h.units || 0),
+        purchase_date: h.lastTxnDate?.toISOString().split('T')[0],
+        purchase_amount: Number(h.investedValue || 0),
+      }))
+
+    const profileForRisk: Record<string, string> = {
+      risk_tolerance: riskProfile,
+      investment_horizon: `${profileForClassify.horizon_years} years`,
+      goal: profileForClassify.goal,
+    }
+
+    // Enrich holdings with real category data from fund DB
+    const schemeCodes = holdingsForAnalysis.map(h => h.scheme_code).filter(Boolean)
+    const fundCategoryMap = new Map<number, string>()
+    if (schemeCodes.length > 0) {
+      const plans = await this.prisma.schemePlan.findMany({
+        where: { mfapiSchemeCode: { in: schemeCodes } },
+        select: { mfapiSchemeCode: true, scheme: { select: { category: { select: { name: true } } } } },
+      })
+      for (const p of plans) {
+        if (p.mfapiSchemeCode) {
+          fundCategoryMap.set(p.mfapiSchemeCode, p.scheme.category.name)
+        }
+      }
+    }
+
+    const fundInputs = holdingsForAnalysis.map(h => ({
+      scheme_code: h.scheme_code,
+      scheme_name: h.scheme_name,
+      category: fundCategoryMap.get(h.scheme_code) || '',
+      weight: totalAum > 0 ? h.amount / totalAum : 0,
+    }))
+
+    // Run all 3 ML calls in parallel with independent error handling
+    const [personaResult, riskResult, rebalancingResult] = await Promise.allSettled([
+      this.mlGateway.classifyProfileBlended({
+        request_id: `deep-${clientId}-persona`,
+        profile: profileForClassify,
+      } as any),
+      this.mlGateway.assessRisk({
+        request_id: `deep-${clientId}-risk`,
+        profile: profileForRisk,
+        current_portfolio: fundInputs,
+      } as any),
+      holdingsForAnalysis.length > 0
+        ? this.mlGateway.analyzePortfolio({
+            request_id: `deep-${clientId}-rebalance`,
+            holdings: holdingsForAnalysis,
+            target_allocation: {
+              equity: (targets.Equity || 0) / 100,
+              debt: (targets.Debt || 0) / 100,
+              hybrid: (targets.Hybrid || 0) / 100,
+              gold: (targets.Gold || 0) / 100,
+              international: 0,
+              liquid: (targets.Liquid || 0) / 100,
+            },
+            profile: profileForRisk,
+          } as any)
+        : Promise.reject(new Error('No holdings with scheme codes for analysis')),
+    ])
+
+    return {
+      clientId: client.id,
+      clientName: client.name,
+      persona: personaResult.status === 'fulfilled'
+        ? {
+            status: 'success' as const,
+            data: {
+              primaryPersona: personaResult.value.primary_persona.name,
+              riskBand: personaResult.value.primary_persona.risk_band,
+              description: personaResult.value.primary_persona.description,
+              confidence: personaResult.value.confidence,
+              blendedAllocation: {
+                equity: personaResult.value.blended_allocation.equity,
+                debt: personaResult.value.blended_allocation.debt,
+                hybrid: personaResult.value.blended_allocation.hybrid,
+                gold: personaResult.value.blended_allocation.gold,
+                international: personaResult.value.blended_allocation.international,
+                liquid: personaResult.value.blended_allocation.liquid,
+              } as Record<string, number>,
+              distribution: personaResult.value.distribution.map(d => ({
+                persona: d.persona.name,
+                weight: d.weight,
+              })),
+            },
+          }
+        : { status: 'error' as const, error: (personaResult as PromiseRejectedResult).reason?.message || 'Persona classification failed' },
+      risk: riskResult.status === 'fulfilled'
+        ? {
+            status: 'success' as const,
+            data: {
+              riskLevel: riskResult.value.risk_level,
+              riskScore: riskResult.value.risk_score,
+              riskFactors: riskResult.value.risk_factors.map(f => ({
+                name: f.name,
+                contribution: f.contribution,
+                severity: f.severity,
+                description: f.description,
+              })),
+              recommendations: riskResult.value.recommendations,
+            },
+          }
+        : { status: 'error' as const, error: (riskResult as PromiseRejectedResult).reason?.message || 'Risk assessment failed' },
+      rebalancing: rebalancingResult.status === 'fulfilled'
+        ? {
+            status: 'success' as const,
+            data: {
+              isAligned: rebalancingResult.value.summary.is_aligned,
+              alignmentScore: rebalancingResult.value.summary.alignment_score,
+              primaryIssues: rebalancingResult.value.summary.primary_issues,
+              actions: rebalancingResult.value.rebalancing_actions.map(a => ({
+                action: a.action,
+                priority: a.priority,
+                schemeName: a.scheme_name,
+                assetClass: a.asset_class,
+                currentValue: a.current_value,
+                targetValue: a.target_value,
+                transactionAmount: a.transaction_amount,
+                taxStatus: a.tax_status,
+                reason: a.reason,
+              })),
+              totalSellAmount: rebalancingResult.value.summary.total_sell_amount,
+              totalBuyAmount: rebalancingResult.value.summary.total_buy_amount,
+              taxImpactSummary: rebalancingResult.value.summary.tax_impact_summary,
+            },
+          }
+        : { status: 'error' as const, error: (rebalancingResult as PromiseRejectedResult).reason?.message || 'Rebalancing analysis failed' },
+    }
+  }
+
+  // ============================================================
+  // Tier 3: Strategic Intelligence (cross-portfolio, pure SQL)
+  // ============================================================
+
+  async getStrategicInsights(advisorId: string): Promise<StrategicInsightsResponseDto> {
+    const clients = await this.prisma.fAClient.findMany({
+      where: { advisorId },
+      include: { holdings: true },
+    })
+
+    // 1. Fund Overlap: group holdings by fund name across clients
+    const fundMap = new Map<string, { clients: Set<string>; clientNames: string[]; totalValue: number }>()
+    for (const client of clients) {
+      for (const holding of client.holdings || []) {
+        const key = holding.fundName
+        if (!fundMap.has(key)) {
+          fundMap.set(key, { clients: new Set(), clientNames: [], totalValue: 0 })
+        }
+        const entry = fundMap.get(key)!
+        if (!entry.clients.has(client.id)) {
+          entry.clients.add(client.id)
+          entry.clientNames.push(client.name)
+        }
+        entry.totalValue += Number(holding.currentValue || 0)
+      }
+    }
+
+    const fundOverlap = Array.from(fundMap.entries())
+      .filter(([, data]) => data.clients.size > 1)
+      .map(([fundName, data]) => ({
+        fundName,
+        clientCount: data.clients.size,
+        totalValue: Math.round(data.totalValue * 100) / 100,
+        clients: data.clientNames,
+      }))
+      .sort((a, b) => b.clientCount - a.clientCount)
+
+    // 2. Concentration Alerts: flag clients with >40% in single fund or category
+    const concentrationAlerts: StrategicInsightsResponseDto['concentrationAlerts'] = []
+    for (const client of clients) {
+      const holdings = client.holdings || []
+      const totalValue = holdings.reduce((sum, h) => sum + Number(h.currentValue || 0), 0)
+      if (totalValue === 0) continue
+
+      // Check per-fund concentration
+      for (const holding of holdings) {
+        const pct = (Number(holding.currentValue || 0) / totalValue) * 100
+        if (pct > 40) {
+          concentrationAlerts.push({
+            clientId: client.id,
+            clientName: client.name,
+            type: 'fund',
+            name: holding.fundName,
+            percentage: Math.round(pct * 100) / 100,
+            value: Number(holding.currentValue || 0),
+          })
+        }
+      }
+
+      // Check per-category concentration
+      const categoryMap = new Map<string, number>()
+      for (const holding of holdings) {
+        const cat = holding.assetClass || 'Unknown'
+        categoryMap.set(cat, (categoryMap.get(cat) || 0) + Number(holding.currentValue || 0))
+      }
+      for (const [category, value] of categoryMap) {
+        const pct = (value / totalValue) * 100
+        if (pct > 40 && category !== 'Unknown') {
+          concentrationAlerts.push({
+            clientId: client.id,
+            clientName: client.name,
+            type: 'category',
+            name: category,
+            percentage: Math.round(pct * 100) / 100,
+            value: Math.round(value * 100) / 100,
+          })
+        }
+      }
+    }
+
+    // 3. AUM Distribution: bucket clients by portfolio size
+    const aumBuckets = [
+      { range: '0 - 1L', min: 0, max: 100000 },
+      { range: '1L - 5L', min: 100000, max: 500000 },
+      { range: '5L - 10L', min: 500000, max: 1000000 },
+      { range: '10L - 25L', min: 1000000, max: 2500000 },
+      { range: '25L - 50L', min: 2500000, max: 5000000 },
+      { range: '50L+', min: 5000000, max: Infinity },
+    ]
+
+    const aumDistribution = aumBuckets.map(bucket => {
+      let count = 0
+      let totalAum = 0
+      for (const client of clients) {
+        const aum = (client.holdings || []).reduce((sum, h) => sum + Number(h.currentValue || 0), 0)
+        if (aum >= bucket.min && aum < bucket.max) {
+          count++
+          totalAum += aum
+        }
+      }
+      return {
+        range: bucket.range,
+        count,
+        totalAum: Math.round(totalAum * 100) / 100,
+      }
+    })
+
+    // 4. Risk Distribution: count clients per risk profile
+    const riskCounts = new Map<string, number>()
+    for (const client of clients) {
+      const profile = RISK_PROFILE_MAP[client.riskProfile] || 'Moderate'
+      riskCounts.set(profile, (riskCounts.get(profile) || 0) + 1)
+    }
+
+    const totalClients = clients.length || 1
+    const riskDistribution = Array.from(riskCounts.entries()).map(([profile, count]) => ({
+      profile,
+      count,
+      percentage: Math.round((count / totalClients) * 10000) / 100,
+    }))
+
+    return {
+      fundOverlap,
+      concentrationAlerts: concentrationAlerts.sort((a, b) => b.percentage - a.percentage),
+      aumDistribution,
+      riskDistribution,
+    }
   }
 
   // ============================================================

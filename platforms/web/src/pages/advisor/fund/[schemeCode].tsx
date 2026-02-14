@@ -177,7 +177,7 @@ export default function FundDetailsPage() {
   }
 
   const riskInfo = getRiskInfo(fund.riskRating);
-  const assetClassColor = getAssetClassColor(fund.assetClass, colors);
+  const assetClassColor = getAssetClassColor(fund.assetClass || 'equity', colors);
 
   return (
     <AdvisorLayout title={fund.schemeName}>
@@ -206,7 +206,7 @@ export default function FundDetailsPage() {
                     border: `1px solid ${assetClassColor}30`
                   }}
                 >
-                  {assetClassLabels[fund.assetClass] || fund.assetClass}
+                  {assetClassLabels[fund.assetClass || ''] || fund.assetClass || 'Other'}
                 </span>
                 <span
                   className="text-xs px-3 py-1 rounded-full font-medium"
@@ -303,12 +303,12 @@ export default function FundDetailsPage() {
                     <p
                       className="text-xl font-bold"
                       style={{
-                        color: item.value !== undefined
+                        color: item.value != null
                           ? item.value >= 0 ? colors.success : colors.error
                           : colors.textTertiary
                       }}
                     >
-                      {item.value !== undefined
+                      {item.value != null
                         ? `${item.value >= 0 ? '+' : ''}${item.value.toFixed(2)}${item.suffix}`
                         : '-'}
                     </p>
@@ -333,8 +333,8 @@ export default function FundDetailsPage() {
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { label: 'Scheme Type', value: fund.schemeType },
-                  { label: 'Asset Class', value: assetClassLabels[fund.assetClass] || fund.assetClass },
+                  { label: 'Scheme Type', value: fund.schemeType || '-' },
+                  { label: 'Asset Class', value: assetClassLabels[fund.assetClass || ''] || fund.assetClass || 'Other' },
                   { label: 'Category', value: fund.category },
                   { label: 'Fund House', value: fund.fundHouse },
                   { label: 'ISIN', value: fund.isin || '-' },
@@ -371,17 +371,17 @@ export default function FundDetailsPage() {
                 <p className="text-xs mb-1" style={{ color: colors.textTertiary }}>Current NAV</p>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold" style={{ color: colors.textPrimary }}>
-                    {fund.currentNav.toFixed(4)}
+                    {fund.currentNav != null ? fund.currentNav.toFixed(4) : '-'}
                   </span>
                   <span
                     className="text-sm font-medium"
-                    style={{ color: fund.dayChangePercent >= 0 ? colors.success : colors.error }}
+                    style={{ color: (fund.dayChangePercent ?? 0) >= 0 ? colors.success : colors.error }}
                   >
-                    {fund.dayChangePercent >= 0 ? '+' : ''}{fund.dayChangePercent.toFixed(2)}%
+                    {fund.dayChangePercent != null ? `${fund.dayChangePercent >= 0 ? '+' : ''}${fund.dayChangePercent.toFixed(2)}%` : '-'}
                   </span>
                 </div>
                 <p className="text-xs mt-1" style={{ color: colors.textTertiary }}>
-                  {fund.dayChange >= 0 ? '+' : ''}{fund.dayChange.toFixed(4)} today
+                  {fund.dayChange != null ? `${fund.dayChange >= 0 ? '+' : ''}${fund.dayChange.toFixed(4)} today` : '-'}
                 </p>
               </div>
 
@@ -397,12 +397,12 @@ export default function FundDetailsPage() {
                     <span
                       className="text-sm font-semibold"
                       style={{
-                        color: item.value !== undefined
+                        color: item.value != null
                           ? item.value >= 0 ? colors.success : colors.error
                           : colors.textTertiary
                       }}
                     >
-                      {item.value !== undefined ? `${item.value >= 0 ? '+' : ''}${item.value.toFixed(2)}%` : '-'}
+                      {item.value != null ? `${item.value >= 0 ? '+' : ''}${item.value.toFixed(2)}%` : '-'}
                     </span>
                   </div>
                 ))}
@@ -411,30 +411,58 @@ export default function FundDetailsPage() {
               {/* Risk Level */}
               <div className="mb-4 pb-4" style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
                 <p className="text-xs mb-2" style={{ color: colors.textTertiary }}>Risk Level</p>
-                <div className="flex items-center gap-2 mb-1">
-                  <div
-                    className="h-2 flex-1 rounded-full overflow-hidden"
-                    style={{ background: colors.progressBg }}
-                  >
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${(fund.riskRating || 3) * 20}%`,
-                        background: `linear-gradient(90deg, ${colors.success} 0%, ${colors.warning} 50%, ${colors.error} 100%)`
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-xs font-medium" style={{ color: riskInfo.color }}>
-                    {riskInfo.label}
-                  </span>
-                  {fund.crisilRating && (
-                    <span className="text-xs" style={{ color: colors.textTertiary }}>
-                      CRISIL: {fund.crisilRating}
-                    </span>
-                  )}
-                </div>
+                {(() => {
+                  const rating = fund.riskRating || 3;
+                  const segments = [
+                    { label: 'Low', color: '#10B981' },
+                    { label: 'Mod Low', color: '#38BDF8' },
+                    { label: 'Moderate', color: '#F59E0B' },
+                    { label: 'Mod High', color: '#F97316' },
+                    { label: 'High', color: '#EF4444' },
+                  ];
+                  // Pointer position: center of the active segment (each segment is 20%)
+                  const pointerPercent = (rating - 1) * 20 + 10;
+                  return (
+                    <div className="relative">
+                      {/* Pointer */}
+                      <div
+                        className="absolute -top-1 z-10 flex flex-col items-center transition-all duration-300"
+                        style={{ left: `${pointerPercent}%`, transform: 'translateX(-50%)' }}
+                      >
+                        <div
+                          className="w-4 h-4 rounded-full border-2"
+                          style={{
+                            background: riskInfo.color,
+                            borderColor: isDark ? '#1E293B' : '#FFFFFF',
+                            boxShadow: `0 0 0 2px ${riskInfo.color}40, 0 2px 8px ${riskInfo.color}50`,
+                          }}
+                        />
+                      </div>
+                      {/* Segmented track */}
+                      <div className="flex gap-0.5 mt-2.5 mb-2">
+                        {segments.map((seg, i) => (
+                          <div
+                            key={i}
+                            className="h-1.5 flex-1"
+                            style={{
+                              background: i < rating ? seg.color : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                              opacity: i < rating ? (i === rating - 1 ? 1 : 0.4) : 1,
+                              borderRadius: i === 0 ? '4px 0 0 4px' : i === 4 ? '0 4px 4px 0' : '0',
+                            }}
+                          />
+                        ))}
+                      </div>
+                      {/* Labels */}
+                      <div className="flex justify-between mt-1">
+                        <span className="text-[10px]" style={{ color: colors.textTertiary }}>Low</span>
+                        <span className="text-xs font-medium" style={{ color: riskInfo.color }}>
+                          {riskInfo.label}
+                        </span>
+                        <span className="text-[10px]" style={{ color: colors.textTertiary }}>High</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Fund Rating & Metrics */}

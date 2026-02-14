@@ -413,7 +413,12 @@ const ProspectsPage = () => {
               }}
             >
               {/* Stage Header Row */}
-              <div className="grid grid-cols-4 min-w-[640px]" style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+              <div className="grid grid-cols-4 min-w-[640px]" style={{
+                background: isDark
+                  ? `linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)`
+                  : `linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)`,
+                borderBottom: `1px solid ${colors.cardBorder}`,
+              }}>
                 {ACTIVE_STAGES.map((stage, idx) => {
                   const stageProspects = getProspectsByStage(stage)
                   const stageColor = getStageColor(stage, colors)
@@ -447,7 +452,6 @@ const ProspectsPage = () => {
               {/* Cards Grid */}
               <div
                 className="grid grid-cols-4 min-w-[640px]"
-                style={{ background: isDark ? colors.backgroundSecondary : colors.backgroundTertiary }}
               >
                 {ACTIVE_STAGES.map((stage, idx) => {
                   const stageProspects = getProspectsByStage(stage)
@@ -493,7 +497,12 @@ const ProspectsPage = () => {
                 <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                    <tr style={{
+                      background: isDark
+                        ? `linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)`
+                        : `linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)`,
+                      borderBottom: `1px solid ${colors.cardBorder}`,
+                    }}>
                       <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleClosedSort('name')}>
                         Name{closedSortIcon('name')}
                       </th>
@@ -591,7 +600,12 @@ const ProspectsPage = () => {
               <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                  <tr style={{
+                    background: isDark
+                      ? `linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)`
+                      : `linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)`,
+                    borderBottom: `1px solid ${colors.cardBorder}`,
+                  }}>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider cursor-pointer select-none group/th" style={{ color: colors.primary }} onClick={() => handleListSort('name')}>
                       Prospect{listSortIcon('name')}
                     </th>

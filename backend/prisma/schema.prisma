@@ -306,6 +306,7 @@ model SchemePlanMetrics {
   sortinoRatio         Decimal?  @map("sortino_ratio") @db.Decimal(8, 4)
   alpha                Decimal?  @db.Decimal(8, 4)
   beta                 Decimal?  @db.Decimal(8, 4)
+  maxDrawdown          Decimal?  @map("max_drawdown") @db.Decimal(8, 4)
   expenseRatio         Decimal?  @map("expense_ratio") @db.Decimal(6, 4)
   aum                  Decimal?  @db.Decimal(16, 2) // In Crores
   aumDate              DateTime? @map("aum_date") @db.Date

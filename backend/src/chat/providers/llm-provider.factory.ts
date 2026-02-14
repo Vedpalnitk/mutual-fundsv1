@@ -3,6 +3,7 @@ import { LLMProvider } from './llm-provider.interface';
 import { OllamaProvider } from './ollama.provider';
 import { ClaudeProvider } from './claude.provider';
 import { OpenAIProvider } from './openai.provider';
+import { GeminiProvider } from './gemini.provider';
 
 const logger = new Logger('LLMProviderFactory');
 
@@ -16,6 +17,8 @@ export function createLLMProvider(): LLMProvider {
       return new ClaudeProvider();
     case 'openai':
       return new OpenAIProvider();
+    case 'gemini':
+      return new GeminiProvider();
     case 'ollama':
     default:
       return new OllamaProvider();
