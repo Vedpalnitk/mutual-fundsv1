@@ -212,10 +212,25 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [hasToken, setHasToken] = useState(true)
 
-  // Auth check
+  // Auth check - verify token exists AND user has admin role
   useEffect(() => {
     const token = getAuthToken()
     if (!token) {
+      setHasToken(false)
+      window.location.href = '/admin/login'
+      return
+    }
+    // Decode JWT and check role
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      if (payload.role !== 'admin' && payload.role !== 'super_admin') {
+        // Non-admin user — clear token and redirect to admin login
+        clearAuthToken()
+        setHasToken(false)
+        window.location.href = '/admin/login'
+      }
+    } catch {
+      clearAuthToken()
       setHasToken(false)
       window.location.href = '/admin/login'
     }

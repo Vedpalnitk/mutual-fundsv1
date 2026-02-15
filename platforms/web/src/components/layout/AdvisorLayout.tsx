@@ -262,10 +262,25 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [hasToken, setHasToken] = useState(true) // Assume true initially to avoid flash
 
-  // Auth check - redirect to login if no token
+  // Auth check - redirect to login if no token or wrong role
   useEffect(() => {
     const token = getAuthToken()
     if (!token) {
+      setHasToken(false)
+      window.location.href = '/advisor/login'
+      return
+    }
+    // Verify user has advisor/fa_staff role (not admin)
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      const validRoles = ['advisor', 'fa_staff']
+      if (!validRoles.includes(payload.role)) {
+        clearAuthToken()
+        setHasToken(false)
+        window.location.href = '/advisor/login'
+      }
+    } catch {
+      clearAuthToken()
       setHasToken(false)
       window.location.href = '/advisor/login'
     }
