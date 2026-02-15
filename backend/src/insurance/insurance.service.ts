@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInsurancePolicyDto } from './dto/create-insurance-policy.dto';
 import { UpdateInsurancePolicyDto } from './dto/update-insurance-policy.dto';
+import { RecordPremiumPaymentDto } from './dto/record-premium-payment.dto';
 
 const LIFE_COVER_TYPES = ['TERM_LIFE', 'WHOLE_LIFE', 'ENDOWMENT', 'ULIP'];
 const HEALTH_COVER_TYPES = ['HEALTH', 'CRITICAL_ILLNESS'];
@@ -24,6 +25,10 @@ export class InsuranceService {
   async create(clientId: string, advisorId: string, dto: CreateInsurancePolicyDto) {
     await this.verifyClientOwnership(clientId, advisorId);
 
+    const startDate = new Date(dto.startDate);
+    const frequency = dto.premiumFrequency || 'ANNUAL';
+    const nextPremiumDate = this.calculateNextPremiumDate(startDate, frequency);
+
     const policy = await this.prisma.insurancePolicy.create({
       data: {
         clientId,
@@ -33,11 +38,12 @@ export class InsuranceService {
         status: dto.status || 'ACTIVE',
         sumAssured: dto.sumAssured,
         premiumAmount: dto.premiumAmount,
-        premiumFrequency: dto.premiumFrequency || 'ANNUAL',
-        startDate: new Date(dto.startDate),
+        premiumFrequency: frequency,
+        startDate,
         maturityDate: dto.maturityDate ? new Date(dto.maturityDate) : null,
         nominees: dto.nominees,
         notes: dto.notes,
+        nextPremiumDate,
       },
     });
 
@@ -134,6 +140,144 @@ export class InsuranceService {
     };
   }
 
+  // ============= Premium Payment Methods =============
+
+  async recordPayment(
+    clientId: string,
+    policyId: string,
+    advisorId: string,
+    dto: RecordPremiumPaymentDto,
+  ) {
+    await this.verifyClientOwnership(clientId, advisorId);
+    const policy = await this.findPolicyOrThrow(policyId, clientId);
+
+    const paymentDate = new Date(dto.paymentDate);
+
+    const payment = await this.prisma.premiumPayment.create({
+      data: {
+        policyId,
+        amountPaid: dto.amountPaid,
+        paymentDate,
+        paymentMode: dto.paymentMode,
+        receiptNumber: dto.receiptNumber,
+        notes: dto.notes,
+      },
+    });
+
+    // Calculate next due date from payment date + frequency
+    const nextPremiumDate = this.calculateNextPremiumDate(
+      paymentDate,
+      policy.premiumFrequency,
+    );
+
+    await this.prisma.insurancePolicy.update({
+      where: { id: policyId },
+      data: {
+        lastPremiumDate: paymentDate,
+        nextPremiumDate,
+      },
+    });
+
+    return {
+      id: payment.id,
+      policyId: payment.policyId,
+      amountPaid: Number(payment.amountPaid),
+      paymentDate: payment.paymentDate,
+      paymentMode: payment.paymentMode,
+      receiptNumber: payment.receiptNumber,
+      notes: payment.notes,
+      createdAt: payment.createdAt,
+    };
+  }
+
+  async getPaymentHistory(
+    clientId: string,
+    policyId: string,
+    advisorId: string,
+  ) {
+    await this.verifyClientOwnership(clientId, advisorId);
+    await this.findPolicyOrThrow(policyId, clientId);
+
+    const payments = await this.prisma.premiumPayment.findMany({
+      where: { policyId },
+      orderBy: { paymentDate: 'desc' },
+    });
+
+    return payments.map((p) => ({
+      id: p.id,
+      policyId: p.policyId,
+      amountPaid: Number(p.amountPaid),
+      paymentDate: p.paymentDate,
+      paymentMode: p.paymentMode,
+      receiptNumber: p.receiptNumber,
+      notes: p.notes,
+      createdAt: p.createdAt,
+    }));
+  }
+
+  async getUpcomingPremiums(
+    clientId: string,
+    advisorId: string,
+    days = 30,
+  ) {
+    await this.verifyClientOwnership(clientId, advisorId);
+
+    const now = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + days);
+
+    const policies = await this.prisma.insurancePolicy.findMany({
+      where: {
+        clientId,
+        status: 'ACTIVE',
+        nextPremiumDate: {
+          lte: futureDate,
+          not: null,
+        },
+      },
+      orderBy: { nextPremiumDate: 'asc' },
+    });
+
+    return policies.map((p) => {
+      const transformed = this.transformPolicy(p);
+      const daysUntilDue = p.nextPremiumDate
+        ? Math.ceil(
+            (p.nextPremiumDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+          )
+        : null;
+      return { ...transformed, daysUntilDue };
+    });
+  }
+
+  // ============= Helpers =============
+
+  calculateNextPremiumDate(
+    fromDate: Date,
+    frequency: string,
+  ): Date | null {
+    const next = new Date(fromDate);
+    switch (frequency) {
+      case 'MONTHLY':
+        next.setMonth(next.getMonth() + 1);
+        break;
+      case 'QUARTERLY':
+        next.setMonth(next.getMonth() + 3);
+        break;
+      case 'HALF_YEARLY':
+        next.setMonth(next.getMonth() + 6);
+        break;
+      case 'ANNUAL':
+        next.setFullYear(next.getFullYear() + 1);
+        break;
+      case 'SINGLE':
+        return null;
+      default:
+        next.setFullYear(next.getFullYear() + 1);
+        break;
+    }
+    return next;
+  }
+
   private async verifyClientOwnership(clientId: string, advisorId: string) {
     const client = await this.prisma.fAClient.findFirst({
       where: { id: clientId, advisorId },
@@ -144,7 +288,7 @@ export class InsuranceService {
     return client;
   }
 
-  private async findPolicyOrThrow(id: string, clientId: string) {
+  async findPolicyOrThrow(id: string, clientId: string) {
     const policy = await this.prisma.insurancePolicy.findFirst({
       where: { id, clientId },
     });
@@ -167,6 +311,8 @@ export class InsuranceService {
       premiumFrequency: policy.premiumFrequency,
       startDate: policy.startDate,
       maturityDate: policy.maturityDate,
+      nextPremiumDate: policy.nextPremiumDate,
+      lastPremiumDate: policy.lastPremiumDate,
       nominees: policy.nominees,
       notes: policy.notes,
       createdAt: policy.createdAt,

@@ -4,7 +4,11 @@ struct InsuranceTabView: View {
     let clientId: String
     @StateObject private var store = InsuranceStore()
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var iPad: Bool { sizeClass == .regular }
     @State private var showAddPolicy = false
+    @State private var selectedPolicyForPayment: InsurancePolicy?
+    @State private var selectedPolicyForHistory: InsurancePolicy?
 
     var body: some View {
         VStack(spacing: AppTheme.Spacing.small) {
@@ -14,7 +18,7 @@ struct InsuranceTabView: View {
             // Header with count + add button
             HStack {
                 Text("Insurance Policies (\(store.policies.count))")
-                    .font(AppTheme.Typography.accent(15))
+                    .font(AppTheme.Typography.accent(iPad ? 18 : 15))
                     .foregroundColor(.primary)
 
                 Spacer()
@@ -26,7 +30,7 @@ struct InsuranceTabView: View {
                         Image(systemName: "plus")
                             .font(.system(size: 12, weight: .semibold))
                         Text("Add Policy")
-                            .font(AppTheme.Typography.accent(13))
+                            .font(AppTheme.Typography.accent(iPad ? 15 : 13))
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 14)
@@ -53,6 +57,16 @@ struct InsuranceTabView: View {
         .sheet(isPresented: $showAddPolicy) {
             AddInsurancePolicySheet(clientId: clientId, store: store)
         }
+        .sheet(item: $selectedPolicyForPayment) { policy in
+            RecordPaymentSheet(clientId: clientId, policy: policy, store: store)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedPolicyForHistory) { policy in
+            PaymentHistorySheet(clientId: clientId, policy: policy, store: store)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
         .task {
             await store.loadPolicies(clientId: clientId)
             await store.loadGapAnalysis(clientId: clientId)
@@ -77,12 +91,12 @@ struct InsuranceTabView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(policy.provider)
-                        .font(AppTheme.Typography.accent(14))
+                        .font(AppTheme.Typography.accent(iPad ? 17 : 14))
                         .foregroundColor(.primary)
                         .lineLimit(1)
 
                     Text(policy.typeLabel)
-                        .font(AppTheme.Typography.body(12))
+                        .font(AppTheme.Typography.body(iPad ? 14 : 12))
                         .foregroundColor(.secondary)
                 }
 
@@ -90,7 +104,7 @@ struct InsuranceTabView: View {
 
                 // Status badge
                 Text(policy.statusLabel)
-                    .font(AppTheme.Typography.label(10))
+                    .font(AppTheme.Typography.label(iPad ? 12 : 10))
                     .foregroundColor(policy.statusColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
@@ -105,6 +119,29 @@ struct InsuranceTabView: View {
                 detailItem(label: "Policy #", value: policy.policyNumber)
             }
 
+            // Next Due Date
+            if let days = policy.daysUntilDue {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 11))
+                        .foregroundColor(policy.dueStatusColor)
+
+                    Text("Next Due: \(formatDueDate(policy.nextPremiumDate))")
+                        .font(AppTheme.Typography.label(iPad ? 13 : 11))
+                        .foregroundColor(policy.dueStatusColor)
+
+                    Text("(\(dueDateLabel(days)))")
+                        .font(AppTheme.Typography.label(iPad ? 12 : 10))
+                        .foregroundColor(policy.dueStatusColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(policy.dueStatusColor.opacity(0.1))
+                        .clipShape(Capsule())
+
+                    Spacer()
+                }
+            }
+
             // Nominees if present
             if let nominees = policy.nominees, !nominees.isEmpty {
                 HStack(spacing: 4) {
@@ -112,10 +149,47 @@ struct InsuranceTabView: View {
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
                     Text(nominees)
-                        .font(AppTheme.Typography.label(11))
+                        .font(AppTheme.Typography.label(iPad ? 13 : 11))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
+            }
+
+            // Action buttons
+            HStack(spacing: 8) {
+                Button {
+                    selectedPolicyForPayment = policy
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "indianrupeesign.circle")
+                            .font(.system(size: 11))
+                        Text("Record Payment")
+                            .font(AppTheme.Typography.label(iPad ? 13 : 11))
+                    }
+                    .foregroundColor(AppTheme.primary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(AppTheme.primary.opacity(0.08))
+                    .clipShape(Capsule())
+                }
+
+                Button {
+                    selectedPolicyForHistory = policy
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 11))
+                        Text("History")
+                            .font(AppTheme.Typography.label(iPad ? 13 : 11))
+                    }
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.secondary.opacity(0.08))
+                    .clipShape(Capsule())
+                }
+
+                Spacer()
             }
         }
         .padding(.leading, 4)
@@ -137,19 +211,46 @@ struct InsuranceTabView: View {
         }
     }
 
-    // MARK: - Detail Item
+    // MARK: - Helpers
 
     private func detailItem(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(AppTheme.Typography.label(9))
+                .font(AppTheme.Typography.label(iPad ? 11 : 9))
                 .foregroundColor(.secondary)
             Text(value)
-                .font(AppTheme.Typography.accent(12))
+                .font(AppTheme.Typography.accent(iPad ? 14 : 12))
                 .foregroundColor(.primary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func formatDueDate(_ dateStr: String?) -> String {
+        guard let dateStr = dateStr else { return "-" }
+        let formatters: [DateFormatter] = {
+            let iso = DateFormatter()
+            iso.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+            let simple = DateFormatter()
+            simple.dateFormat = "yyyy-MM-dd"
+            return [iso, simple]
+        }()
+        let display = DateFormatter()
+        display.dateFormat = "dd MMM yyyy"
+
+        for fmt in formatters {
+            if let date = fmt.date(from: dateStr) {
+                return display.string(from: date)
+            }
+        }
+        return dateStr
+    }
+
+    private func dueDateLabel(_ days: Int) -> String {
+        if days < 0 { return "\(abs(days))d overdue" }
+        if days == 0 { return "Today" }
+        if days == 1 { return "Tomorrow" }
+        return "\(days) days"
     }
 
     // MARK: - Empty State
@@ -161,11 +262,11 @@ struct InsuranceTabView: View {
                 .foregroundColor(.secondary)
 
             Text("No insurance policies")
-                .font(AppTheme.Typography.headline(17))
+                .font(AppTheme.Typography.headline(iPad ? 20 : 17))
                 .foregroundColor(.primary)
 
             Text("Tap \"Add Policy\" to record your client's insurance coverage")
-                .font(AppTheme.Typography.body(14))
+                .font(AppTheme.Typography.body(iPad ? 16 : 14))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }

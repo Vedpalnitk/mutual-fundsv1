@@ -1,13 +1,10 @@
 package com.sparrowinvest.fa.ui.clients.insurance
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,6 +15,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
@@ -37,7 +37,6 @@ import com.sparrowinvest.fa.ui.components.GlassCard
 import com.sparrowinvest.fa.ui.components.IconContainer
 import com.sparrowinvest.fa.ui.components.StatusBadge
 import com.sparrowinvest.fa.ui.theme.Error
-import com.sparrowinvest.fa.ui.theme.Info
 import com.sparrowinvest.fa.ui.theme.Primary
 import com.sparrowinvest.fa.ui.theme.Spacing
 import com.sparrowinvest.fa.ui.theme.Success
@@ -47,7 +46,9 @@ fun LazyListScope.insuranceTabContent(
     policies: List<InsurancePolicy>,
     gapAnalysis: GapAnalysisResponse?,
     onAddClick: () -> Unit,
-    onDeleteClick: (String) -> Unit
+    onDeleteClick: (String) -> Unit,
+    onRecordPayment: (InsurancePolicy) -> Unit,
+    onViewHistory: (InsurancePolicy) -> Unit
 ) {
     // Gap Analysis Card
     item {
@@ -111,7 +112,12 @@ fun LazyListScope.insuranceTabContent(
     } else {
         policies.forEach { policy ->
             item(key = policy.id) {
-                PolicyCard(policy = policy, onDelete = { onDeleteClick(policy.id) })
+                PolicyCard(
+                    policy = policy,
+                    onDelete = { onDeleteClick(policy.id) },
+                    onRecordPayment = { onRecordPayment(policy) },
+                    onViewHistory = { onViewHistory(policy) }
+                )
             }
         }
     }
@@ -120,20 +126,14 @@ fun LazyListScope.insuranceTabContent(
 @Composable
 private fun PolicyCard(
     policy: InsurancePolicy,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onRecordPayment: () -> Unit,
+    onViewHistory: () -> Unit
 ) {
     val accentColor = when {
         policy.isLifeCover -> Primary
         policy.isHealthCover -> Success
         else -> Warning
-    }
-
-    val statusColor = when (policy.status) {
-        "ACTIVE" -> Success
-        "LAPSED" -> Error
-        "SURRENDERED" -> Warning
-        "MATURED" -> Info
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     GlassCard {
@@ -177,8 +177,7 @@ private fun PolicyCard(
                 }
 
                 StatusBadge(
-                    text = policy.status.lowercase().replaceFirstChar { it.uppercase() },
-                    color = statusColor
+                    status = policy.status
                 )
 
                 IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
@@ -201,6 +200,38 @@ private fun PolicyCard(
                 DetailItem(label = "Policy #", value = policy.policyNumber)
             }
 
+            // Next Due Date
+            policy.daysUntilDue?.let { days ->
+                val dueColor = when {
+                    days < 0 -> Error
+                    days <= 7 -> Warning
+                    else -> Success
+                }
+                val dueLabel = when {
+                    days < 0 -> "${-days}d overdue"
+                    days == 0 -> "Today"
+                    days == 1 -> "Tomorrow"
+                    else -> "$days days"
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = dueColor
+                    )
+                    Text(
+                        text = "Next Due: $dueLabel",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = dueColor
+                    )
+                }
+            }
+
             // Nominees
             if (!policy.nominees.isNullOrBlank()) {
                 Text(
@@ -208,6 +239,41 @@ private fun PolicyCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            // Action buttons
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TextButton(onClick = onRecordPayment, modifier = Modifier) {
+                    Icon(
+                        imageVector = Icons.Default.Payment,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = Primary
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Record Payment",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Primary
+                    )
+                }
+
+                TextButton(onClick = onViewHistory, modifier = Modifier) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "History",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

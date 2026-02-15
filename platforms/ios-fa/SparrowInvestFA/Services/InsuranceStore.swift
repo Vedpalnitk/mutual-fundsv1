@@ -4,6 +4,7 @@ import SwiftUI
 class InsuranceStore: ObservableObject {
     @Published var policies: [InsurancePolicy] = []
     @Published var gapAnalysis: GapAnalysis?
+    @Published var paymentHistory: [PremiumPayment] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -82,6 +83,43 @@ class InsuranceStore: ObservableObject {
             #else
             errorMessage = error.localizedDescription
             return false
+            #endif
+        }
+    }
+
+    // MARK: - Premium Payments
+
+    func recordPayment(clientId: String, policyId: String, payment: RecordPremiumPaymentRequest) async -> Bool {
+        do {
+            let _: PremiumPayment = try await APIService.shared.post("/clients/\(clientId)/insurance/\(policyId)/payments", body: payment)
+            // Reload policies to get updated nextPremiumDate
+            await loadPolicies(clientId: clientId)
+            return true
+        } catch {
+            #if DEBUG
+            let mock = PremiumPayment(
+                id: UUID().uuidString, policyId: policyId,
+                amountPaid: payment.amountPaid, paymentDate: payment.paymentDate,
+                paymentMode: payment.paymentMode, receiptNumber: payment.receiptNumber,
+                notes: payment.notes, createdAt: ISO8601DateFormatter().string(from: Date())
+            )
+            paymentHistory.insert(mock, at: 0)
+            return true
+            #else
+            errorMessage = error.localizedDescription
+            return false
+            #endif
+        }
+    }
+
+    func loadPaymentHistory(clientId: String, policyId: String) async {
+        do {
+            paymentHistory = try await APIService.shared.get("/clients/\(clientId)/insurance/\(policyId)/payments")
+        } catch {
+            #if DEBUG
+            paymentHistory = []
+            #else
+            errorMessage = error.localizedDescription
             #endif
         }
     }

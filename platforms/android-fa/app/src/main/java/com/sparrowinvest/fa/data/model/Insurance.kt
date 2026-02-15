@@ -3,6 +3,27 @@ package com.sparrowinvest.fa.data.model
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class PremiumPayment(
+    val id: String,
+    val policyId: String,
+    val amountPaid: Double,
+    val paymentDate: String,
+    val paymentMode: String? = null,
+    val receiptNumber: String? = null,
+    val notes: String? = null,
+    val createdAt: String? = null
+)
+
+@Serializable
+data class RecordPremiumPaymentRequest(
+    val amountPaid: Double,
+    val paymentDate: String,
+    val paymentMode: String? = null,
+    val receiptNumber: String? = null,
+    val notes: String? = null
+)
+
+@Serializable
 data class InsurancePolicy(
     val id: String,
     val clientId: String,
@@ -15,6 +36,8 @@ data class InsurancePolicy(
     val premiumFrequency: String = "ANNUAL",
     val startDate: String,
     val maturityDate: String? = null,
+    val nextPremiumDate: String? = null,
+    val lastPremiumDate: String? = null,
     val nominees: String? = null,
     val notes: String? = null,
     val createdAt: String? = null,
@@ -45,6 +68,28 @@ data class InsurancePolicy(
     val isLifeCover: Boolean get() = type in listOf("TERM_LIFE", "WHOLE_LIFE", "ENDOWMENT", "ULIP")
     val isHealthCover: Boolean get() = type in listOf("HEALTH", "CRITICAL_ILLNESS")
     val isActive: Boolean get() = status == "ACTIVE"
+
+    val daysUntilDue: Int? get() {
+        val dateStr = nextPremiumDate ?: return null
+        return try {
+            val formats = listOf("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", "yyyy-MM-dd")
+            var parsed: java.util.Date? = null
+            for (fmt in formats) {
+                try {
+                    parsed = java.text.SimpleDateFormat(fmt, java.util.Locale.US).parse(dateStr)
+                    if (parsed != null) break
+                } catch (_: Exception) {}
+            }
+            if (parsed == null) return null
+            val diff = parsed.time - System.currentTimeMillis()
+            (diff / (1000 * 60 * 60 * 24)).toInt()
+        } catch (_: Exception) { null }
+    }
+
+    val isDueSoon: Boolean get() {
+        val days = daysUntilDue ?: return false
+        return days in -30..7
+    }
 }
 
 @Serializable

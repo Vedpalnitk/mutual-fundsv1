@@ -1109,6 +1109,25 @@ struct AddToWhitelistRequest: Encodable {
 
 // MARK: - Insurance Models
 
+struct PremiumPayment: Codable, Identifiable {
+    let id: String
+    let policyId: String
+    let amountPaid: Double
+    let paymentDate: String
+    var paymentMode: String?
+    var receiptNumber: String?
+    var notes: String?
+    var createdAt: String?
+}
+
+struct RecordPremiumPaymentRequest: Encodable {
+    let amountPaid: Double
+    let paymentDate: String
+    var paymentMode: String?
+    var receiptNumber: String?
+    var notes: String?
+}
+
 struct InsurancePolicy: Codable, Identifiable {
     let id: String
     let clientId: String
@@ -1121,6 +1140,8 @@ struct InsurancePolicy: Codable, Identifiable {
     let premiumFrequency: String
     let startDate: String
     let maturityDate: String?
+    var nextPremiumDate: String?
+    var lastPremiumDate: String?
     let nominees: String?
     let notes: String?
     let createdAt: String?
@@ -1187,6 +1208,35 @@ struct InsurancePolicy: Codable, Identifiable {
 
     var isHealthCover: Bool {
         ["HEALTH", "CRITICAL_ILLNESS"].contains(type)
+    }
+
+    var daysUntilDue: Int? {
+        guard let dateStr = nextPremiumDate else { return nil }
+        let formatters: [DateFormatter] = {
+            let iso = DateFormatter()
+            iso.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+            let simple = DateFormatter()
+            simple.dateFormat = "yyyy-MM-dd"
+            return [iso, simple]
+        }()
+        for fmt in formatters {
+            if let date = fmt.date(from: dateStr) {
+                return Calendar.current.dateComponents([.day], from: Date(), to: date).day
+            }
+        }
+        return nil
+    }
+
+    var isDueSoon: Bool {
+        guard let days = daysUntilDue else { return false }
+        return days <= 7
+    }
+
+    var dueStatusColor: Color {
+        guard let days = daysUntilDue else { return Color(hex: "94A3B8") }
+        if days < 0 { return Color(hex: "EF4444") }
+        if days <= 7 { return Color(hex: "F59E0B") }
+        return Color(hex: "10B981")
     }
 }
 

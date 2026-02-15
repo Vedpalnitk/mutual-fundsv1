@@ -23,6 +23,7 @@ import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { InsuranceService } from './insurance.service';
 import { CreateInsurancePolicyDto } from './dto/create-insurance-policy.dto';
 import { UpdateInsurancePolicyDto } from './dto/update-insurance-policy.dto';
+import { RecordPremiumPaymentDto } from './dto/record-premium-payment.dto';
 
 @ApiTags('insurance')
 @ApiBearerAuth()
@@ -95,6 +96,54 @@ export class InsuranceController {
       annualIncome ? Number(annualIncome) : undefined,
       age ? Number(age) : undefined,
       familySize ? Number(familySize) : undefined,
+    );
+  }
+
+  @Get('upcoming-premiums')
+  @ApiOperation({ summary: 'Get policies with upcoming premium due dates' })
+  @ApiResponse({ status: 200, description: 'List of policies with upcoming premiums' })
+  @ApiQuery({ name: 'days', required: false, type: Number })
+  async upcomingPremiums(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Query('days') days?: string,
+  ) {
+    return this.insuranceService.getUpcomingPremiums(
+      clientId,
+      getEffectiveAdvisorId(user),
+      days ? Number(days) : 30,
+    );
+  }
+
+  @Post(':policyId/payments')
+  @ApiOperation({ summary: 'Record a premium payment for a policy' })
+  @ApiResponse({ status: 201, description: 'Payment recorded' })
+  async recordPayment(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('policyId') policyId: string,
+    @Body() dto: RecordPremiumPaymentDto,
+  ) {
+    return this.insuranceService.recordPayment(
+      clientId,
+      policyId,
+      getEffectiveAdvisorId(user),
+      dto,
+    );
+  }
+
+  @Get(':policyId/payments')
+  @ApiOperation({ summary: 'Get payment history for a policy' })
+  @ApiResponse({ status: 200, description: 'List of premium payments' })
+  async getPaymentHistory(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('policyId') policyId: string,
+  ) {
+    return this.insuranceService.getPaymentHistory(
+      clientId,
+      policyId,
+      getEffectiveAdvisorId(user),
     );
   }
 }

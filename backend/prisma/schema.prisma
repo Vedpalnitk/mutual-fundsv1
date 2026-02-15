@@ -1493,6 +1493,7 @@ enum NotificationCategory {
   DAILY_DIGEST
   PORTFOLIO_ALERTS
   KYC_ALERTS
+  INSURANCE_REMINDERS
 }
 
 enum NotificationStatus {
@@ -1603,6 +1604,10 @@ enum ActionType {
   KYC_EXPIRY
   DIVIDEND_RECEIVED
   NAV_ALERT
+  PREMIUM_DUE
+  PREMIUM_OVERDUE
+  POLICY_RENEWAL
+  POLICY_MATURITY
   CUSTOM
 }
 
@@ -1700,9 +1705,28 @@ model InsurancePolicy {
   maturityDate     DateTime?             @map("maturity_date")
   nominees         String?
   notes            String?
+  nextPremiumDate  DateTime?             @map("next_premium_date")
+  lastPremiumDate  DateTime?             @map("last_premium_date")
   createdAt        DateTime              @default(now()) @map("created_at")
   updatedAt        DateTime              @updatedAt @map("updated_at")
 
+  payments         PremiumPayment[]
+
   @@index([clientId])
   @@map("insurance_policies")
+}
+
+model PremiumPayment {
+  id            String          @id @default(uuid())
+  policyId      String          @map("policy_id")
+  policy        InsurancePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  amountPaid    Decimal         @map("amount_paid") @db.Decimal(12, 2)
+  paymentDate   DateTime        @map("payment_date")
+  paymentMode   String?         @map("payment_mode")
+  receiptNumber String?         @map("receipt_number")
+  notes         String?
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  @@index([policyId])
+  @@map("premium_payments")
 }

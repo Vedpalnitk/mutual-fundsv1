@@ -179,4 +179,18 @@ interface ApiService {
         @Query("age") age: Int? = null,
         @Query("familySize") familySize: Int? = null
     ): Response<GapAnalysisResponse>
+
+    // Premium payment endpoints
+    @POST("clients/{clientId}/insurance/{policyId}/payments")
+    suspend fun recordPremiumPayment(
+        @Path("clientId") clientId: String,
+        @Path("policyId") policyId: String,
+        @Body request: RecordPremiumPaymentRequest
+    ): Response<PremiumPayment>
+
+    @GET("clients/{clientId}/insurance/{policyId}/payments")
+    suspend fun getPaymentHistory(
+        @Path("clientId") clientId: String,
+        @Path("policyId") policyId: String
+    ): Response<List<PremiumPayment>>
 }

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Verified
+import androidx.compose.material.icons.filled.HealthAndSafety
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
@@ -55,6 +56,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -78,9 +81,13 @@ import com.sparrowinvest.fa.core.util.PdfReportGenerator
 import com.sparrowinvest.fa.ui.clients.reports.reportsTabContent
 import com.sparrowinvest.fa.ui.clients.insurance.insuranceTabContent
 import com.sparrowinvest.fa.ui.clients.insurance.AddInsurancePolicyDialog
+import com.sparrowinvest.fa.ui.clients.insurance.RecordPaymentDialog
+import com.sparrowinvest.fa.ui.clients.insurance.PaymentHistoryDialog
 import com.sparrowinvest.fa.data.model.InsurancePolicy
+import com.sparrowinvest.fa.data.model.PremiumPayment
 import com.sparrowinvest.fa.data.model.GapAnalysisResponse
 import com.sparrowinvest.fa.data.model.CreateInsurancePolicyRequest
+import com.sparrowinvest.fa.data.model.RecordPremiumPaymentRequest
 import com.sparrowinvest.fa.ui.components.ErrorState
 import com.sparrowinvest.fa.ui.components.GlassCard
 import com.sparrowinvest.fa.ui.components.IconContainer
@@ -169,7 +176,7 @@ enum class ClientTab(val title: String, val icon: ImageVector) {
     SIPS("SIPs", Icons.Default.Repeat),
     GOALS("Goals", Icons.Default.Flag),
     REPORTS("Reports", Icons.Default.Description),
-    INSURANCE("Insurance", Icons.Default.Shield)
+    INSURANCE("Insurance", Icons.Filled.HealthAndSafety)
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -270,6 +277,10 @@ private fun ClientDetailContent(
     var insurancePolicies by remember { mutableStateOf<List<InsurancePolicy>>(emptyList()) }
     var gapAnalysis by remember { mutableStateOf<GapAnalysisResponse?>(null) }
     var showAddInsurance by remember { mutableStateOf(false) }
+    var selectedPolicyForPayment by remember { mutableStateOf<InsurancePolicy?>(null) }
+    var selectedPolicyForHistory by remember { mutableStateOf<InsurancePolicy?>(null) }
+    var paymentHistory by remember { mutableStateOf<List<PremiumPayment>>(emptyList()) }
+    var isSavingPayment by remember { mutableStateOf(false) }
 
     // Generate pending actions based on client data
     val pendingActions = remember(client) {
@@ -585,6 +596,13 @@ private fun ClientDetailContent(
                         onAddClick = { showAddInsurance = true },
                         onDeleteClick = { policyId ->
                             insurancePolicies = insurancePolicies.filter { it.id != policyId }
+                        },
+                        onRecordPayment = { policy ->
+                            selectedPolicyForPayment = policy
+                        },
+                        onViewHistory = { policy ->
+                            paymentHistory = emptyList()
+                            selectedPolicyForHistory = policy
                         }
                     )
                 }
@@ -629,6 +647,29 @@ private fun ClientDetailContent(
                 insurancePolicies = listOf(newPolicy) + insurancePolicies
                 showAddInsurance = false
             }
+        )
+    }
+
+    // Record Payment dialog
+    selectedPolicyForPayment?.let { policy ->
+        RecordPaymentDialog(
+            policy = policy,
+            isSaving = isSavingPayment,
+            onDismiss = { selectedPolicyForPayment = null },
+            onSave = { request ->
+                isSavingPayment = true
+                // Optimistic: dismiss and reset
+                selectedPolicyForPayment = null
+                isSavingPayment = false
+            }
+        )
+    }
+
+    // Payment History dialog
+    selectedPolicyForHistory?.let { policy ->
+        PaymentHistoryDialog(
+            payments = paymentHistory,
+            onDismiss = { selectedPolicyForHistory = null }
         )
     }
 }

@@ -1355,6 +1355,12 @@ export const insuranceApi = {
     const queryString = query.toString();
     return request(`/api/v1/clients/${clientId}/insurance/gap-analysis${queryString ? `?${queryString}` : ''}`);
   },
+
+  recordPayment: (clientId: string, policyId: string, data: any) =>
+    request(`/api/v1/clients/${clientId}/insurance/${policyId}/payments`, { method: 'POST', body: data }),
+
+  getPaymentHistory: (clientId: string, policyId: string) =>
+    request(`/api/v1/clients/${clientId}/insurance/${policyId}/payments`),
 };
 
 // ============= User Actions API =============
