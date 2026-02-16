@@ -10,6 +10,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
@@ -89,6 +90,10 @@ export class ChatController {
 
   // ===== VOICE ENDPOINTS =====
 
+  private isVoiceEnabled(): boolean {
+    return process.env.CHAT_VOICE_ENABLED === 'true';
+  }
+
   @Post('transcribe')
   @Throttle({ 'chat-voice': { ttl: 600000, limit: 5 } })
   @UseInterceptors(FileInterceptor('file'))
@@ -96,6 +101,10 @@ export class ChatController {
     @CurrentUser('id') userId: string,
     @UploadedFile() file: { buffer: Buffer; originalname?: string; mimetype?: string; size?: number },
   ): Promise<TranscribeResponseDto> {
+    if (!this.isVoiceEnabled()) {
+      throw new ServiceUnavailableException('Voice features are not enabled. Set CHAT_VOICE_ENABLED=true to enable.');
+    }
+
     if (!file) {
       throw new BadRequestException('No audio file provided');
     }
@@ -127,6 +136,11 @@ export class ChatController {
     @Query('voice') voice: string = 'avya_voice',
     @Res() res: Response,
   ): Promise<void> {
+    if (!this.isVoiceEnabled()) {
+      res.status(503).json({ message: 'Voice features are not enabled. Set CHAT_VOICE_ENABLED=true to enable.' });
+      return;
+    }
+
     // Validate text length
     if (!text || text.length > 2000) {
       res.status(400).send('Text is required and must be under 2000 characters.');
@@ -162,11 +176,8 @@ export class ChatController {
 
   @Public()
   @Get('health')
-  async healthCheck(): Promise<{ status: string; llm: boolean; provider: string; tts: boolean }> {
-    const ttsUrl = process.env.TTS_SERVER_URL || 'http://localhost:7860';
-
+  async healthCheck(): Promise<{ status: string; llm: boolean; provider: string; tts: boolean | 'disabled' }> {
     let llmHealthy = false;
-    let ttsHealthy = false;
 
     try {
       llmHealthy = await this.llmProvider.isHealthy();
@@ -174,18 +185,23 @@ export class ChatController {
       llmHealthy = false;
     }
 
-    try {
-      const ttsResponse = await fetch(`${ttsUrl}/docs`);
-      ttsHealthy = ttsResponse.ok;
-    } catch {
-      ttsHealthy = false;
+    // Only check TTS health if voice is enabled
+    let ttsStatus: boolean | 'disabled' = 'disabled';
+    if (this.isVoiceEnabled()) {
+      const ttsUrl = process.env.TTS_SERVER_URL || 'http://localhost:7860';
+      try {
+        const ttsResponse = await fetch(`${ttsUrl}/docs`);
+        ttsStatus = ttsResponse.ok;
+      } catch {
+        ttsStatus = false;
+      }
     }
 
     return {
       status: llmHealthy ? 'healthy' : 'degraded',
       llm: llmHealthy,
       provider: this.llmProvider.getProviderName(),
-      tts: ttsHealthy,
+      tts: ttsStatus,
     };
   }
 }

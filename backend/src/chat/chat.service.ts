@@ -313,9 +313,10 @@ export class ChatService implements OnModuleDestroy {
       // Compliance: check output and append disclaimer if needed
       response = this.applyComplianceFilter(response);
 
-      // Generate audio if requested
+      // Generate audio if requested and voice is enabled
       let audioUrl: string | undefined;
-      if (speakResponse) {
+      const voiceEnabled = this.configService.get<string>('CHAT_VOICE_ENABLED') === 'true';
+      if (speakResponse && voiceEnabled) {
         try {
           audioUrl = await this.generateSpeechUrl(response);
         } catch (error) {
@@ -474,6 +475,9 @@ RULES:
 - You understand and can respond fluently in Hindi, Tamil, Telugu, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, and other Indian languages
 - Keep financial terms in English even when responding in other languages (SIP, NAV, CAGR, mutual fund names, fund house names)
 - Use ₹ symbol for amounts regardless of language
+- When responding in Hindi, use लाख and करोड़ instead of "L" and "Cr" (e.g., ₹5.2 लाख, ₹1.3 करोड़)
+- When responding in Tamil, use லட்சம் and கோடி; in Telugu, use లక్షలు and కోట్లు; in Kannada, use ಲಕ್ಷ and ಕೋಟಿ; in other regional languages, use the local equivalent
+- When responding in English, use L and Cr abbreviations (e.g., ₹5.2 L, ₹1.3 Cr)
 - Be concise and helpful (2-4 sentences per response)
 - Format large numbers in Indian notation (lakhs, crores)
 - Don't give specific buy/sell recommendations
@@ -580,6 +584,9 @@ RULES:
 - You understand and can respond fluently in Hindi, Tamil, Telugu, Kannada, Malayalam, Marathi, Bengali, Gujarati, Punjabi, and other Indian languages
 - Keep financial terms in English even when responding in other languages (SIP, NAV, CAGR, mutual fund names, fund house names, client names)
 - Use ₹ symbol for amounts regardless of language
+- When responding in Hindi, use लाख and करोड़ instead of "L" and "Cr" (e.g., ₹5.2 लाख, ₹1.3 करोड़)
+- When responding in Tamil, use லட்சம் and கோடி; in Telugu, use లక్షలు and కోట్లు; in Kannada, use ಲಕ್ಷ and ಕೋಟಿ; in other regional languages, use the local equivalent
+- When responding in English, use L and Cr abbreviations (e.g., ₹5.2 L, ₹1.3 Cr)
 - Be concise and professional (2-4 sentences per response)
 - Format large numbers in Indian notation (lakhs, crores)
 - When discussing specific clients, use data from the client roster above
