@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.PersonSearch
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +62,7 @@ fun MoreScreen(
     onNavigateToCalculators: () -> Unit = {},
     onNavigateToProspects: () -> Unit = {},
     onNavigateToFundUniverse: () -> Unit = {},
+    onNavigateToWhitelistedFunds: () -> Unit = {},
     onLogout: () -> Unit
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
@@ -179,6 +181,12 @@ fun MoreScreen(
                     title = "Fund Universe",
                     subtitle = "Browse funds by category",
                     onClick = onNavigateToFundUniverse
+                )
+                MenuItem(
+                    icon = Icons.Default.Star,
+                    title = "My Picks",
+                    subtitle = "Your whitelisted fund recommendations",
+                    onClick = onNavigateToWhitelistedFunds
                 )
             }
         }

@@ -81,34 +81,19 @@ struct AdaptiveRootView: View {
     private var sidebarList: some View {
         List(selection: sidebarSelection) {
             ForEach(SidebarSection.allCases, id: \.self) { section in
-                if section == .account {
-                    // Account section: settings + tools
-                    Section(section.rawValue) {
-                        ForEach(section.destinations, id: \.self) { destination in
-                            Label(destination.title, systemImage: destination.icon)
-                                .font(AppTheme.Typography.body(iPad ? 17 : 15))
-                                .tag(destination)
-                        }
-                        // Avya AI (opens sheet, not a destination)
-                        Button {
-                            coordinator.openAvyaChat()
-                        } label: {
-                            Label("Avya AI", systemImage: "sparkles")
-                                .font(AppTheme.Typography.body(iPad ? 17 : 15))
-                                .foregroundColor(AppTheme.avyaIndigo)
-                        }
-                        // Fund Compare
+                Section(section.rawValue) {
+                    ForEach(section.destinations, id: \.self) { destination in
+                        sidebarRow(for: destination)
+                            .tag(destination)
+                    }
+
+                    // Research section extras: Fund Compare
+                    if section == .research {
                         Label(AppDestination.fundCompare.title, systemImage: AppDestination.fundCompare.icon)
                             .font(AppTheme.Typography.body(iPad ? 17 : 15))
                             .tag(AppDestination.fundCompare)
                     }
-                } else {
-                    Section(section.rawValue) {
-                        ForEach(section.destinations, id: \.self) { destination in
-                            sidebarRow(for: destination)
-                                .tag(destination)
-                        }
-                    }
+
                 }
             }
         }

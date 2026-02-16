@@ -49,12 +49,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sparrowinvest.fa.data.model.MockProspects
 import com.sparrowinvest.fa.data.model.Prospect
 import com.sparrowinvest.fa.data.model.ProspectStage
+import com.sparrowinvest.fa.data.model.MeetingType
 import com.sparrowinvest.fa.ui.components.EmptyState
 import com.sparrowinvest.fa.ui.components.GlassCard
 import com.sparrowinvest.fa.ui.components.GlassTextField
+import com.sparrowinvest.fa.ui.components.IconContainer
 import com.sparrowinvest.fa.ui.components.ListItemCard
 import com.sparrowinvest.fa.ui.components.TopBar
 import com.sparrowinvest.fa.ui.theme.CornerRadius
@@ -451,6 +454,11 @@ private fun ProspectDetailSheetContent(
             }
         }
 
+        Spacer(modifier = Modifier.height(Spacing.medium))
+
+        // Meeting Notes section (local-only)
+        ProspectMeetingNotesSection()
+
         Spacer(modifier = Modifier.height(Spacing.large))
 
         // Bottom buttons
@@ -476,6 +484,158 @@ private fun ProspectDetailSheetContent(
                 shape = RoundedCornerShape(CornerRadius.medium)
             ) {
                 Text("Save", color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProspectMeetingNotesSection() {
+    data class LocalNote(
+        val id: String = java.util.UUID.randomUUID().toString(),
+        val title: String,
+        val meetingType: MeetingType,
+        val date: String
+    )
+
+    val notes = remember { mutableStateListOf<LocalNote>() }
+    var showAddForm by remember { mutableStateOf(false) }
+    var newTitle by remember { mutableStateOf("") }
+    var newDate by remember { mutableStateOf("") }
+    var newType by remember { mutableStateOf(MeetingType.CALL) }
+
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Meeting Notes (${notes.size})",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            TextButton(onClick = { showAddForm = !showAddForm }) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Primary
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Add", color = Primary, style = MaterialTheme.typography.labelMedium)
+            }
+        }
+
+        // Inline add form
+        if (showAddForm) {
+            GlassCard(cornerRadius = CornerRadius.large, contentPadding = Spacing.compact) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                    GlassTextField(
+                        value = newTitle,
+                        onValueChange = { newTitle = it },
+                        placeholder = "Meeting title"
+                    )
+                    GlassTextField(
+                        value = newDate,
+                        onValueChange = { newDate = it },
+                        placeholder = "Date (YYYY-MM-DD)"
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.small)
+                    ) {
+                        MeetingType.entries.forEach { type ->
+                            FilterChip(
+                                selected = newType == type,
+                                onClick = { newType = type },
+                                label = { Text(type.label, style = MaterialTheme.typography.labelSmall) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = type.color.copy(alpha = 0.15f),
+                                    selectedLabelColor = type.color
+                                )
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = {
+                            if (newTitle.isNotBlank() && newDate.isNotBlank()) {
+                                notes.add(0, LocalNote(title = newTitle, meetingType = newType, date = newDate))
+                                newTitle = ""
+                                newDate = ""
+                                newType = MeetingType.CALL
+                                showAddForm = false
+                            }
+                        }) {
+                            Text("Save", color = Primary)
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(Spacing.small))
+        }
+
+        // Notes list
+        if (notes.isEmpty() && !showAddForm) {
+            Text(
+                text = "No meeting notes yet",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.padding(vertical = Spacing.small)
+            )
+        } else {
+            notes.forEach { note ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = Spacing.micro),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.compact)
+                ) {
+                    IconContainer(
+                        size = 28.dp,
+                        backgroundColor = note.meetingType.color.copy(alpha = 0.15f)
+                    ) {
+                        Icon(
+                            imageVector = note.meetingType.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = note.meetingType.color
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = note.title,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = note.date,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(CornerRadius.small))
+                            .background(note.meetingType.color.copy(alpha = 0.1f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = note.meetingType.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = note.meetingType.color,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
             }
         }
     }

@@ -94,6 +94,26 @@ interface ApiService {
     @GET("funds/live/category/{category}")
     suspend fun getFundsByCategory(@Path("category") category: String): Response<List<Fund>>
 
+    // Meeting Notes endpoints
+    @GET("clients/{clientId}/notes")
+    suspend fun getClientNotes(@Path("clientId") clientId: String): Response<List<MeetingNote>>
+
+    @POST("clients/{clientId}/notes")
+    suspend fun createNote(@Path("clientId") clientId: String, @Body request: CreateNoteRequest): Response<MeetingNote>
+
+    @DELETE("clients/{clientId}/notes/{noteId}")
+    suspend fun deleteNote(@Path("clientId") clientId: String, @Path("noteId") noteId: String): Response<Unit>
+
+    // Whitelisted Funds endpoints
+    @GET("advisor/whitelist")
+    suspend fun getWhitelistedFunds(): Response<List<WhitelistedFund>>
+
+    @POST("advisor/whitelist")
+    suspend fun addToWhitelist(@Body request: AddToWhitelistRequest): Response<WhitelistedFund>
+
+    @DELETE("advisor/whitelist/{id}")
+    suspend fun removeFromWhitelist(@Path("id") id: String): Response<Unit>
+
     // Dashboard/KPI endpoints
     @GET("advisor/dashboard")
     suspend fun getDashboard(): Response<FADashboard>
@@ -193,4 +213,33 @@ interface ApiService {
         @Path("clientId") clientId: String,
         @Path("policyId") policyId: String
     ): Response<List<PremiumPayment>>
+
+    // Policy document endpoints
+    @Multipart
+    @POST("clients/{clientId}/insurance/{policyId}/documents")
+    suspend fun uploadPolicyDocument(
+        @Path("clientId") clientId: String,
+        @Path("policyId") policyId: String,
+        @Part file: okhttp3.MultipartBody.Part
+    ): Response<PolicyDocument>
+
+    @GET("clients/{clientId}/insurance/{policyId}/documents")
+    suspend fun getPolicyDocuments(
+        @Path("clientId") clientId: String,
+        @Path("policyId") policyId: String
+    ): Response<List<PolicyDocument>>
+
+    @GET("clients/{clientId}/insurance/{policyId}/documents/{docId}/download")
+    suspend fun getDocumentDownloadUrl(
+        @Path("clientId") clientId: String,
+        @Path("policyId") policyId: String,
+        @Path("docId") docId: String
+    ): Response<DocumentDownloadResponse>
+
+    @DELETE("clients/{clientId}/insurance/{policyId}/documents/{docId}")
+    suspend fun deletePolicyDocument(
+        @Path("clientId") clientId: String,
+        @Path("policyId") policyId: String,
+        @Path("docId") docId: String
+    ): Response<Unit>
 }

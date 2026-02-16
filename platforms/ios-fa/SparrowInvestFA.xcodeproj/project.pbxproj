@@ -34,6 +34,7 @@
 		4E025ED8DF0C87DD4835B1BA /* NotesTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5D427C41505946683D19F4 /* NotesTabView.swift */; };
 		4ECC073F5C30DF146A1D085B /* TrendBarChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EA4A3FBDFBC3A06C1BEC862 /* TrendBarChart.swift */; };
 		520480C7BB843F95355FAA75 /* GlassActionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72CD01A61ECA96E64F96CDE9 /* GlassActionBar.swift */; };
+		528E0A777216E13CDA514988 /* PolicyDocumentsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19F0F256EA8150B2FAA6D296 /* PolicyDocumentsSheet.swift */; };
 		55FE296F86257D3A43F76B1E /* AllocationDonutChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA61162EB03F935F53B48DE /* AllocationDonutChart.swift */; };
 		63D4BF0D78A9D0CC2D5A1CB1 /* PlatformWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AB74CAC0215D9472043486A /* PlatformWebView.swift */; };
 		63D5B86BFC7E4A8F2906AEB5 /* GapAnalysisCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FA95124ED40AB6A3933B2FD /* GapAnalysisCard.swift */; };
@@ -93,6 +94,7 @@
 		08E6A36187B990E783E2240E /* WhitelistStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhitelistStore.swift; sourceTree = "<group>"; };
 		0F5D427C41505946683D19F4 /* NotesTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesTabView.swift; sourceTree = "<group>"; };
 		118012BE07C4CE9E96EA6478 /* WhitelistedFundsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhitelistedFundsView.swift; sourceTree = "<group>"; };
+		19F0F256EA8150B2FAA6D296 /* PolicyDocumentsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolicyDocumentsSheet.swift; sourceTree = "<group>"; };
 		1BF1DEE278C104EBF503EE7E /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
 		1FA95124ED40AB6A3933B2FD /* GapAnalysisCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GapAnalysisCard.swift; sourceTree = "<group>"; };
 		1FFE03EDF1F5982D558C9FA7 /* PendingActionsTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingActionsTile.swift; sourceTree = "<group>"; };
@@ -194,6 +196,7 @@
 				1FA95124ED40AB6A3933B2FD /* GapAnalysisCard.swift */,
 				E6C9FD73ECC44FF43FA8E1C7 /* InsuranceTabView.swift */,
 				9F6F2BF5655EAC77C6225CB8 /* PaymentHistorySheet.swift */,
+				19F0F256EA8150B2FAA6D296 /* PolicyDocumentsSheet.swift */,
 				F8FED454D580AD0D0FAFD585 /* RecordPaymentSheet.swift */,
 			);
 			path = Insurance;
@@ -607,6 +610,7 @@
 				FF4FD105B9E47ECD777F337E /* PendingActionsBanner.swift in Sources */,
 				496C78F41BE48CDB366C51C6 /* PendingActionsTile.swift in Sources */,
 				63D4BF0D78A9D0CC2D5A1CB1 /* PlatformWebView.swift in Sources */,
+				528E0A777216E13CDA514988 /* PolicyDocumentsSheet.swift in Sources */,
 				D1A37D8C8C3F0F37D983AA26 /* PortfolioLineChart.swift in Sources */,
 				7345D2EAE67C1389305C7A79 /* ProactiveRecommendationsCard.swift in Sources */,
 				E22AE5ACDF60B5DCFBE49ACF /* ProspectsView.swift in Sources */,

@@ -1711,6 +1711,7 @@ model InsurancePolicy {
   updatedAt        DateTime              @updatedAt @map("updated_at")
 
   payments         PremiumPayment[]
+  documents        PolicyDocument[]
 
   @@index([clientId])
   @@map("insurance_policies")
@@ -1729,4 +1730,18 @@ model PremiumPayment {
 
   @@index([policyId])
   @@map("premium_payments")
+}
+
+model PolicyDocument {
+  id         String          @id @default(uuid())
+  policyId   String          @map("policy_id")
+  policy     InsurancePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  fileName   String          @map("file_name")
+  fileKey    String          @map("file_key")
+  mimeType   String          @map("mime_type")
+  fileSize   Int             @map("file_size")
+  uploadedAt DateTime        @default(now()) @map("uploaded_at")
+
+  @@index([policyId])
+  @@map("policy_documents")
 }

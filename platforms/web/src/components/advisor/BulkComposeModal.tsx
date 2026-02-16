@@ -15,6 +15,7 @@ interface BulkComposeModalProps {
 }
 
 type Step = 'recipients' | 'compose' | 'review'
+type Channel = 'email' | 'whatsapp'
 
 interface ClientOption {
   id: string
@@ -28,6 +29,7 @@ interface SendResult {
   clientName: string
   success: boolean
   error?: string
+  waLink?: string
 }
 
 function HtmlPreview({ html }: { html: string }) {
@@ -66,7 +68,8 @@ export default function BulkComposeModal({ onClose }: BulkComposeModalProps) {
   const [selectedClients, setSelectedClients] = useState<ClientOption[]>([])
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Step 2: Compose (email only for bulk)
+  // Step 2: Compose
+  const [channel, setChannel] = useState<Channel>('email')
   const [templates, setTemplates] = useState<CommunicationTemplate[]>([])
   const [selectedType, setSelectedType] = useState('')
   const [preview, setPreview] = useState<CommunicationPreview | null>(null)

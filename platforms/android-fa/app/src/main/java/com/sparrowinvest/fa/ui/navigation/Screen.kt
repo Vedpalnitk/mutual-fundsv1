@@ -46,6 +46,7 @@ sealed class Screen(val route: String) {
     // Fund screens
     data object FundSearch : Screen("funds/search")
     data object FundUniverse : Screen("funds/universe")
+    data object WhitelistedFunds : Screen("funds/whitelisted")
     data object FundDetail : Screen("fund/{schemeCode}") {
         fun createRoute(schemeCode: Int) = "fund/$schemeCode"
     }

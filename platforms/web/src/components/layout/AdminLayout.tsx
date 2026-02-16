@@ -214,6 +214,13 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
 
   // Auth check - verify token exists AND user has admin role
   useEffect(() => {
+    // Portal boundary check
+    const appHost = process.env.NEXT_PUBLIC_APP_HOSTNAME?.split(':')[0] || ''
+    if (appHost && window.location.hostname === appHost) {
+      window.location.href = '/404'
+      return
+    }
+
     const token = getAuthToken()
     if (!token) {
       setHasToken(false)

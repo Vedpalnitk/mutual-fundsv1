@@ -108,6 +108,31 @@ data class GapAnalysisResponse(
 )
 
 @Serializable
+data class PolicyDocument(
+    val id: String,
+    val policyId: String,
+    val fileName: String,
+    val mimeType: String,
+    val fileSize: Int,
+    val uploadedAt: String
+) {
+    val formattedFileSize: String get() = when {
+        fileSize >= 1_048_576 -> "${"%.1f".format(fileSize / 1_048_576.0)} MB"
+        else -> "${"%.0f".format(fileSize / 1024.0)} KB"
+    }
+
+    val isPDF: Boolean get() = mimeType == "application/pdf"
+    val isImage: Boolean get() = mimeType.startsWith("image/")
+}
+
+@Serializable
+data class DocumentDownloadResponse(
+    val url: String,
+    val fileName: String,
+    val mimeType: String
+)
+
+@Serializable
 data class CreateInsurancePolicyRequest(
     val policyNumber: String,
     val provider: String,

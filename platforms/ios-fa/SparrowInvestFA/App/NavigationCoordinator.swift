@@ -100,7 +100,9 @@ enum AppDestination: Hashable, Identifiable {
 enum SidebarSection: String, CaseIterable {
     case overview = "Overview"
     case clientManagement = "Client Management"
+    case operations = "Operations"
     case research = "Research"
+    case tools = "Tools"
     case account = "Account"
 
     var destinations: [AppDestination] {
@@ -109,8 +111,12 @@ enum SidebarSection: String, CaseIterable {
             return [.dashboard]
         case .clientManagement:
             return [.clients, .prospects, .transactions, .communications, .insights]
+        case .operations:
+            return [.actionCenter, .sipManagement]
         case .research:
-            return [.fundUniverse, .whitelistedFunds, .sipManagement, .actionCenter, .calculators, .reports]
+            return [.fundUniverse, .whitelistedFunds]
+        case .tools:
+            return [.reports, .calculators]
         case .account:
             return [.settings]
         }
@@ -120,7 +126,9 @@ enum SidebarSection: String, CaseIterable {
         switch self {
         case .overview: return "house"
         case .clientManagement: return "person.2.circle"
+        case .operations: return "bell.badge.circle"
         case .research: return "magnifyingglass.circle"
+        case .tools: return "wrench.and.screwdriver"
         case .account: return "person.circle"
         }
     }

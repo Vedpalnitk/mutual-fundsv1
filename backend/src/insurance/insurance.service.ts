@@ -1,5 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateInsurancePolicyDto } from './dto/create-insurance-policy.dto';
 import { UpdateInsurancePolicyDto } from './dto/update-insurance-policy.dto';
 import { RecordPremiumPaymentDto } from './dto/record-premium-payment.dto';
@@ -9,7 +11,10 @@ const HEALTH_COVER_TYPES = ['HEALTH', 'CRITICAL_ILLNESS'];
 
 @Injectable()
 export class InsuranceService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storage: StorageService,
+  ) {}
 
   async findAll(clientId: string, advisorId: string) {
     await this.verifyClientOwnership(clientId, advisorId);
@@ -247,6 +252,110 @@ export class InsuranceService {
         : null;
       return { ...transformed, daysUntilDue };
     });
+  }
+
+  // ============= Document Methods =============
+
+  async uploadDocument(
+    clientId: string,
+    policyId: string,
+    advisorId: string,
+    file: { buffer: Buffer; originalname?: string; mimetype?: string; size?: number },
+  ) {
+    await this.verifyClientOwnership(clientId, advisorId);
+    await this.findPolicyOrThrow(policyId, clientId);
+
+    this.storage.validateFile(file);
+
+    const fileKey = `${clientId}/${policyId}/${uuidv4()}-${file.originalname || 'file'}`;
+
+    try {
+      await this.storage.uploadDocument(fileKey, file.buffer, file.mimetype!);
+    } catch {
+      throw new BadRequestException(
+        'Document storage service is unavailable. Please try again later.',
+      );
+    }
+
+    const doc = await this.prisma.policyDocument.create({
+      data: {
+        policyId,
+        fileName: file.originalname || 'file',
+        fileKey,
+        mimeType: file.mimetype!,
+        fileSize: file.size || file.buffer.length,
+      },
+    });
+
+    return {
+      id: doc.id,
+      policyId: doc.policyId,
+      fileName: doc.fileName,
+      mimeType: doc.mimeType,
+      fileSize: doc.fileSize,
+      uploadedAt: doc.uploadedAt,
+    };
+  }
+
+  async listDocuments(clientId: string, policyId: string, advisorId: string) {
+    await this.verifyClientOwnership(clientId, advisorId);
+    await this.findPolicyOrThrow(policyId, clientId);
+
+    const docs = await this.prisma.policyDocument.findMany({
+      where: { policyId },
+      orderBy: { uploadedAt: 'desc' },
+    });
+
+    return docs.map((d) => ({
+      id: d.id,
+      policyId: d.policyId,
+      fileName: d.fileName,
+      mimeType: d.mimeType,
+      fileSize: d.fileSize,
+      uploadedAt: d.uploadedAt,
+    }));
+  }
+
+  async getDocumentDownloadUrl(
+    clientId: string,
+    policyId: string,
+    docId: string,
+    advisorId: string,
+  ) {
+    await this.verifyClientOwnership(clientId, advisorId);
+    await this.findPolicyOrThrow(policyId, clientId);
+
+    const doc = await this.prisma.policyDocument.findFirst({
+      where: { id: docId, policyId },
+    });
+    if (!doc) {
+      throw new NotFoundException('Document not found');
+    }
+
+    const url = await this.storage.getSignedUrl(doc.fileKey);
+    return { url, fileName: doc.fileName, mimeType: doc.mimeType };
+  }
+
+  async deleteDocument(
+    clientId: string,
+    policyId: string,
+    docId: string,
+    advisorId: string,
+  ) {
+    await this.verifyClientOwnership(clientId, advisorId);
+    await this.findPolicyOrThrow(policyId, clientId);
+
+    const doc = await this.prisma.policyDocument.findFirst({
+      where: { id: docId, policyId },
+    });
+    if (!doc) {
+      throw new NotFoundException('Document not found');
+    }
+
+    await this.storage.deleteDocument(doc.fileKey);
+    await this.prisma.policyDocument.delete({ where: { id: docId } });
+
+    return { message: 'Document deleted successfully' };
   }
 
   // ============= Helpers =============

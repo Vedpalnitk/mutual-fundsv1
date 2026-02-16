@@ -1253,6 +1253,31 @@ struct CoverageGap: Codable {
     let adequate: Bool
 }
 
+struct PolicyDocument: Codable, Identifiable {
+    let id: String
+    let policyId: String
+    let fileName: String
+    let mimeType: String
+    let fileSize: Int
+    let uploadedAt: String
+
+    var formattedFileSize: String {
+        if fileSize >= 1_048_576 {
+            return String(format: "%.1f MB", Double(fileSize) / 1_048_576)
+        }
+        return String(format: "%.0f KB", Double(fileSize) / 1024)
+    }
+
+    var isPDF: Bool { mimeType == "application/pdf" }
+    var isImage: Bool { mimeType.hasPrefix("image/") }
+}
+
+struct DocumentDownloadResponse: Codable {
+    let url: String
+    let fileName: String
+    let mimeType: String
+}
+
 struct CreateInsurancePolicyRequest: Encodable {
     let policyNumber: String
     let provider: String

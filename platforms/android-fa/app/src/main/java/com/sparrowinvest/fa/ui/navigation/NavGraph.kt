@@ -63,6 +63,7 @@ import com.sparrowinvest.fa.ui.settings.SettingsScreen
 import com.sparrowinvest.fa.ui.transactions.TransactionDetailScreen
 import com.sparrowinvest.fa.ui.chat.AvyaChatScreen
 import com.sparrowinvest.fa.ui.communications.CommunicationsScreen
+import com.sparrowinvest.fa.ui.funds.WhitelistedFundsScreen
 
 // Avya gradient colors (matching Dashboard)
 private val AvyaGradientLight = Brush.linearGradient(
@@ -324,6 +325,9 @@ fun NavGraph(
                         onNavigateToFundUniverse = {
                             navController.navigate(Screen.FundUniverse.route)
                         },
+                        onNavigateToWhitelistedFunds = {
+                            navController.navigate(Screen.WhitelistedFunds.route)
+                        },
                         onLogout = {
                             authViewModel.logout()
                             navController.navigate(Screen.Login.route) {
@@ -477,6 +481,16 @@ fun NavGraph(
                         },
                         onNavigateToSearch = {
                             navController.navigate(Screen.FundSearch.route)
+                        }
+                    )
+                }
+
+                // Whitelisted Funds
+                composable(Screen.WhitelistedFunds.route) {
+                    WhitelistedFundsScreen(
+                        onBackClick = { navController.popBackStack() },
+                        onNavigateToFund = { schemeCode ->
+                            navController.navigate(Screen.FundDetail.createRoute(schemeCode))
                         }
                     )
                 }

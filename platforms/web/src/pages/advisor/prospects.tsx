@@ -8,7 +8,7 @@
 import { useState, useMemo } from 'react'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
 import { useFATheme, formatCurrency, getStageColor } from '@/utils/fa'
-import { Prospect, ProspectStage, ProspectFormData, ClientFormData } from '@/utils/faTypes'
+import { Prospect, ProspectStage, ProspectFormData, ProspectMeetingNote, ClientFormData } from '@/utils/faTypes'
 import {
   FAStatCard,
   FAChip,
@@ -26,8 +26,13 @@ const ALL_STAGES: ProspectStage[] = ['Discovery', 'Analysis', 'Proposal', 'Negot
 
 // Mock prospects data
 const mockProspects: Prospect[] = [
-  { id: '1', name: 'Ananya Reddy', email: 'ananya.reddy@email.com', phone: '+91 98765 11111', potentialAum: 5000000, stage: 'Negotiation', source: 'Referral', nextAction: 'Send final proposal', nextActionDate: '2024-01-22', createdAt: '2024-01-05', notes: 'Interested in aggressive growth funds' },
-  { id: '2', name: 'Karthik Menon', email: 'karthik.m@email.com', phone: '+91 98765 22222', potentialAum: 2500000, stage: 'Analysis', source: 'Website', nextAction: 'Complete risk profiling', nextActionDate: '2024-01-23', createdAt: '2024-01-10', notes: 'First-time investor, needs education' },
+  { id: '1', name: 'Ananya Reddy', email: 'ananya.reddy@email.com', phone: '+91 98765 11111', potentialAum: 5000000, stage: 'Negotiation', source: 'Referral', nextAction: 'Send final proposal', nextActionDate: '2024-01-22', createdAt: '2024-01-05', notes: 'Interested in aggressive growth funds', meetingNotes: [
+    { id: 'mn1', title: 'Initial discussion', content: 'Discussed risk appetite and investment goals. Prefers equity-heavy portfolio.', meetingType: 'CALL', meetingDate: '2024-01-06' },
+    { id: 'mn2', title: 'Proposal review', content: 'Reviewed proposed fund allocation. Wants more mid-cap exposure.', meetingType: 'VIDEO', meetingDate: '2024-01-15' },
+  ] },
+  { id: '2', name: 'Karthik Menon', email: 'karthik.m@email.com', phone: '+91 98765 22222', potentialAum: 2500000, stage: 'Analysis', source: 'Website', nextAction: 'Complete risk profiling', nextActionDate: '2024-01-23', createdAt: '2024-01-10', notes: 'First-time investor, needs education', meetingNotes: [
+    { id: 'mn3', title: 'Intro call', content: 'First-time investor. Explained SIP basics and tax benefits of ELSS.', meetingType: 'CALL', meetingDate: '2024-01-11' },
+  ] },
   { id: '3', name: 'Deepa Nair', email: 'deepa.nair@email.com', phone: '+91 98765 33333', potentialAum: 7500000, stage: 'Discovery', source: 'LinkedIn', nextAction: 'Schedule intro call', nextActionDate: '2024-01-21', createdAt: '2024-01-15', notes: 'HNI, currently with competitor' },
   { id: '4', name: 'Rohit Verma', email: 'rohit.v@email.com', phone: '+91 98765 44444', potentialAum: 3200000, stage: 'Proposal', source: 'Referral', nextAction: 'Follow up on proposal', nextActionDate: '2024-01-24', createdAt: '2024-01-08', notes: 'Interested in tax saving options' },
   { id: '5', name: 'Sunita Agarwal', email: 'sunita.a@email.com', phone: '+91 98765 55555', potentialAum: 12000000, stage: 'Negotiation', source: 'Event', nextAction: 'Negotiate fees', nextActionDate: '2024-01-25', createdAt: '2024-01-02', notes: 'Family office, long-term relationship potential' },
@@ -166,7 +171,7 @@ const ProspectsPage = () => {
     })
   }, [filteredProspects, listSortCol, listSortDir])
 
-  const handleAddProspect = (data: ProspectFormData) => {
+  const handleAddProspect = (data: ProspectFormData, meetingNotes?: ProspectMeetingNote[]) => {
     const newProspect: Prospect = {
       id: `p${Date.now()}`,
       ...data,
@@ -175,6 +180,7 @@ const ProspectsPage = () => {
       nextActionDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       createdAt: new Date().toISOString().split('T')[0],
       notes: data.notes || '',
+      meetingNotes: meetingNotes || [],
     }
     setProspects([newProspect, ...prospects])
   }
@@ -184,10 +190,10 @@ const ProspectsPage = () => {
     setShowProspectForm(true)
   }
 
-  const handleUpdateProspect = (data: ProspectFormData) => {
+  const handleUpdateProspect = (data: ProspectFormData, meetingNotes?: ProspectMeetingNote[]) => {
     if (editingProspect) {
       setProspects(prospects.map(p =>
-        p.id === editingProspect.id ? { ...p, ...data } : p
+        p.id === editingProspect.id ? { ...p, ...data, meetingNotes: meetingNotes || p.meetingNotes || [] } : p
       ))
     }
     setEditingProspect(null)

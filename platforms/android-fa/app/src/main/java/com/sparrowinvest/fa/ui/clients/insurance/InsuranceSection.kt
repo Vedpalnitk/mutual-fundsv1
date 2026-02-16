@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Payment
@@ -48,7 +49,8 @@ fun LazyListScope.insuranceTabContent(
     onAddClick: () -> Unit,
     onDeleteClick: (String) -> Unit,
     onRecordPayment: (InsurancePolicy) -> Unit,
-    onViewHistory: (InsurancePolicy) -> Unit
+    onViewHistory: (InsurancePolicy) -> Unit,
+    onViewDocuments: (InsurancePolicy) -> Unit = {}
 ) {
     // Gap Analysis Card
     item {
@@ -116,7 +118,8 @@ fun LazyListScope.insuranceTabContent(
                     policy = policy,
                     onDelete = { onDeleteClick(policy.id) },
                     onRecordPayment = { onRecordPayment(policy) },
-                    onViewHistory = { onViewHistory(policy) }
+                    onViewHistory = { onViewHistory(policy) },
+                    onViewDocuments = { onViewDocuments(policy) }
                 )
             }
         }
@@ -128,7 +131,8 @@ private fun PolicyCard(
     policy: InsurancePolicy,
     onDelete: () -> Unit,
     onRecordPayment: () -> Unit,
-    onViewHistory: () -> Unit
+    onViewHistory: () -> Unit,
+    onViewDocuments: () -> Unit = {}
 ) {
     val accentColor = when {
         policy.isLifeCover -> Primary
@@ -270,6 +274,21 @@ private fun PolicyCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "History",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                TextButton(onClick = onViewDocuments, modifier = Modifier) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Docs",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

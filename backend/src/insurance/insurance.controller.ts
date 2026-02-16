@@ -8,13 +8,18 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { StaffPageGuard, RequiredPage } from '../common/guards/staff-page.guard';
@@ -143,6 +148,79 @@ export class InsuranceController {
     return this.insuranceService.getPaymentHistory(
       clientId,
       policyId,
+      getEffectiveAdvisorId(user),
+    );
+  }
+
+  // ============= Document Endpoints =============
+
+  @Post(':policyId/documents')
+  @ApiOperation({ summary: 'Upload a document for a policy' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Document uploaded' })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDocument(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('policyId') policyId: string,
+    @UploadedFile() file: { buffer: Buffer; originalname?: string; mimetype?: string; size?: number },
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    return this.insuranceService.uploadDocument(
+      clientId,
+      policyId,
+      getEffectiveAdvisorId(user),
+      file,
+    );
+  }
+
+  @Get(':policyId/documents')
+  @ApiOperation({ summary: 'List documents for a policy' })
+  @ApiResponse({ status: 200, description: 'List of policy documents' })
+  async listDocuments(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('policyId') policyId: string,
+  ) {
+    return this.insuranceService.listDocuments(
+      clientId,
+      policyId,
+      getEffectiveAdvisorId(user),
+    );
+  }
+
+  @Get(':policyId/documents/:docId/download')
+  @ApiOperation({ summary: 'Get a signed download URL for a document' })
+  @ApiResponse({ status: 200, description: 'Signed URL for document download' })
+  async getDocumentDownloadUrl(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('policyId') policyId: string,
+    @Param('docId') docId: string,
+  ) {
+    return this.insuranceService.getDocumentDownloadUrl(
+      clientId,
+      policyId,
+      docId,
+      getEffectiveAdvisorId(user),
+    );
+  }
+
+  @Delete(':policyId/documents/:docId')
+  @ApiOperation({ summary: 'Delete a policy document' })
+  @ApiResponse({ status: 200, description: 'Document deleted' })
+  async deleteDocument(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('policyId') policyId: string,
+    @Param('docId') docId: string,
+  ) {
+    return this.insuranceService.deleteDocument(
+      clientId,
+      policyId,
+      docId,
       getEffectiveAdvisorId(user),
     );
   }

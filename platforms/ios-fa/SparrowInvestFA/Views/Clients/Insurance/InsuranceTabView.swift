@@ -9,6 +9,7 @@ struct InsuranceTabView: View {
     @State private var showAddPolicy = false
     @State private var selectedPolicyForPayment: InsurancePolicy?
     @State private var selectedPolicyForHistory: InsurancePolicy?
+    @State private var selectedPolicyForDocuments: InsurancePolicy?
 
     var body: some View {
         VStack(spacing: AppTheme.Spacing.small) {
@@ -64,6 +65,11 @@ struct InsuranceTabView: View {
         }
         .sheet(item: $selectedPolicyForHistory) { policy in
             PaymentHistorySheet(clientId: clientId, policy: policy, store: store)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedPolicyForDocuments) { policy in
+            PolicyDocumentsSheet(clientId: clientId, policy: policy, store: store)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -180,6 +186,22 @@ struct InsuranceTabView: View {
                         Image(systemName: "clock.arrow.circlepath")
                             .font(.system(size: 11))
                         Text("History")
+                            .font(AppTheme.Typography.label(iPad ? 13 : 11))
+                    }
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.secondary.opacity(0.08))
+                    .clipShape(Capsule())
+                }
+
+                Button {
+                    selectedPolicyForDocuments = policy
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 11))
+                        Text("Documents")
                             .font(AppTheme.Typography.label(iPad ? 13 : 11))
                     }
                     .foregroundColor(.secondary)

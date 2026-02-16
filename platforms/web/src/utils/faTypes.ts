@@ -288,6 +288,15 @@ export interface Prospect {
   assignedTo?: string
   probability?: number // 0-100
   activities?: ProspectActivity[]
+  meetingNotes?: ProspectMeetingNote[]
+}
+
+export interface ProspectMeetingNote {
+  id: string
+  title: string
+  content: string
+  meetingType: 'CALL' | 'IN_PERSON' | 'VIDEO' | 'EMAIL' | 'OTHER'
+  meetingDate: string
 }
 
 export interface ProspectActivity {

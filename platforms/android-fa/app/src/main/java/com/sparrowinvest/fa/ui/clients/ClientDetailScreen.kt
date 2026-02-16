@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.NoteAlt
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -81,8 +82,12 @@ import com.sparrowinvest.fa.core.util.PdfReportGenerator
 import com.sparrowinvest.fa.ui.clients.reports.reportsTabContent
 import com.sparrowinvest.fa.ui.clients.insurance.insuranceTabContent
 import com.sparrowinvest.fa.ui.clients.insurance.AddInsurancePolicyDialog
+import com.sparrowinvest.fa.ui.clients.notesTabContent
+import com.sparrowinvest.fa.ui.clients.AddNoteDialog
+import com.sparrowinvest.fa.data.model.MeetingNote
 import com.sparrowinvest.fa.ui.clients.insurance.RecordPaymentDialog
 import com.sparrowinvest.fa.ui.clients.insurance.PaymentHistoryDialog
+import com.sparrowinvest.fa.ui.clients.insurance.PolicyDocumentsDialog
 import com.sparrowinvest.fa.data.model.InsurancePolicy
 import com.sparrowinvest.fa.data.model.PremiumPayment
 import com.sparrowinvest.fa.data.model.GapAnalysisResponse
@@ -175,6 +180,7 @@ enum class ClientTab(val title: String, val icon: ImageVector) {
     TRANSACTIONS("Transactions", Icons.Default.History),
     SIPS("SIPs", Icons.Default.Repeat),
     GOALS("Goals", Icons.Default.Flag),
+    NOTES("Notes", Icons.Default.NoteAlt),
     REPORTS("Reports", Icons.Default.Description),
     INSURANCE("Insurance", Icons.Filled.HealthAndSafety)
 }
@@ -273,6 +279,10 @@ private fun ClientDetailContent(
     val context = LocalContext.current
     var showShareSheet by remember { mutableStateOf(false) }
 
+    // Notes state
+    var meetingNotes by remember { mutableStateOf<List<MeetingNote>>(emptyList()) }
+    var showAddNote by remember { mutableStateOf(false) }
+
     // Insurance state
     var insurancePolicies by remember { mutableStateOf<List<InsurancePolicy>>(emptyList()) }
     var gapAnalysis by remember { mutableStateOf<GapAnalysisResponse?>(null) }
@@ -281,6 +291,9 @@ private fun ClientDetailContent(
     var selectedPolicyForHistory by remember { mutableStateOf<InsurancePolicy?>(null) }
     var paymentHistory by remember { mutableStateOf<List<PremiumPayment>>(emptyList()) }
     var isSavingPayment by remember { mutableStateOf(false) }
+    var selectedPolicyForDocuments by remember { mutableStateOf<InsurancePolicy?>(null) }
+    var policyDocuments by remember { mutableStateOf<List<com.sparrowinvest.fa.data.model.PolicyDocument>>(emptyList()) }
+    var isUploadingDocument by remember { mutableStateOf(false) }
 
     // Generate pending actions based on client data
     val pendingActions = remember(client) {
@@ -586,6 +599,15 @@ private fun ClientDetailContent(
                         }
                     }
                 }
+                ClientTab.NOTES -> {
+                    notesTabContent(
+                        notes = meetingNotes,
+                        onAddClick = { showAddNote = true },
+                        onDeleteClick = { noteId ->
+                            meetingNotes = meetingNotes.filter { it.id != noteId }
+                        }
+                    )
+                }
                 ClientTab.REPORTS -> {
                     reportsTabContent(client = client)
                 }
@@ -603,6 +625,10 @@ private fun ClientDetailContent(
                         onViewHistory = { policy ->
                             paymentHistory = emptyList()
                             selectedPolicyForHistory = policy
+                        },
+                        onViewDocuments = { policy ->
+                            policyDocuments = emptyList()
+                            selectedPolicyForDocuments = policy
                         }
                     )
                 }
@@ -620,6 +646,26 @@ private fun ClientDetailContent(
             clientId = client.id,
             clientName = client.name,
             onDismiss = { showShareSheet = false }
+        )
+    }
+
+    // Add Meeting Note dialog
+    if (showAddNote) {
+        AddNoteDialog(
+            onDismiss = { showAddNote = false },
+            onSave = { request ->
+                val newNote = MeetingNote(
+                    id = java.util.UUID.randomUUID().toString(),
+                    clientId = client.id,
+                    title = request.title,
+                    content = request.content,
+                    meetingType = request.meetingType,
+                    meetingDate = request.meetingDate,
+                    createdAt = java.time.LocalDate.now().toString()
+                )
+                meetingNotes = listOf(newNote) + meetingNotes
+                showAddNote = false
+            }
         )
     }
 
@@ -670,6 +716,35 @@ private fun ClientDetailContent(
         PaymentHistoryDialog(
             payments = paymentHistory,
             onDismiss = { selectedPolicyForHistory = null }
+        )
+    }
+
+    // Documents dialog
+    selectedPolicyForDocuments?.let { policy ->
+        PolicyDocumentsDialog(
+            documents = policyDocuments,
+            isUploading = isUploadingDocument,
+            onDismiss = { selectedPolicyForDocuments = null },
+            onUpload = { bytes, fileName, mimeType ->
+                isUploadingDocument = true
+                // Optimistic: add mock document
+                val mockDoc = com.sparrowinvest.fa.data.model.PolicyDocument(
+                    id = java.util.UUID.randomUUID().toString(),
+                    policyId = policy.id,
+                    fileName = fileName,
+                    mimeType = mimeType,
+                    fileSize = bytes.size,
+                    uploadedAt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).format(java.util.Date())
+                )
+                policyDocuments = listOf(mockDoc) + policyDocuments
+                isUploadingDocument = false
+            },
+            onDownload = { docId ->
+                // Open in browser — in real app, fetch signed URL first
+            },
+            onDelete = { docId ->
+                policyDocuments = policyDocuments.filter { it.id != docId }
+            }
         )
     }
 }

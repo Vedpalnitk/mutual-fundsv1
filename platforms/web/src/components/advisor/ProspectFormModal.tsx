@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import { useFATheme, formatCurrency } from '@/utils/fa'
-import { Prospect, ProspectFormData, LeadSource, ProspectStage } from '@/utils/faTypes'
+import { Prospect, ProspectFormData, ProspectMeetingNote, LeadSource, ProspectStage } from '@/utils/faTypes'
 import {
   FACard,
   FALabel,
@@ -20,9 +20,17 @@ import {
 interface ProspectFormModalProps {
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: ProspectFormData) => void
+  onSubmit: (data: ProspectFormData, meetingNotes?: ProspectMeetingNote[]) => void
   prospect?: Prospect | null // If provided, edit mode
 }
+
+const MEETING_TYPES = [
+  { value: 'CALL', label: 'Call', color: '#3B82F6' },
+  { value: 'IN_PERSON', label: 'In Person', color: '#10B981' },
+  { value: 'VIDEO', label: 'Video', color: '#8B5CF6' },
+  { value: 'EMAIL', label: 'Email', color: '#F59E0B' },
+  { value: 'OTHER', label: 'Other', color: '#94A3B8' },
+] as const
 
 const LEAD_SOURCES: { value: LeadSource; label: string }[] = [
   { value: 'Referral', label: 'Referral' },
@@ -40,7 +48,7 @@ const ProspectFormModal = ({
   onSubmit,
   prospect,
 }: ProspectFormModalProps) => {
-  const { colors } = useFATheme()
+  const { colors, isDark } = useFATheme()
   const isEditMode = !!prospect
 
   const [formData, setFormData] = useState<ProspectFormData>({
@@ -55,6 +63,11 @@ const ProspectFormModal = ({
 
   const [errors, setErrors] = useState<Partial<Record<keyof ProspectFormData, string>>>({})
 
+  // Meeting notes (local-only, managed on prospect)
+  const [meetingNotes, setMeetingNotes] = useState<ProspectMeetingNote[]>([])
+  const [showAddNote, setShowAddNote] = useState(false)
+  const [newNote, setNewNote] = useState({ title: '', content: '', meetingType: 'CALL' as ProspectMeetingNote['meetingType'], meetingDate: new Date().toISOString().split('T')[0] })
+
   useEffect(() => {
     if (prospect) {
       setFormData({
@@ -66,6 +79,7 @@ const ProspectFormModal = ({
         notes: prospect.notes,
         referredBy: prospect.referredBy || '',
       })
+      setMeetingNotes(prospect.meetingNotes || [])
     } else {
       setFormData({
         name: '',
@@ -76,8 +90,11 @@ const ProspectFormModal = ({
         notes: '',
         referredBy: '',
       })
+      setMeetingNotes([])
     }
     setErrors({})
+    setShowAddNote(false)
+    setNewNote({ title: '', content: '', meetingType: 'CALL', meetingDate: new Date().toISOString().split('T')[0] })
   }, [prospect, isOpen])
 
   const validateForm = (): boolean => {
@@ -109,9 +126,24 @@ const ProspectFormModal = ({
 
   const handleSubmit = () => {
     if (validateForm()) {
-      onSubmit(formData)
+      onSubmit(formData, meetingNotes)
       onClose()
     }
+  }
+
+  const handleAddNote = () => {
+    if (!newNote.title.trim() || !newNote.content.trim()) return
+    const note: ProspectMeetingNote = {
+      id: `mn${Date.now()}`,
+      ...newNote,
+    }
+    setMeetingNotes(prev => [note, ...prev])
+    setNewNote({ title: '', content: '', meetingType: 'CALL', meetingDate: new Date().toISOString().split('T')[0] })
+    setShowAddNote(false)
+  }
+
+  const handleDeleteNote = (noteId: string) => {
+    setMeetingNotes(prev => prev.filter(n => n.id !== noteId))
   }
 
   if (!isOpen) return null
@@ -243,6 +275,118 @@ const ProspectFormModal = ({
               value={formData.notes || ''}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
+          </div>
+
+          {/* Meeting Notes Section */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <FALabel>Meeting Notes</FALabel>
+              <button
+                type="button"
+                onClick={() => setShowAddNote(!showAddNote)}
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full transition-all"
+                style={{ background: colors.chipBg, color: colors.primary, border: `1px solid ${colors.chipBorder}` }}
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={showAddNote ? 'M6 18L18 6M6 6l12 12' : 'M12 4v16m8-8H4'} />
+                </svg>
+                {showAddNote ? 'Cancel' : 'Add Note'}
+              </button>
+            </div>
+
+            {/* Inline Add Note Form */}
+            {showAddNote && (
+              <div
+                className="p-3 rounded-xl mb-3 space-y-2.5"
+                style={{ background: isDark ? colors.backgroundTertiary : colors.backgroundSecondary, border: `1px solid ${colors.cardBorder}` }}
+              >
+                <FAInput
+                  placeholder="Meeting subject..."
+                  value={newNote.title}
+                  onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <FAInput
+                    type="date"
+                    value={newNote.meetingDate}
+                    onChange={(e) => setNewNote({ ...newNote, meetingDate: e.target.value })}
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    {MEETING_TYPES.map((type) => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => setNewNote({ ...newNote, meetingType: type.value })}
+                        className="px-2 py-1 rounded-full text-xs font-medium transition-all"
+                        style={{
+                          background: newNote.meetingType === type.value ? type.color : 'transparent',
+                          color: newNote.meetingType === type.value ? '#FFFFFF' : colors.textSecondary,
+                          border: `1px solid ${newNote.meetingType === type.value ? type.color : colors.cardBorder}`,
+                        }}
+                      >
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <FATextarea
+                  placeholder="Meeting notes..."
+                  rows={2}
+                  value={newNote.content}
+                  onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                />
+                <div className="flex justify-end">
+                  <FAButton size="sm" onClick={handleAddNote} disabled={!newNote.title.trim() || !newNote.content.trim()}>
+                    Add Note
+                  </FAButton>
+                </div>
+              </div>
+            )}
+
+            {/* Existing Notes List */}
+            {meetingNotes.length > 0 ? (
+              <div className="space-y-2">
+                {meetingNotes.map((note) => {
+                  const typeInfo = MEETING_TYPES.find(t => t.value === note.meetingType) || MEETING_TYPES[4]
+                  return (
+                    <div
+                      key={note.id}
+                      className="p-2.5 rounded-xl flex items-start gap-2.5 group"
+                      style={{
+                        background: isDark ? colors.backgroundTertiary : colors.backgroundSecondary,
+                        borderLeft: `3px solid ${typeInfo.color}`,
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-xs font-semibold" style={{ color: colors.textPrimary }}>{note.title}</span>
+                          <span
+                            className="text-xs px-1.5 py-0.5 rounded-full"
+                            style={{ background: `${typeInfo.color}15`, color: typeInfo.color }}
+                          >
+                            {typeInfo.label}
+                          </span>
+                        </div>
+                        <p className="text-xs truncate" style={{ color: colors.textSecondary }}>{note.content}</p>
+                        <p className="text-xs mt-0.5" style={{ color: colors.textTertiary }}>{note.meetingDate}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                        style={{ color: colors.error }}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-center py-3" style={{ color: colors.textTertiary }}>No meeting notes yet</p>
+            )}
           </div>
         </div>
 

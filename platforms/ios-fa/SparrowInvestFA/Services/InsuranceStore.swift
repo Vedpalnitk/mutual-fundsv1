@@ -5,7 +5,9 @@ class InsuranceStore: ObservableObject {
     @Published var policies: [InsurancePolicy] = []
     @Published var gapAnalysis: GapAnalysis?
     @Published var paymentHistory: [PremiumPayment] = []
+    @Published var documents: [PolicyDocument] = []
     @Published var isLoading = false
+    @Published var isUploading = false
     @Published var errorMessage: String?
 
     func loadPolicies(clientId: String) async {
@@ -120,6 +122,74 @@ class InsuranceStore: ObservableObject {
             paymentHistory = []
             #else
             errorMessage = error.localizedDescription
+            #endif
+        }
+    }
+
+    // MARK: - Documents
+
+    func loadDocuments(clientId: String, policyId: String) async {
+        do {
+            documents = try await APIService.shared.get("/clients/\(clientId)/insurance/\(policyId)/documents")
+        } catch {
+            #if DEBUG
+            documents = []
+            #else
+            errorMessage = error.localizedDescription
+            #endif
+        }
+    }
+
+    func uploadDocument(clientId: String, policyId: String, fileData: Data, fileName: String, mimeType: String) async -> Bool {
+        isUploading = true
+        defer { isUploading = false }
+
+        do {
+            let doc: PolicyDocument = try await APIService.shared.uploadFile(
+                "/clients/\(clientId)/insurance/\(policyId)/documents",
+                fileData: fileData,
+                fileName: fileName,
+                mimeType: mimeType
+            )
+            documents.insert(doc, at: 0)
+            return true
+        } catch {
+            #if DEBUG
+            let mock = PolicyDocument(
+                id: UUID().uuidString, policyId: policyId,
+                fileName: fileName, mimeType: mimeType,
+                fileSize: fileData.count, uploadedAt: ISO8601DateFormatter().string(from: Date())
+            )
+            documents.insert(mock, at: 0)
+            return true
+            #else
+            errorMessage = error.localizedDescription
+            return false
+            #endif
+        }
+    }
+
+    func getDocumentUrl(clientId: String, policyId: String, docId: String) async -> DocumentDownloadResponse? {
+        do {
+            return try await APIService.shared.get("/clients/\(clientId)/insurance/\(policyId)/documents/\(docId)/download")
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
+    func deleteDocument(clientId: String, policyId: String, docId: String) async -> Bool {
+        do {
+            try await APIService.shared.delete("/clients/\(clientId)/insurance/\(policyId)/documents/\(docId)")
+            documents.removeAll { $0.id == docId }
+            return true
+        } catch {
+            #if DEBUG
+            documents.removeAll { $0.id == docId }
+            return true
+            #else
+            errorMessage = error.localizedDescription
+            return false
             #endif
         }
     }
