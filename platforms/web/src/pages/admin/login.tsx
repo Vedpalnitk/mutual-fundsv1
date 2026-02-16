@@ -392,20 +392,22 @@ export default function AdminLoginPage() {
                 </button>
               </form>
 
-              {/* Demo credentials hint */}
-              <div
-                className="mt-5 p-3 rounded-xl"
-                style={{
-                  background: isDark
-                    ? 'rgba(96, 165, 250, 0.06)'
-                    : 'rgba(59, 130, 246, 0.04)',
-                  border: `1px solid ${isDark ? 'rgba(96, 165, 250, 0.1)' : 'rgba(59, 130, 246, 0.08)'}`,
-                }}
-              >
-                <p className="text-xs text-center" style={{ color: colors.textSecondary }}>
-                  Demo: <span className="font-medium" style={{ color: colors.primary }}>admin@sparrow-invest.com</span> / <span className="font-medium" style={{ color: colors.primary }}>Admin@123</span>
-                </p>
-              </div>
+              {/* Demo credentials hint — only shown in development */}
+              {process.env.NODE_ENV !== 'production' && (
+                <div
+                  className="mt-5 p-3 rounded-xl"
+                  style={{
+                    background: isDark
+                      ? 'rgba(96, 165, 250, 0.06)'
+                      : 'rgba(59, 130, 246, 0.04)',
+                    border: `1px solid ${isDark ? 'rgba(96, 165, 250, 0.1)' : 'rgba(59, 130, 246, 0.08)'}`,
+                  }}
+                >
+                  <p className="text-xs text-center" style={{ color: colors.textSecondary }}>
+                    Demo: <span className="font-medium" style={{ color: colors.primary }}>admin@sparrow-invest.com</span> / <span className="font-medium" style={{ color: colors.primary }}>Admin@123</span>
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Footer link */}

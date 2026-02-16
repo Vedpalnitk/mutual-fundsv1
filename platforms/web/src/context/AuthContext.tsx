@@ -41,17 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
-    console.log('[Auth] Logging in...', email)
     const response = await authApi.login(email, password)
-    console.log('[Auth] Login response:', response)
-    console.log('[Auth] Setting token:', response.accessToken?.substring(0, 30) + '...')
     setAuthToken(response.accessToken)
     const loginUser: AuthUser = { ...response.user }
     // Include staff-specific fields if present in response
     if ((response.user as any).ownerId) loginUser.ownerId = (response.user as any).ownerId
     if ((response.user as any).allowedPages) loginUser.allowedPages = (response.user as any).allowedPages
     setUser(loginUser)
-    console.log('[Auth] Token stored, verifying:', getAuthToken()?.substring(0, 30) + '...')
   }, [])
 
   const logout = useCallback(() => {

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
@@ -29,6 +30,7 @@ import { SavedAnalysisModule } from './saved-analysis/saved-analysis.module';
 import { CommunicationsModule } from './communications/communications.module';
 import { StaffModule } from './staff/staff.module';
 import { InsuranceModule } from './insurance/insurance.module';
+import { StorageModule } from './storage/storage.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
@@ -37,6 +39,10 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
       isGlobal: true,
       load: [configuration],
     }),
+    ThrottlerModule.forRoot([{
+      ttl: 60000,   // 60 seconds
+      limit: 100,   // 100 requests per minute (global default)
+    }]),
     ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
@@ -75,6 +81,8 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     StaffModule,
     // FA Insurance Policy Tracking
     InsuranceModule,
+    // Object Storage (MinIO)
+    StorageModule,
   ],
   controllers: [],
   providers: [
@@ -83,6 +91,11 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    // Global rate limiting
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

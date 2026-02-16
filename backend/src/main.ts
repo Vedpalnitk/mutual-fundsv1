@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -10,6 +11,10 @@ async function bootstrap() {
   // Get config
   const configService = app.get(ConfigService);
   const port = configService.get<number>('port') || 3501;
+  const nodeEnv = configService.get<string>('nodeEnv') || 'development';
+
+  // Security headers
+  app.use(helmet());
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -20,14 +25,21 @@ async function bootstrap() {
     }),
   );
 
-  // CORS - 3500 series ports for this project
+  // CORS
+  const devOrigins = [
+    'http://localhost:3500', // Next.js web app
+    'http://localhost:8000', // ML Service
+    'http://localhost:8081', // Expo web
+    'http://localhost:19006', // Expo web alt
+  ];
+  const prodOrigins = [
+    'https://sparrow-invest.com',
+    'https://www.sparrow-invest.com',
+    'https://app.sparrow-invest.com',
+    'https://admin.sparrow-invest.com',
+  ];
   app.enableCors({
-    origin: [
-      'http://localhost:3500', // Next.js web app
-      'http://localhost:8000', // ML Service
-      'http://localhost:8081', // Expo web
-      'http://localhost:19006', // Expo web alt
-    ],
+    origin: nodeEnv === 'production' ? prodOrigins : [...devOrigins, ...prodOrigins],
     credentials: true,
   });
 

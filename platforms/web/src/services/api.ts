@@ -2,7 +2,14 @@
  * API Service for backend communication
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3501';
+const API_BASE = (() => {
+  const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3501';
+  // Enforce HTTPS in production (browser environment only)
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+})();
 
 // Token storage key for FA Portal authentication
 const FA_TOKEN_KEY = 'fa_auth_token';
@@ -94,7 +101,12 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    // Sanitize error messages — don't expose internal details in production
+    const message = error.message || 'Request failed';
+    const safeMessage = process.env.NODE_ENV === 'production' && response.status >= 500
+      ? 'An unexpected error occurred. Please try again.'
+      : message;
+    throw new Error(safeMessage);
   }
 
   return response.json();
