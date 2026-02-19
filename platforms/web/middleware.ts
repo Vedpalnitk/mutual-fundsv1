@@ -40,7 +40,7 @@ export function middleware(request: NextRequest) {
   // --- Landing page redirect ---
   if (pathname === '/') {
     if (portal === 'app') {
-      return NextResponse.redirect(new URL('/advisor/login', request.url))
+      return NextResponse.redirect(new URL('/coming-soon', request.url))
     }
     if (portal === 'admin') {
       return NextResponse.redirect(new URL('/admin/login', request.url))
@@ -51,6 +51,10 @@ export function middleware(request: NextRequest) {
   if (portal === 'app') {
     // Block admin routes on the app subdomain
     if (pathname.startsWith('/admin')) {
+      return NextResponse.rewrite(new URL('/404', request.url))
+    }
+    // Block advisor routes on the app subdomain (not yet public)
+    if (pathname.startsWith('/advisor')) {
       return NextResponse.rewrite(new URL('/404', request.url))
     }
   }

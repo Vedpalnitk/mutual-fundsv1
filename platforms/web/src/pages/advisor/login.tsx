@@ -106,34 +106,10 @@ export default function AdvisorLoginPage() {
     setSubmitting(true)
 
     try {
-      // Test connectivity first
-      const testRes = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-      if (!testRes.ok) {
-        const errBody = await testRes.text().catch(() => '')
-        setError(`Login failed (${testRes.status}): ${errBody.slice(0, 200)}`)
-        setSubmitting(false)
-        return
-      }
-      const data = await testRes.json().catch(() => null)
-      if (data?.accessToken) {
-        const { setAuthToken } = await import('@/services/api')
-        setAuthToken(data.accessToken)
-        const loginUser = { ...data.user }
-        if (data.user?.ownerId) loginUser.ownerId = data.user.ownerId
-        if (data.user?.allowedPages) loginUser.allowedPages = data.user.allowedPages
-        // Use the auth context login to set state properly
-        // But since we already have the token, just reload to dashboard
-        window.location.href = '/advisor/dashboard'
-      } else {
-        setError('Unexpected response format')
-      }
+      await login(email, password)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setError(`Connection error: ${msg}`)
+      const msg = err instanceof Error ? err.message : 'Login failed'
+      setError(msg)
     } finally {
       setSubmitting(false)
     }

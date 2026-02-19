@@ -398,7 +398,7 @@ const Home = () => {
     const appHost = process.env.NEXT_PUBLIC_APP_HOSTNAME?.split(':')[0] || ''
     const adminHost = process.env.NEXT_PUBLIC_ADMIN_HOSTNAME?.split(':')[0] || ''
     if (appHost && hostname === appHost) {
-      window.location.href = '/advisor/login'
+      window.location.href = '/coming-soon'
     } else if (adminHost && hostname === adminHost) {
       window.location.href = '/admin/login'
     }
