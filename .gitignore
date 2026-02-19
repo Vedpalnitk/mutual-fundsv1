@@ -59,5 +59,8 @@ Thumbs.db
 # Misc
 *.log
 
+# Docker personal overrides
+docker-compose.override.yml
+
 # Claude Code local memory
 CLAUDE.local.md

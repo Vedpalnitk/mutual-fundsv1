@@ -26,6 +26,7 @@
     "db:seed:advisors": "ts-node prisma/seed-advisors-and-self-clients.ts",
     "db:seed:self-portfolio": "ts-node prisma/seed-self-assisted-portfolio.ts",
     "db:seed:phase2": "ts-node prisma/seed-phase2-business.ts",
+    "db:seed:all": "npm run db:seed && npm run db:seed:families && npm run db:seed:advisors && npm run db:seed:self-portfolio && npm run db:seed:phase2",
     "db:studio": "npx prisma studio"
   },
   "prisma": {

@@ -27,7 +27,9 @@ async function bootstrap() {
 
   // CORS
   const devOrigins = [
-    'http://localhost:3500', // Next.js web app
+    'http://localhost:3800', // Next.js web app (local dev)
+    'http://localhost:3500', // Next.js web app (legacy / prod)
+    'http://localhost:3502', // Next.js web app (dev server)
     'http://localhost:8000', // ML Service
     'http://localhost:8081', // Expo web
     'http://localhost:19006', // Expo web alt

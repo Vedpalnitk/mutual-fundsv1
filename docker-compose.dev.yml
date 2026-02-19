@@ -1,33 +1,32 @@
-# DEPRECATED — Use the root docker-compose.dev.yml instead.
-# This file uses standard ports (5432, 6379, 9000) that collide with system services.
-# Kept for reference only; will be removed in a future cleanup.
-version: '3.8'
+# Local development services for Sparrow Invest
+# Ports use 38xx range to avoid collisions with system services.
+# Usage: docker compose -f docker-compose.dev.yml up -d
 
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: si-postgres
+    container_name: si-dev-postgres
     environment:
       POSTGRES_USER: siuser
       POSTGRES_PASSWORD: sipassword
-      POSTGRES_DB: sparrowinvest
+      POSTGRES_DB: sparrowinvest_local
     ports:
-      - '5432:5432'
+      - '3832:5432'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - si_dev_postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U siuser -d sparrowinvest']
+      test: ['CMD-SHELL', 'pg_isready -U siuser -d sparrowinvest_local']
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: si-redis
+    container_name: si-dev-redis
     ports:
-      - '6379:6379'
+      - '3879:6379'
     volumes:
-      - redis_data:/data
+      - si_dev_redis:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -36,15 +35,15 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: si-minio
+    container_name: si-dev-minio
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - '3890:9000'
+      - '3891:9001'
     volumes:
-      - minio_data:/data
+      - si_dev_minio:/data
     command: server /data --console-address ":9001"
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
@@ -53,6 +52,6 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
-  redis_data:
-  minio_data:
+  si_dev_postgres:
+  si_dev_redis:
+  si_dev_minio:
