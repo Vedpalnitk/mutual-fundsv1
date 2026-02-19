@@ -490,23 +490,16 @@ const Home = () => {
             </div>
 
             <div className="hidden md:flex items-center gap-3">
-              <Link
-                href="/advisor/login"
-                className="text-sm font-semibold px-4 py-2 rounded-full transition-all hover:opacity-80"
-                style={{ color: colors.primary }}
-              >
-                Log in
-              </Link>
-              <Link
-                href="/advisor/login"
-                className="text-sm font-semibold px-5 py-2.5 rounded-full text-white transition-all hover:shadow-lg hover:-translate-y-0.5"
+              <span
+                className="text-sm font-semibold px-5 py-2.5 rounded-full text-white"
                 style={{
                   background: `linear-gradient(135deg, ${colors.primaryDark} 0%, ${colors.primary} 100%)`,
                   boxShadow: `0 4px 14px ${colors.shadow}`,
+                  opacity: 0.85,
                 }}
               >
-                Get Started
-              </Link>
+                Coming Soon
+              </span>
             </div>
 
             {/* Mobile hamburger */}
@@ -540,14 +533,12 @@ const Home = () => {
                 </a>
               ))}
               <div className="pt-3 flex flex-col gap-2">
-                <Link href="/advisor/login" className="text-sm font-semibold py-2" style={{ color: colors.primary }}>Log in</Link>
-                <Link
-                  href="/advisor/login"
+                <span
                   className="text-sm font-semibold px-5 py-2.5 rounded-full text-white text-center"
-                  style={{ background: `linear-gradient(135deg, ${colors.primaryDark} 0%, ${colors.primary} 100%)` }}
+                  style={{ background: `linear-gradient(135deg, ${colors.primaryDark} 0%, ${colors.primary} 100%)`, opacity: 0.85 }}
                 >
-                  Get Started
-                </Link>
+                  Coming Soon
+                </span>
               </div>
             </div>
           )}
@@ -589,18 +580,15 @@ const Home = () => {
                 </p>
 
                 <div className="mt-8 flex flex-wrap items-center gap-4">
-                  <Link
-                    href="/advisor/login"
-                    className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full font-semibold text-sm text-white transition-all hover:shadow-xl hover:-translate-y-0.5"
+                  <span
+                    className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full font-semibold text-sm text-white"
                     style={{
                       background: `linear-gradient(135deg, ${colors.primaryDeep} 0%, ${colors.primary} 50%, ${colors.accent} 100%)`,
-                      backgroundSize: '200% 200%',
                       boxShadow: `0 8px 30px ${isDark ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.2)'}`,
                     }}
                   >
-                    Start Free Trial
-                    {icons.arrowRight}
-                  </Link>
+                    Launching Soon
+                  </span>
                   <button
                     className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full font-semibold text-sm transition-all hover:-translate-y-0.5"
                     style={{
@@ -992,29 +980,20 @@ const Home = () => {
                 <p className="mt-4 text-base text-white/70 leading-relaxed">
                   Join 500+ financial advisors who use Sparrow to manage portfolios smarter, execute faster, and grow their AUM.
                 </p>
-                <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
-                  <input
-                    type="email"
-                    placeholder="Enter your email"
-                    className="w-full sm:flex-1 h-12 px-5 rounded-full text-sm focus:outline-none focus:ring-2"
-                    style={{
-                      background: 'rgba(255,255,255,0.15)',
-                      border: '1px solid rgba(255,255,255,0.2)',
-                      color: '#FFFFFF',
-                    }}
-                  />
-                  <button
-                    className="w-full sm:w-auto whitespace-nowrap h-12 px-8 rounded-full font-semibold text-sm transition-all hover:shadow-lg hover:-translate-y-0.5"
+                <div className="mt-8 flex items-center justify-center">
+                  <span
+                    className="inline-flex items-center gap-2 px-8 h-12 rounded-full font-semibold text-sm"
                     style={{
                       background: '#FFFFFF',
                       color: colors.primaryDeep,
                     }}
                   >
-                    Get Early Access
-                  </button>
+                    <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: colors.success }} />
+                    Launching Soon
+                  </span>
                 </div>
                 <p className="mt-4 text-xs text-white/50">
-                  Free 30-day trial. No credit card required.
+                  We&apos;re building something special. Stay tuned.
                 </p>
               </div>
             </div>

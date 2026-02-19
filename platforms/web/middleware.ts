@@ -42,7 +42,7 @@ export function middleware(request: NextRequest) {
     if (portal === 'admin') {
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
-    // app portal: show the landing page as-is (no redirect)
+    // app portal: show the landing page as-is
   }
 
   // --- Route blocking ---
