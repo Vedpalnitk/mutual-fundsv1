@@ -144,7 +144,7 @@ export class ClientsService {
         nomineePercent: dto.nominee?.percentage,
         assignedRmId: dto.assignedRmId || null,
         tags: dto.tags || [],
-        importantDates: dto.importantDates || null,
+        importantDates: (dto.importantDates || null) as any,
       },
       include: {
         holdings: true,

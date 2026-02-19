@@ -39,7 +39,7 @@ export class ComplianceService {
       },
     });
 
-    await this.audit.log(userId, 'CREATE_COMPLIANCE_RECORD', 'ComplianceRecord', record.id);
+    await this.audit.log({ userId, action: 'CREATE_COMPLIANCE_RECORD', entityType: 'ComplianceRecord', entityId: record.id });
 
     return this.transformRecord(record);
   }
@@ -64,7 +64,7 @@ export class ComplianceService {
       data,
     });
 
-    await this.audit.log(userId, 'UPDATE_COMPLIANCE_RECORD', 'ComplianceRecord', record.id);
+    await this.audit.log({ userId, action: 'UPDATE_COMPLIANCE_RECORD', entityType: 'ComplianceRecord', entityId: record.id });
 
     return this.transformRecord(record);
   }

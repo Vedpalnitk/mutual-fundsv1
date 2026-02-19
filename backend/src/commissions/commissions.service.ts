@@ -51,7 +51,7 @@ export class CommissionsService {
       include: { amc: { select: { id: true, name: true } } },
     });
 
-    await this.audit.log(userId, 'CREATE_COMMISSION_RATE', 'CommissionRateMaster', rate.id);
+    await this.audit.log({ userId, action: 'CREATE_COMMISSION_RATE', entityType: 'CommissionRateMaster', entityId: rate.id });
 
     return {
       id: rate.id,
@@ -82,7 +82,7 @@ export class CommissionsService {
       include: { amc: { select: { id: true, name: true } } },
     });
 
-    await this.audit.log(userId, 'UPDATE_COMMISSION_RATE', 'CommissionRateMaster', rate.id);
+    await this.audit.log({ userId, action: 'UPDATE_COMMISSION_RATE', entityType: 'CommissionRateMaster', entityId: rate.id });
 
     return {
       id: rate.id,
@@ -103,7 +103,7 @@ export class CommissionsService {
     if (!existing) throw new NotFoundException('Commission rate not found');
 
     await this.prisma.commissionRateMaster.delete({ where: { id } });
-    await this.audit.log(userId, 'DELETE_COMMISSION_RATE', 'CommissionRateMaster', id);
+    await this.audit.log({ userId, action: 'DELETE_COMMISSION_RATE', entityType: 'CommissionRateMaster', entityId: id });
 
     return { success: true };
   }
@@ -161,7 +161,7 @@ export class CommissionsService {
     }
 
     // Create/update commission records
-    const records = [];
+    const records: any[] = [];
     for (const [key, data] of amcAum) {
       const rate = rateLookup.get(key);
       if (!rate) continue;
@@ -193,7 +193,7 @@ export class CommissionsService {
       records.push(record);
     }
 
-    await this.audit.log(userId, 'CALCULATE_EXPECTED_COMMISSIONS', 'CommissionRecord', null, null, { period: dto.period, recordCount: records.length });
+    await this.audit.log({ userId, action: 'CALCULATE_EXPECTED_COMMISSIONS', entityType: 'CommissionRecord', newValue: { period: dto.period, recordCount: records.length } });
 
     return {
       period: dto.period,
@@ -231,14 +231,14 @@ export class CommissionsService {
         recordCount: rows.length,
         status: 'COMPLETED',
         parsedData: {
-          rows: rows.slice(0, 100), // Store first 100 rows for preview
+          rows: rows.slice(0, 100),
           summary: Object.fromEntries(amcBrokerage),
           totalBrokerage: rows.reduce((sum, r) => sum + r.brokerageAmount, 0),
-        },
+        } as any,
       },
     });
 
-    await this.audit.log(userId, 'UPLOAD_BROKERAGE', 'BrokerageUpload', upload.id);
+    await this.audit.log({ userId, action: 'UPLOAD_BROKERAGE', entityType: 'BrokerageUpload', entityId: upload.id });
 
     return {
       id: upload.id,
@@ -291,7 +291,7 @@ export class CommissionsService {
     const actualSummary = (latestUpload.parsedData as any)?.summary || {};
 
     // Match AMCs and update records
-    const results = [];
+    const results: any[] = [];
     let matchedCount = 0;
     let discrepancyCount = 0;
 
@@ -344,11 +344,7 @@ export class CommissionsService {
       });
     }
 
-    await this.audit.log(userId, 'RECONCILE_COMMISSIONS', 'CommissionRecord', null, null, {
-      period: dto.period,
-      matchedCount,
-      discrepancyCount,
-    });
+    await this.audit.log({ userId, action: 'RECONCILE_COMMISSIONS', entityType: 'CommissionRecord', newValue: { period: dto.period, matchedCount, discrepancyCount } });
 
     return {
       period: dto.period,

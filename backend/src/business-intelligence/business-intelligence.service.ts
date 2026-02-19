@@ -141,7 +141,7 @@ export class BusinessIntelligenceService {
   // ============= NET FLOWS =============
 
   async getNetFlows(advisorId: string, months = 6) {
-    const results = [];
+    const results: { period: string; purchases: number; redemptions: number; net: number }[] = [];
     const now = new Date();
 
     for (let i = months - 1; i >= 0; i--) {
@@ -222,7 +222,7 @@ export class BusinessIntelligenceService {
       : 0.5; // default 0.5%
 
     // 12-month projection
-    const projections = [];
+    const projections: { period: string; projectedAum: number; projectedTrail: number }[] = [];
     const now = new Date();
     const monthlyTrail = (overview.totalAum * avgTrailRate) / 100 / 12;
 

@@ -954,6 +954,7 @@ model FAClient {
   insurancePolicies InsurancePolicy[]
 
   // Business Management Relations
+  assignedRm       FAStaffMember?   @relation("ClientRM", fields: [assignedRmId], references: [id])
   crmTasks         CRMTask[]
   crmActivities    CRMActivityLog[]
 
@@ -1684,9 +1685,10 @@ model FAStaffMember {
   staffUser User    @relation("FAStaffUser", fields: [staffUserId], references: [id], onDelete: Cascade)
   branch    Branch? @relation(fields: [branchId], references: [id])
 
-  // CRM relations
-  assignedTasks  CRMTask[]        @relation("TaskAssignee")
-  activityLogs   CRMActivityLog[]
+  // Business Management Relations
+  assignedClients FAClient[]       @relation("ClientRM")
+  assignedTasks   CRMTask[]        @relation("TaskAssignee")
+  activityLogs    CRMActivityLog[]
 
   @@unique([ownerId, staffUserId])
   @@index([ownerId])
