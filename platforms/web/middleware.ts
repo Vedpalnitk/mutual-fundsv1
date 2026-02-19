@@ -39,12 +39,10 @@ export function middleware(request: NextRequest) {
 
   // --- Landing page redirect ---
   if (pathname === '/') {
-    if (portal === 'app') {
-      return NextResponse.redirect(new URL('/coming-soon', request.url))
-    }
     if (portal === 'admin') {
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
+    // app portal: show the landing page as-is (no redirect)
   }
 
   // --- Route blocking ---
