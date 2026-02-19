@@ -392,14 +392,11 @@ const Home = () => {
   const [mobileNav, setMobileNav] = useState(false)
   const navScrolled = scrollY > 20
 
-  // Defense-in-depth: redirect if on a production subdomain
+  // Defense-in-depth: redirect if on admin subdomain
   useEffect(() => {
     const hostname = window.location.hostname
-    const appHost = process.env.NEXT_PUBLIC_APP_HOSTNAME?.split(':')[0] || ''
     const adminHost = process.env.NEXT_PUBLIC_ADMIN_HOSTNAME?.split(':')[0] || ''
-    if (appHost && hostname === appHost) {
-      window.location.href = '/advisor/login'
-    } else if (adminHost && hostname === adminHost) {
+    if (adminHost && hostname === adminHost) {
       window.location.href = '/admin/login'
     }
   }, [])
