@@ -42,7 +42,7 @@ export default function CommissionsPage() {
       const token = typeof window !== 'undefined' ? localStorage.getItem('fa_auth_token') : null
       const headers: Record<string, string> = {}
       if (token) headers['Authorization'] = `Bearer ${token}`
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3501'
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
       const res = await fetch(`${API_BASE}/api/v1/funds/db/providers`, { headers })
       if (res.ok) setAmcList(await res.json())
     } catch {}
