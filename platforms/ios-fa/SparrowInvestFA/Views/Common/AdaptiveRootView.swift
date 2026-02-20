@@ -126,22 +126,38 @@ struct AdaptiveRootView: View {
             Divider()
             if let user = authManager.user {
                 HStack(spacing: 8) {
-                    ZStack {
-                        Circle()
-                            .fill(AppTheme.primary.opacity(0.1))
-                            .frame(width: 32, height: 32)
-                        Text(user.initials)
-                            .font(AppTheme.Typography.label(iPad ? 14 : 12))
-                            .foregroundColor(AppTheme.primary)
+                    if let logoUrl = authManager.advisorProfile?.companyLogoUrl,
+                       let url = URL(string: logoUrl) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 32, height: 32)
+                                    .clipShape(Circle())
+                            default:
+                                sidebarInitialsCircle(user: user)
+                            }
+                        }
+                        .frame(width: 32, height: 32)
+                    } else {
+                        sidebarInitialsCircle(user: user)
                     }
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(user.displayName)
-                            .font(AppTheme.Typography.accent(iPad ? 15 : 13))
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-                        Text(user.email)
+                        if let companyName = authManager.advisorProfile?.companyName, !companyName.isEmpty {
+                            Text(companyName)
+                                .font(AppTheme.Typography.accent(iPad ? 15 : 13))
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                        }
+                        Text(authManager.advisorProfile?.displayName ?? user.displayName)
                             .font(AppTheme.Typography.label(iPad ? 13 : 11))
                             .foregroundColor(.secondary)
+                            .lineLimit(1)
+                        Text(user.email)
+                            .font(AppTheme.Typography.label(iPad ? 12 : 10))
+                            .foregroundColor(.secondary.opacity(0.7))
                             .lineLimit(1)
                     }
                     Spacer()
@@ -168,6 +184,17 @@ struct AdaptiveRootView: View {
         }
         .padding(.bottom, 8)
         .background(.bar)
+    }
+
+    private func sidebarInitialsCircle(user: FAUser) -> some View {
+        ZStack {
+            Circle()
+                .fill(AppTheme.primary.opacity(0.1))
+                .frame(width: 32, height: 32)
+            Text(user.initials)
+                .font(AppTheme.Typography.label(iPad ? 14 : 12))
+                .foregroundColor(AppTheme.primary)
+        }
     }
 
     // MARK: - List Column (3-column supplementary for list+detail sections)

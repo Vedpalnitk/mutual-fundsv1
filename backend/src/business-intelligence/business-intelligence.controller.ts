@@ -80,6 +80,24 @@ export class BusinessIntelligenceController {
     return this.biService.getDormantClients(getEffectiveAdvisorId(user));
   }
 
+  @Get('monthly-scorecard')
+  @ApiOperation({ summary: 'Month-over-month scorecard: AUM, flows, SIP book, client count deltas' })
+  getMonthlyScorecard(@CurrentUser() user: any) {
+    return this.biService.getMonthlyScorecard(getEffectiveAdvisorId(user));
+  }
+
+  @Get('revenue-attribution')
+  @ApiOperation({ summary: 'Trail income breakdown by AMC with estimated revenue' })
+  getRevenueAttribution(@CurrentUser() user: any) {
+    return this.biService.getRevenueAttribution(getEffectiveAdvisorId(user));
+  }
+
+  @Get('client-segmentation')
+  @ApiOperation({ summary: 'Client tier segmentation: Diamond, Gold, Silver, Bronze' })
+  getClientSegmentation(@CurrentUser() user: any) {
+    return this.biService.getClientSegmentation(getEffectiveAdvisorId(user));
+  }
+
   @Post('snapshot')
   @ApiOperation({ summary: 'Manually trigger AUM snapshot capture' })
   triggerSnapshot(@CurrentUser() user: any) {

@@ -19,11 +19,10 @@ const PAGE_OPTIONS = [
     section: 'Client Management',
     pages: [
       { href: '/advisor/clients', label: 'Clients' },
-      { href: '/advisor/prospects', label: 'Prospects' },
+      { href: '/advisor/pipeline', label: 'Pipeline' },
       { href: '/advisor/transactions', label: 'Transactions' },
-      { href: '/advisor/communications', label: 'Communications' },
+      { href: '/advisor/command-center', label: 'Command Center' },
       { href: '/advisor/insights', label: 'Insights' },
-      { href: '/advisor/crm', label: 'CRM' },
     ],
   },
   {

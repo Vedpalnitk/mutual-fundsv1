@@ -427,6 +427,9 @@ async function main() {
   // Seed pending actions for the advisor
   await seedAdvisorActions(advisor.id);
 
+  // Seed advisor profiles (display name, company, credentials)
+  await seedAdvisorProfiles(advisor.id);
+
   console.log('✅ Database seeding completed!');
   console.log('\n💡 For P2/P3 data, run: npx ts-node prisma/seed-p2p3.ts');
   console.log('💡 For fund data, run: npx ts-node prisma/seed-funds.ts');

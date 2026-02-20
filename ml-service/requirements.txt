@@ -31,3 +31,6 @@ redis==5.0.1
 
 # Logging
 structlog==24.1.0
+
+# CAS PDF Parsing
+casparser==0.8.1

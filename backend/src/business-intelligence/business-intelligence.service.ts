@@ -309,6 +309,214 @@ export class BusinessIntelligenceService {
     }));
   }
 
+  // ============= MONTHLY SCORECARD =============
+
+  async getMonthlyScorecard(advisorId: string) {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const period = `${currentMonthStart.getFullYear()}-${String(currentMonthStart.getMonth() + 1).padStart(2, '0')}`;
+    const prevPeriod = `${prevMonthStart.getFullYear()}-${String(prevMonthStart.getMonth() + 1).padStart(2, '0')}`;
+
+    // Get latest and previous month AUM snapshots
+    const [latestSnap, prevSnap] = await Promise.all([
+      this.prisma.aUMSnapshot.findFirst({
+        where: { advisorId, date: { gte: currentMonthStart } },
+        orderBy: { date: 'desc' },
+      }),
+      this.prisma.aUMSnapshot.findFirst({
+        where: { advisorId, date: { gte: prevMonthStart, lte: prevMonthEnd } },
+        orderBy: { date: 'desc' },
+      }),
+    ]);
+
+    // Fallback: compute current AUM from holdings if no snapshot
+    let currentAum = latestSnap ? Number(latestSnap.totalAum) : 0;
+    let currentSipBook = latestSnap ? Number(latestSnap.sipBookSize) : 0;
+    let currentClientCount = latestSnap ? latestSnap.clientCount : 0;
+    let currentNetFlows = latestSnap ? Number(latestSnap.netFlows) : 0;
+
+    if (!latestSnap) {
+      const overview = await this.getAumOverview(advisorId);
+      currentAum = overview.totalAum;
+      const sipHealth = await this.getSipHealth(advisorId);
+      currentSipBook = sipHealth.totalMonthlyAmount;
+      currentClientCount = await this.prisma.fAClient.count({ where: { advisorId } });
+    }
+
+    const prevAum = prevSnap ? Number(prevSnap.totalAum) : currentAum;
+    const prevNetFlows = prevSnap ? Number(prevSnap.netFlows) : 0;
+    const prevSipBook = prevSnap ? Number(prevSnap.sipBookSize) : currentSipBook;
+    const prevClientCount = prevSnap ? prevSnap.clientCount : currentClientCount;
+
+    // New and lost clients this month
+    const newClients = await this.prisma.fAClient.count({
+      where: { advisorId, createdAt: { gte: currentMonthStart } },
+    });
+
+    const lostClients = await this.prisma.fAClient.count({
+      where: { advisorId, status: 'INACTIVE', updatedAt: { gte: currentMonthStart } },
+    });
+
+    const delta = (current: number, previous: number) => ({
+      current,
+      previous,
+      delta: Math.round((current - previous) * 100) / 100,
+      deltaPercent: previous > 0 ? Math.round(((current - previous) / previous) * 10000) / 100 : 0,
+    });
+
+    return {
+      period,
+      prevPeriod,
+      aum: delta(currentAum, prevAum),
+      netFlows: { current: currentNetFlows, previous: prevNetFlows, delta: currentNetFlows - prevNetFlows },
+      sipBook: delta(currentSipBook, prevSipBook),
+      clientCount: delta(currentClientCount, prevClientCount),
+      newClients,
+      lostClients,
+    };
+  }
+
+  // ============= REVENUE ATTRIBUTION =============
+
+  async getRevenueAttribution(advisorId: string) {
+    // Get all holdings with scheme plan relations for AMC name
+    const holdings = await this.prisma.fAHolding.findMany({
+      where: { client: { advisorId } },
+      include: {
+        client: { select: { id: true } },
+      },
+    });
+
+    // Get scheme plans for AMC resolution
+    const schemePlanIds = holdings.map(h => h.schemePlanId).filter(Boolean) as string[];
+    const schemePlans = schemePlanIds.length > 0
+      ? await this.prisma.schemePlan.findMany({
+          where: { id: { in: schemePlanIds } },
+          include: { scheme: { include: { provider: { select: { id: true, name: true } } } } },
+        })
+      : [];
+
+    const schemePlanMap = new Map(schemePlans.map(sp => [sp.id, sp]));
+
+    // Get commission rates for trail rate lookup
+    const rates = await this.prisma.commissionRateMaster.findMany({
+      where: {
+        advisorId,
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date() } }],
+      },
+      include: { amc: { select: { id: true, name: true } } },
+    });
+
+    const rateMap = new Map<string, number>();
+    for (const r of rates) {
+      const key = `${r.amcId}:${r.schemeCategory}`;
+      rateMap.set(key, Number(r.trailRatePercent));
+      // Also store by AMC only as fallback
+      if (!rateMap.has(r.amcId)) {
+        rateMap.set(r.amcId, Number(r.trailRatePercent));
+      }
+    }
+
+    // Aggregate by AMC
+    const amcData = new Map<string, { amcName: string; aumAmount: number; trailRate: number; holdingsCount: number }>();
+
+    for (const h of holdings) {
+      const value = Number(h.currentValue || 0);
+      let amcName = 'Unknown AMC';
+      let amcId = '';
+
+      // Try to resolve AMC from scheme plan
+      if (h.schemePlanId && schemePlanMap.has(h.schemePlanId)) {
+        const sp = schemePlanMap.get(h.schemePlanId)!;
+        amcName = sp.scheme.provider.name;
+        amcId = sp.scheme.provider.id;
+      } else {
+        // Fallback: extract AMC from fund name (first word(s) before "Mutual Fund" or common patterns)
+        const name = h.fundName || '';
+        const match = name.match(/^([\w\s]+?)\s+(Mutual Fund|MF|Fund|Liquid|Overnight|Money Market)/i);
+        amcName = match ? match[1].trim() : name.split(' ').slice(0, 2).join(' ');
+      }
+
+      // Look up trail rate
+      const categoryKey = `${amcId}:${h.fundCategory}`;
+      const trailRate = rateMap.get(categoryKey) || rateMap.get(amcId) || 0.5; // default 0.5%
+
+      const existing = amcData.get(amcName) || { amcName, aumAmount: 0, trailRate, holdingsCount: 0 };
+      existing.aumAmount += value;
+      existing.holdingsCount += 1;
+      amcData.set(amcName, existing);
+    }
+
+    const totalAum = holdings.reduce((sum, h) => sum + Number(h.currentValue || 0), 0);
+    const byAmc = [...amcData.values()]
+      .map(a => ({
+        ...a,
+        aumAmount: Math.round(a.aumAmount * 100) / 100,
+        estimatedTrail: Math.round((a.aumAmount * a.trailRate / 100) * 100) / 100,
+        percentOfTotal: totalAum > 0 ? Math.round((a.aumAmount / totalAum) * 10000) / 100 : 0,
+      }))
+      .sort((a, b) => b.aumAmount - a.aumAmount);
+
+    const totalTrailIncome = byAmc.reduce((sum, a) => sum + a.estimatedTrail, 0);
+
+    return {
+      totalTrailIncome: Math.round(totalTrailIncome * 100) / 100,
+      byAmc,
+    };
+  }
+
+  // ============= CLIENT SEGMENTATION (TIERS) =============
+
+  async getClientSegmentation(advisorId: string) {
+    const clients = await this.prisma.fAClient.findMany({
+      where: { advisorId },
+      include: { holdings: true },
+    });
+
+    const tierDefs = [
+      { tier: 'Diamond', min: 10000000, max: Infinity },  // >1Cr
+      { tier: 'Gold', min: 2500000, max: 10000000 },      // 25L-1Cr
+      { tier: 'Silver', min: 500000, max: 2500000 },      // 5L-25L
+      { tier: 'Bronze', min: 0, max: 500000 },            // <5L
+    ];
+
+    let totalAum = 0;
+    const tiers = tierDefs.map(def => {
+      const tierClients: { id: string; name: string; aum: number }[] = [];
+      for (const c of clients) {
+        const aum = c.holdings.reduce((sum, h) => sum + Number(h.currentValue || 0), 0);
+        if (aum >= def.min && aum < def.max) {
+          tierClients.push({ id: c.id, name: c.name, aum: Math.round(aum * 100) / 100 });
+        }
+      }
+      tierClients.sort((a, b) => b.aum - a.aum);
+      const tierAum = tierClients.reduce((sum, c) => sum + c.aum, 0);
+      totalAum += tierAum;
+      return {
+        tier: def.tier,
+        clientCount: tierClients.length,
+        totalAum: Math.round(tierAum * 100) / 100,
+        avgAum: tierClients.length > 0 ? Math.round((tierAum / tierClients.length) * 100) / 100 : 0,
+        clients: tierClients,
+      };
+    });
+
+    // Compute percentOfAum after totalAum is known
+    const tiersWithPercent = tiers.map(t => ({
+      ...t,
+      percentOfAum: totalAum > 0 ? Math.round((t.totalAum / totalAum) * 10000) / 100 : 0,
+    }));
+
+    return {
+      tiers: tiersWithPercent,
+      totalAum: Math.round(totalAum * 100) / 100,
+      totalClients: clients.length,
+    };
+  }
+
   // ============= TRIGGER SNAPSHOT (manual) =============
 
   async triggerSnapshot(advisorId: string) {

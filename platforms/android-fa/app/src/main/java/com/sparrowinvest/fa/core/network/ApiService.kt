@@ -13,6 +13,9 @@ interface ApiService {
     @POST("auth/logout")
     suspend fun logout(): Response<Unit>
 
+    @GET("auth/me")
+    suspend fun getMe(): Response<MeResponse>
+
     // Client endpoints
     @GET("clients")
     suspend fun getClients(): Response<ApiResponse<List<Client>>>

@@ -3,6 +3,7 @@ package com.sparrowinvest.fa.ui.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sparrowinvest.fa.core.network.ApiResult
+import com.sparrowinvest.fa.data.model.AdvisorProfile
 import com.sparrowinvest.fa.data.model.FAUser
 import com.sparrowinvest.fa.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,6 +20,7 @@ class AuthViewModel @Inject constructor(
 
     val isAuthenticated: StateFlow<Boolean> = authRepository.isAuthenticated
     val currentUser: StateFlow<FAUser?> = authRepository.currentUser
+    val advisorProfile: StateFlow<AdvisorProfile?> = authRepository.advisorProfile
 
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState.asStateFlow()

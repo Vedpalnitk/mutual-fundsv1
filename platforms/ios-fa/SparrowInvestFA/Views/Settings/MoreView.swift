@@ -144,29 +144,57 @@ struct MoreView: View {
 
     private var userCard: some View {
         HStack(spacing: AppTheme.Spacing.compact) {
-            ZStack {
-                Circle()
-                    .fill(AppTheme.primary.opacity(0.1))
-                    .frame(width: 48, height: 48)
-
-                Image(systemName: "person.fill")
-                    .font(.system(size: 22))
-                    .foregroundColor(AppTheme.primary)
+            if let logoUrl = authManager.advisorProfile?.companyLogoUrl,
+               let url = URL(string: logoUrl) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 48, height: 48)
+                            .clipShape(Circle())
+                    default:
+                        userInitialsCircle
+                    }
+                }
+                .frame(width: 48, height: 48)
+            } else {
+                userInitialsCircle
             }
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(authManager.user?.displayName ?? "Financial Advisor")
-                    .font(AppTheme.Typography.headline(iPad ? 19 : 16))
-                    .foregroundColor(.primary)
+                if let companyName = authManager.advisorProfile?.companyName, !companyName.isEmpty {
+                    Text(companyName)
+                        .font(AppTheme.Typography.headline(iPad ? 19 : 16))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                }
+
+                Text(authManager.advisorProfile?.displayName ?? authManager.user?.displayName ?? "Financial Advisor")
+                    .font(AppTheme.Typography.caption(iPad ? 14 : 12))
+                    .foregroundColor(.secondary)
 
                 Text(authManager.user?.email ?? "")
-                    .font(AppTheme.Typography.caption(iPad ? 15 : 13))
-                    .foregroundColor(.secondary)
+                    .font(AppTheme.Typography.caption(iPad ? 13 : 11))
+                    .foregroundColor(.secondary.opacity(0.7))
             }
 
             Spacer()
         }
         .glassCard(cornerRadius: AppTheme.CornerRadius.large)
+    }
+
+    private var userInitialsCircle: some View {
+        ZStack {
+            Circle()
+                .fill(AppTheme.primary.opacity(0.1))
+                .frame(width: 48, height: 48)
+
+            Text(authManager.user?.initials ?? "FA")
+                .font(AppTheme.Typography.accent(iPad ? 18 : 16))
+                .foregroundColor(AppTheme.primary)
+        }
     }
 
     private func menuItem(

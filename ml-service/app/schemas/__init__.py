@@ -34,6 +34,12 @@ from .portfolio_analysis import (
     CurrentMetrics,
     AnalysisSummary,
 )
+from .cas import (
+    CASTransactionOut,
+    CASSchemeOut,
+    CASFolioOut,
+    CASParseResponse,
+)
 
 __all__ = [
     "ProfileInput",
@@ -67,4 +73,9 @@ __all__ = [
     "RebalancingAction",
     "CurrentMetrics",
     "AnalysisSummary",
+    # CAS Parsing
+    "CASTransactionOut",
+    "CASSchemeOut",
+    "CASFolioOut",
+    "CASParseResponse",
 ]

@@ -1,6 +1,7 @@
 package com.sparrowinvest.fa.core.storage
 
 import android.content.SharedPreferences
+import com.sparrowinvest.fa.data.model.AdvisorProfile
 import com.sparrowinvest.fa.data.model.FAUser
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -12,6 +13,7 @@ class PreferencesManager @Inject constructor(
     companion object {
         private const val KEY_IS_AUTHENTICATED = "is_authenticated"
         private const val KEY_CURRENT_USER = "current_user"
+        private const val KEY_ADVISOR_PROFILE = "advisor_profile"
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_PUSH_NOTIFICATIONS = "push_notifications_enabled"
         private const val KEY_EMAIL_NOTIFICATIONS = "email_notifications_enabled"
@@ -71,10 +73,30 @@ class PreferencesManager @Inject constructor(
         sharedPreferences.edit().remove(KEY_CURRENT_USER).apply()
     }
 
+    fun saveAdvisorProfile(profile: AdvisorProfile) {
+        try {
+            val profileJson = json.encodeToString(profile)
+            sharedPreferences.edit().putString(KEY_ADVISOR_PROFILE, profileJson).apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun getAdvisorProfile(): AdvisorProfile? {
+        return try {
+            val profileJson = sharedPreferences.getString(KEY_ADVISOR_PROFILE, null)
+            profileJson?.let { json.decodeFromString<AdvisorProfile>(it) }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
     fun clearAll() {
         sharedPreferences.edit().apply {
             remove(KEY_IS_AUTHENTICATED)
             remove(KEY_CURRENT_USER)
+            remove(KEY_ADVISOR_PROFILE)
             apply()
         }
     }

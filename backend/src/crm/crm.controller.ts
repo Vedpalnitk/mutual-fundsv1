@@ -15,7 +15,7 @@ import {
 @ApiTags('crm')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, StaffPageGuard)
-@RequiredPage('/advisor/crm')
+@RequiredPage('/advisor/command-center')
 @Controller('api/v1/crm')
 export class CRMController {
   constructor(private crmService: CRMService) {}

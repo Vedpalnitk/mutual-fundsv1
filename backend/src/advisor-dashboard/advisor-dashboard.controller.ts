@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Param, UseGuards } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger'
+import { Controller, Get, Post, Param, Query, UseGuards } from '@nestjs/common'
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { StaffPageGuard, RequiredPage } from '../common/guards/staff-page.guard'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
@@ -40,5 +40,27 @@ export class AdvisorDashboardController {
   @ApiResponse({ status: 200, description: 'Strategic insights returned successfully' })
   async getStrategicInsights(@CurrentUser() user: any) {
     return this.dashboardService.getStrategicInsights(getEffectiveAdvisorId(user))
+  }
+
+  @Get('insights/cross-sell')
+  @ApiOperation({ summary: 'Cross-sell gap analysis for each client' })
+  @ApiResponse({ status: 200, description: 'Cross-sell opportunities returned successfully' })
+  async getCrossSellOpportunities(@CurrentUser() user: any) {
+    return this.dashboardService.getCrossSellOpportunities(getEffectiveAdvisorId(user))
+  }
+
+  @Get('insights/churn-risk')
+  @ApiOperation({ summary: 'Churn risk assessment per client' })
+  @ApiResponse({ status: 200, description: 'Churn risk data returned successfully' })
+  async getChurnRisk(@CurrentUser() user: any) {
+    return this.dashboardService.getChurnRisk(getEffectiveAdvisorId(user))
+  }
+
+  @Get('action-calendar')
+  @ApiOperation({ summary: 'Unified action calendar: SIP expiry, birthdays, follow-ups, upcoming SIPs' })
+  @ApiQuery({ name: 'days', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Action calendar returned successfully' })
+  async getActionCalendar(@CurrentUser() user: any, @Query('days') days?: string) {
+    return this.dashboardService.getActionCalendar(getEffectiveAdvisorId(user), parseInt(days || '30'))
   }
 }

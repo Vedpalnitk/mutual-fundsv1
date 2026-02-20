@@ -8,6 +8,8 @@ import {
   RebalancingAlert,
   TaxHarvestingOpportunity,
   GoalAlert,
+  CrossSellOpportunity,
+  ChurnRiskClient,
 } from '@/services/api'
 import {
   useFATheme,
@@ -22,7 +24,7 @@ import {
 } from '@/components/advisor/shared'
 import DeepAnalysisPanel from '@/components/advisor/DeepAnalysisPanel'
 
-type InsightTab = 'health' | 'rebalancing' | 'goals' | 'tax'
+type InsightTab = 'health' | 'rebalancing' | 'goals' | 'tax' | 'crossSell' | 'churnRisk'
 type SortDirection = 'asc' | 'desc'
 type SortConfig = { column: string; direction: SortDirection }
 
@@ -112,6 +114,12 @@ const InsightsPage = () => {
   const [rebalanceFilter, setRebalanceFilter] = useState('All')
   const [goalFilter, setGoalFilter] = useState('All')
   const [taxFilter, setTaxFilter] = useState('All')
+  const [crossSellFilter, setCrossSellFilter] = useState('All')
+  const [churnFilter, setChurnFilter] = useState('All')
+
+  // Cross-sell & Churn Risk data
+  const [crossSell, setCrossSell] = useState<CrossSellOpportunity[]>([])
+  const [churnRisk, setChurnRisk] = useState<ChurnRiskClient[]>([])
 
   // Sort
   const [sortConfig, setSortConfig] = useState<SortConfig>({ column: '', direction: 'desc' })
@@ -139,8 +147,18 @@ const InsightsPage = () => {
       setLoading(true)
       setError(null)
       try {
-        const data = await advisorInsightsApi.get()
-        setInsights(data)
+        const [insightsRes, crossSellRes, churnRes] = await Promise.allSettled([
+          advisorInsightsApi.get(),
+          advisorInsightsApi.getCrossSellOpportunities(),
+          advisorInsightsApi.getChurnRisk(),
+        ])
+        if (insightsRes.status === 'fulfilled') setInsights(insightsRes.value)
+        if (crossSellRes.status === 'fulfilled') setCrossSell(crossSellRes.value)
+        if (churnRes.status === 'fulfilled') setChurnRisk(churnRes.value)
+        if (insightsRes.status === 'rejected') {
+          console.error('Failed to load insights:', insightsRes.reason)
+          setError('Failed to load insights data')
+        }
       } catch (err) {
         console.error('Failed to load insights:', err)
         setError('Failed to load insights data')
@@ -234,11 +252,50 @@ const InsightsPage = () => {
     })
   }, [taxOpportunities, searchTerm, taxFilter, sortConfig])
 
+  const filteredCrossSell = useMemo(() => {
+    let items = [...crossSell]
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase()
+      items = items.filter(i => i.clientName.toLowerCase().includes(q))
+    }
+    if (crossSellFilter !== 'All') {
+      items = items.filter(i => i.gaps.some(g => g.priority === crossSellFilter))
+    }
+    return sortBy(items, sortConfig, {
+      client: i => i.clientName,
+      aum: i => i.aum,
+      riskProfile: i => i.riskProfile,
+      gapCount: i => i.gapCount,
+    })
+  }, [crossSell, searchTerm, crossSellFilter, sortConfig])
+
+  const filteredChurnRisk = useMemo(() => {
+    let items = [...churnRisk]
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase()
+      items = items.filter(i => i.clientName.toLowerCase().includes(q))
+    }
+    if (churnFilter !== 'All') {
+      items = items.filter(i => i.riskLevel === churnFilter)
+    }
+    return sortBy(items, sortConfig, {
+      client: i => i.clientName,
+      aum: i => i.aum,
+      riskScore: i => i.riskScore,
+      riskLevel: i => i.riskLevel,
+      daysInactive: i => i.daysSinceLastTxn ?? 0,
+      redemptions: i => i.recentRedemptionTotal,
+      sipTrend: i => i.sipTrend,
+    })
+  }, [churnRisk, searchTerm, churnFilter, sortConfig])
+
   const tabs = [
     { id: 'health' as const, label: 'Portfolio Health', count: healthItems.length },
     { id: 'rebalancing' as const, label: 'Rebalancing', count: rebalancingAlerts.length },
     { id: 'goals' as const, label: 'Goals', count: goalAlerts.filter(g => g.status !== 'ON_TRACK').length },
     { id: 'tax' as const, label: 'Tax Harvesting', count: taxOpportunities.length },
+    { id: 'crossSell' as const, label: 'Cross-sell', count: crossSell.length },
+    { id: 'churnRisk' as const, label: 'Churn Risk', count: churnRisk.filter(c => c.riskLevel === 'HIGH').length },
   ]
 
   const avgHealthScore = useMemo(() => {
@@ -250,7 +307,7 @@ const InsightsPage = () => {
     return taxOpportunities.reduce((s, t) => s + t.potentialSavings, 0)
   }, [taxOpportunities])
 
-  const hasActiveFilters = searchTerm || healthFilter !== 'All' || rebalanceFilter !== 'All' || goalFilter !== 'All' || taxFilter !== 'All'
+  const hasActiveFilters = searchTerm || healthFilter !== 'All' || rebalanceFilter !== 'All' || goalFilter !== 'All' || taxFilter !== 'All' || crossSellFilter !== 'All' || churnFilter !== 'All'
 
   const clearFilters = () => {
     setSearchInput('')
@@ -259,6 +316,8 @@ const InsightsPage = () => {
     setRebalanceFilter('All')
     setGoalFilter('All')
     setTaxFilter('All')
+    setCrossSellFilter('All')
+    setChurnFilter('All')
     setSortConfig({ column: '', direction: 'desc' })
   }
 
@@ -331,7 +390,7 @@ const InsightsPage = () => {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <FAStatCard
             label="Avg Health Score"
             value={avgHealthScore.toString()}
@@ -355,6 +414,18 @@ const InsightsPage = () => {
             value={formatCurrencyCompact(totalTaxSavings)}
             change={`${taxOpportunities.length} opportunities`}
             accentColor={colors.success}
+          />
+          <FAStatCard
+            label="Cross-sell Opps"
+            value={crossSell.length.toString()}
+            change={`${crossSell.reduce((s, c) => s + c.gapCount, 0)} gaps found`}
+            accentColor={colors.secondary || colors.primary}
+          />
+          <FAStatCard
+            label="Churn Risk"
+            value={churnRisk.filter(c => c.riskLevel === 'HIGH').length.toString()}
+            change="High risk clients"
+            accentColor={colors.error}
           />
         </div>
 
@@ -465,6 +536,32 @@ const InsightsPage = () => {
                   <option value="All">All Holdings</option>
                   <option value="short_term">Short Term</option>
                   <option value="long_term">Long Term</option>
+                </select>
+              )}
+              {activeTab === 'crossSell' && (
+                <select
+                  value={crossSellFilter}
+                  onChange={e => setCrossSellFilter(e.target.value)}
+                  className="h-9 px-3 rounded-lg text-sm focus:outline-none cursor-pointer"
+                  style={selectStyle(crossSellFilter !== 'All')}
+                >
+                  <option value="All">All Priorities</option>
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="LOW">Low</option>
+                </select>
+              )}
+              {activeTab === 'churnRisk' && (
+                <select
+                  value={churnFilter}
+                  onChange={e => setChurnFilter(e.target.value)}
+                  className="h-9 px-3 rounded-lg text-sm focus:outline-none cursor-pointer"
+                  style={selectStyle(churnFilter !== 'All')}
+                >
+                  <option value="All">All Risk Levels</option>
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="LOW">Low</option>
                 </select>
               )}
 
@@ -806,6 +903,167 @@ const InsightsPage = () => {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+              </div>
+            )}
+          </FACard>
+        )}
+
+        {/* ========== CROSS-SELL OPPORTUNITIES ========== */}
+        {activeTab === 'crossSell' && (
+          <FACard padding="none" className="overflow-hidden">
+            {filteredCrossSell.length === 0 ? (
+              <div className="py-8">
+                <FAEmptyState
+                  icon={<svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016A3.001 3.001 0 0021 9.349m-18 0a2.99 2.99 0 00.621-1.476L4.5 3h15l.879 4.873A2.99 2.99 0 0021 9.35" /></svg>}
+                  title={hasActiveFilters ? 'No matching clients' : 'No Cross-sell Gaps'}
+                  description={hasActiveFilters ? 'Try adjusting your filters' : 'All clients have well-diversified portfolios'}
+                />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr style={theadStyle}>
+                    <th className={`text-left px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('client')}>Client{sortIcon('client')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('aum')}>AUM{sortIcon('aum')}</th>
+                    <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('riskProfile')}>Risk Profile{sortIcon('riskProfile')}</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Gaps</th>
+                    <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('gapCount')}>Count{sortIcon('gapCount')}</th>
+                    <th className="w-8 px-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCrossSell.map((client) => {
+                    const gapColors: Record<string, string> = { HIGH: colors.error, MEDIUM: colors.warning, LOW: colors.textTertiary }
+                    return (
+                      <tr
+                        key={client.clientId}
+                        onClick={() => router.push(`/advisor/clients/${client.clientId}`)}
+                        className="transition-colors cursor-pointer"
+                        style={{ borderBottom: `1px solid ${colors.cardBorder}` }}
+                        {...rowHover}
+                      >
+                        <td className="px-4 py-3"><p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{client.clientName}</p></td>
+                        <td className="px-4 py-3 text-right text-sm font-medium" style={{ color: colors.textPrimary }}>{formatCurrencyCompact(client.aum)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: colors.chipBg, color: colors.textPrimary }}>
+                            {client.riskProfile || '--'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {client.gaps.map((gap, i) => (
+                              <span
+                                key={i}
+                                className="text-xs px-2 py-0.5 rounded"
+                                style={{ background: `${gapColors[gap.priority] || colors.textTertiary}12`, color: gapColors[gap.priority] || colors.textTertiary }}
+                                title={gap.description}
+                              >
+                                {gap.label}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="text-sm font-semibold" style={{ color: client.gapCount >= 3 ? colors.error : client.gapCount >= 2 ? colors.warning : colors.textSecondary }}>
+                            {client.gapCount}
+                          </span>
+                        </td>
+                        <td className="px-2 py-3">
+                          <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              </div>
+            )}
+          </FACard>
+        )}
+
+        {/* ========== CHURN RISK ========== */}
+        {activeTab === 'churnRisk' && (
+          <FACard padding="none" className="overflow-hidden">
+            {filteredChurnRisk.length === 0 ? (
+              <div className="py-8">
+                <FAEmptyState
+                  icon={<svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>}
+                  title={hasActiveFilters ? 'No matching clients' : 'No Churn Risk Data'}
+                  description={hasActiveFilters ? 'Try adjusting your filters' : 'All clients are actively engaged'}
+                />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr style={theadStyle}>
+                    <th className={`text-left px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('client')}>Client{sortIcon('client')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('aum')}>AUM{sortIcon('aum')}</th>
+                    <th className={`text-center px-4 py-3 w-32 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('riskScore')}>Risk Score{sortIcon('riskScore')}</th>
+                    <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('riskLevel')}>Level{sortIcon('riskLevel')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('daysInactive')}>Days Inactive{sortIcon('daysInactive')}</th>
+                    <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('redemptions')}>Redemptions{sortIcon('redemptions')}</th>
+                    <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('sipTrend')}>SIP Trend{sortIcon('sipTrend')}</th>
+                    <th className="w-8 px-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredChurnRisk.map((client) => {
+                    const riskColor = client.riskLevel === 'HIGH' ? colors.error : client.riskLevel === 'MEDIUM' ? colors.warning : colors.success
+                    return (
+                      <tr
+                        key={client.clientId}
+                        onClick={() => router.push(`/advisor/clients/${client.clientId}`)}
+                        className="transition-colors cursor-pointer"
+                        style={{ borderBottom: `1px solid ${colors.cardBorder}` }}
+                        {...rowHover}
+                      >
+                        <td className="px-4 py-3"><p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{client.clientName}</p></td>
+                        <td className="px-4 py-3 text-right text-sm font-medium" style={{ color: colors.textPrimary }}>{formatCurrencyCompact(client.aum)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 justify-center">
+                            <div className="w-12 h-1.5 rounded-full overflow-hidden" style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }}>
+                              <div className="h-full rounded-full" style={{ width: `${client.riskScore}%`, background: riskColor }} />
+                            </div>
+                            <span className="text-sm font-semibold" style={{ color: riskColor }}>{client.riskScore}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded"
+                            style={{ background: `${riskColor}15`, color: riskColor }}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: riskColor }} />
+                            {client.riskLevel}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm" style={{ color: (client.daysSinceLastTxn ?? 0) > 180 ? colors.error : colors.textSecondary }}>
+                          {client.daysSinceLastTxn}d
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm" style={{ color: client.recentRedemptionTotal > 0 ? colors.error : colors.textSecondary }}>
+                          {client.recentRedemptionTotal > 0 ? formatCurrencyCompact(client.recentRedemptionTotal) : '--'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded" style={{
+                            background: client.sipTrend === 'declining' ? `${colors.error}12` : client.sipTrend === 'stable' ? colors.chipBg : `${colors.success}12`,
+                            color: client.sipTrend === 'declining' ? colors.error : client.sipTrend === 'stable' ? colors.textSecondary : colors.success,
+                          }}>
+                            {client.sipTrend === 'declining' ? 'Declining' : client.sipTrend === 'stable' ? 'Stable' : 'Growing'}
+                          </span>
+                        </td>
+                        <td className="px-2 py-3">
+                          <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
               </div>

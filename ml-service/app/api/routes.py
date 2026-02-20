@@ -2,7 +2,11 @@
 API routes for ML service.
 """
 
-from fastapi import APIRouter, HTTPException
+import asyncio
+import io
+import structlog
+
+from fastapi import APIRouter, HTTPException, UploadFile, Form
 from typing import Optional
 
 from app.schemas import (
@@ -23,6 +27,10 @@ from app.schemas import (
     RiskResponse,
     PortfolioAnalysisRequest,
     PortfolioAnalysisResponse,
+    CASParseResponse,
+    CASFolioOut,
+    CASSchemeOut,
+    CASTransactionOut,
 )
 from app.services import (
     PersonaService,
@@ -307,6 +315,121 @@ async def assess_risk(request: RiskRequest) -> RiskResponse:
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+logger = structlog.get_logger(__name__)
+
+MAX_CAS_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+def _parse_cas_sync(file_bytes: bytes, password: str):
+    """Run casparser in sync context (CPU-bound)."""
+    import casparser
+    return casparser.read_cas_pdf(io.BytesIO(file_bytes), password)
+
+
+def _transform_cas_data(data) -> CASParseResponse:
+    """Transform casparser CASData into our response schema."""
+    folios = []
+    total_schemes = 0
+    total_current_value = 0.0
+
+    for folio in data.folios:
+        schemes = []
+        for scheme in folio.schemes:
+            transactions = []
+            for txn in scheme.transactions:
+                transactions.append(CASTransactionOut(
+                    date=str(txn.date) if txn.date else "",
+                    description=txn.description or "",
+                    amount=float(txn.amount) if txn.amount is not None else None,
+                    units=float(txn.units) if txn.units is not None else None,
+                    nav=float(txn.nav) if txn.nav is not None else None,
+                    balance=float(txn.balance) if txn.balance is not None else None,
+                    type=txn.type or "UNKNOWN",
+                ))
+
+            valuation = getattr(scheme, "valuation", None)
+            val_date = str(valuation.date) if valuation and valuation.date else None
+            val_nav = float(valuation.nav) if valuation and valuation.nav is not None else None
+            val_value = float(valuation.value) if valuation and valuation.value is not None else None
+
+            if val_value:
+                total_current_value += val_value
+
+            cost = float(scheme.cost) if hasattr(scheme, "cost") and scheme.cost is not None else None
+
+            schemes.append(CASSchemeOut(
+                scheme=scheme.scheme or "",
+                isin=getattr(scheme, "isin", None),
+                amfi=str(scheme.amfi) if getattr(scheme, "amfi", None) else None,
+                rta=scheme.rta or "",
+                rta_code=getattr(scheme, "rta_code", "") or "",
+                advisor=getattr(scheme, "advisor", None),
+                type=getattr(scheme, "type", None),
+                open=float(scheme.open) if scheme.open is not None else 0.0,
+                close=float(scheme.close) if scheme.close is not None else 0.0,
+                valuation_date=val_date,
+                valuation_nav=val_nav,
+                valuation_value=val_value,
+                cost=cost,
+                transactions=transactions,
+            ))
+            total_schemes += 1
+
+        folios.append(CASFolioOut(
+            folio=folio.folio or "",
+            amc=folio.amc or "",
+            pan=getattr(folio, "PAN", None) or getattr(folio, "pan", None),
+            kyc=getattr(folio, "KYC", None) or getattr(folio, "kyc", None),
+            schemes=schemes,
+        ))
+
+    investor = getattr(data, "investor_info", None)
+    statement_period = getattr(data, "statement_period", None)
+
+    return CASParseResponse(
+        investor_name=investor.name if investor and investor.name else "",
+        investor_email=investor.email if investor and investor.email else "",
+        investor_mobile=investor.mobile if investor and hasattr(investor, "mobile") and investor.mobile else "",
+        cas_type=data.cas_type if hasattr(data, "cas_type") and data.cas_type else "DETAILED",
+        file_type=data.file_type if hasattr(data, "file_type") and data.file_type else "CAMS",
+        statement_period_from=str(statement_period.from_) if statement_period and hasattr(statement_period, "from_") else "",
+        statement_period_to=str(statement_period.to) if statement_period and hasattr(statement_period, "to") else "",
+        folios=folios,
+        total_schemes=total_schemes,
+        total_current_value=round(total_current_value, 2),
+    )
+
+
+@router.post("/cas/parse", response_model=CASParseResponse, tags=["CAS Import"])
+async def parse_cas_pdf(file: UploadFile, password: str = Form(...)):
+    """Parse a CAS PDF and return structured portfolio data."""
+    # Read and validate size
+    file_bytes = await file.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(file_bytes) > MAX_CAS_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
+
+    # Validate PDF magic bytes
+    if not file_bytes.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="File must be a valid PDF")
+
+    try:
+        # Run CPU-bound parsing in thread executor
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, _parse_cas_sync, file_bytes, password)
+        return _transform_cas_data(data)
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "password" in error_msg or "incorrect" in error_msg or "decrypt" in error_msg:
+            raise HTTPException(status_code=400, detail="Incorrect CAS PDF password")
+        elif "parse" in error_msg or "invalid" in error_msg:
+            raise HTTPException(status_code=422, detail=f"Could not parse CAS PDF: {e}")
+        else:
+            logger.error("CAS parse error", error=str(e))
+            raise HTTPException(status_code=500, detail=f"Parser error: {e}")
 
 
 @router.get("/funds", tags=["Funds"])

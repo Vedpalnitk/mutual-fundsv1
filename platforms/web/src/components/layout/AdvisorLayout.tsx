@@ -124,12 +124,10 @@ const ADVISOR_NAV_ITEMS = [
     section: 'Client Management',
     items: [
       { label: 'Clients', href: '/advisor/clients', icon: 'users' },
-      { label: 'Prospects', href: '/advisor/prospects', icon: 'user-plus' },
+      { label: 'Pipeline', href: '/advisor/pipeline', icon: 'user-plus' },
       { label: 'Transactions', href: '/advisor/transactions', icon: 'arrows' },
-      { label: 'CRM', href: '/advisor/crm', icon: 'clipboard' },
-      { label: 'Communications', href: '/advisor/communications', icon: 'message' },
+      { label: 'Command Center', href: '/advisor/command-center', icon: 'clipboard' },
       { label: 'Insights', href: '/advisor/insights', icon: 'insights' },
-      { label: 'Action Center', href: '/advisor/action-center', icon: 'bell-alert' },
     ]
   },
   {

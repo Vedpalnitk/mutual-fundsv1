@@ -5,10 +5,12 @@ class AuthManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var isLoading = false
     @Published var user: FAUser?
+    @Published var advisorProfile: AdvisorProfile?
     @Published var authError: String?
 
     private let userKey = "fa_user"
     private let tokenKey = "authToken"
+    private let advisorProfileKey = "fa_advisor_profile"
 
     init() {
         // Restore session
@@ -17,6 +19,10 @@ class AuthManager: ObservableObject {
                let savedUser = try? JSONDecoder().decode(FAUser.self, from: userData) {
                 self.user = savedUser
                 self.isAuthenticated = true
+            }
+            if let profileData = UserDefaults.standard.data(forKey: advisorProfileKey),
+               let savedProfile = try? JSONDecoder().decode(AdvisorProfile.self, from: profileData) {
+                self.advisorProfile = savedProfile
             }
         }
     }
@@ -51,6 +57,9 @@ class AuthManager: ObservableObject {
                 UserDefaults.standard.set(userData, forKey: userKey)
             }
 
+            // Fetch advisor profile from /auth/me
+            await fetchAdvisorProfile()
+
             isAuthenticated = true
         } catch let error as APIError {
             print("API error: \(error)")
@@ -66,10 +75,26 @@ class AuthManager: ObservableObject {
         isLoading = false
     }
 
+    func fetchAdvisorProfile() async {
+        do {
+            let data = try await APIService.shared.get("/auth/me") as Data
+            let meResponse = try JSONDecoder().decode(MeResponse.self, from: data)
+            self.advisorProfile = meResponse.advisorProfile
+            if let profile = meResponse.advisorProfile,
+               let profileData = try? JSONEncoder().encode(profile) {
+                UserDefaults.standard.set(profileData, forKey: advisorProfileKey)
+            }
+        } catch {
+            print("Failed to fetch advisor profile: \(error)")
+        }
+    }
+
     func logout() {
         APIService.shared.clearAuthToken()
         UserDefaults.standard.removeObject(forKey: userKey)
+        UserDefaults.standard.removeObject(forKey: advisorProfileKey)
         user = nil
+        advisorProfile = nil
         isAuthenticated = false
         NotificationCenter.default.post(name: .userDidLogout, object: nil)
     }

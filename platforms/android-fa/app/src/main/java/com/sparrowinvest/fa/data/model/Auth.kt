@@ -29,3 +29,22 @@ data class FAUser(
     val displayName: String get() = name ?: email.substringBefore("@").replace(".", " ").split(" ").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
     val initials: String get() = displayName.split(" ").mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("")
 }
+
+@Serializable
+data class AdvisorProfile(
+    val displayName: String? = null,
+    val companyName: String? = null,
+    val companyLogoUrl: String? = null,
+    val avatarUrl: String? = null
+)
+
+@Serializable
+data class MeResponse(
+    val id: String,
+    val email: String,
+    val name: String? = null,
+    val phone: String? = null,
+    val role: String? = null,
+    val createdAt: String? = null,
+    val advisorProfile: AdvisorProfile? = null
+)

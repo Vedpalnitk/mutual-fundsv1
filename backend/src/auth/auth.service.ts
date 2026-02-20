@@ -567,16 +567,22 @@ export class AuthService {
       },
     });
 
-    // If advisor, update advisor-specific fields
+    // If advisor, upsert advisor-specific fields (creates AdvisorProfile if missing)
     if (user.role === 'advisor') {
       const advisorData: any = {};
       if (dto.companyName !== undefined) advisorData.companyName = dto.companyName;
       if (dto.displayName !== undefined) advisorData.displayName = dto.displayName;
 
       if (Object.keys(advisorData).length > 0) {
-        await this.prisma.advisorProfile.updateMany({
+        await this.prisma.advisorProfile.upsert({
           where: { userId },
-          data: advisorData,
+          update: advisorData,
+          create: {
+            userId,
+            displayName: dto.displayName || user.profile?.name || 'Advisor',
+            experienceYears: 0,
+            ...advisorData,
+          },
         });
       }
     }
@@ -626,9 +632,11 @@ export class AuthService {
 
     const logoUrl = await this.storageService.getAdvisorAssetUrl(fileKey);
 
-    await this.prisma.advisorProfile.updateMany({
+    const userProfile = await this.prisma.userProfile.findUnique({ where: { userId } });
+    await this.prisma.advisorProfile.upsert({
       where: { userId },
-      data: { companyLogoUrl: logoUrl },
+      update: { companyLogoUrl: logoUrl },
+      create: { userId, displayName: userProfile?.name || 'Advisor', experienceYears: 0, companyLogoUrl: logoUrl },
     });
 
     return { companyLogoUrl: logoUrl };

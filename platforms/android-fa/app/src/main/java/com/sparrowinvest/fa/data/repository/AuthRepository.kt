@@ -4,6 +4,7 @@ import com.sparrowinvest.fa.core.network.ApiResult
 import com.sparrowinvest.fa.core.network.ApiService
 import com.sparrowinvest.fa.core.storage.PreferencesManager
 import com.sparrowinvest.fa.core.storage.TokenManager
+import com.sparrowinvest.fa.data.model.AdvisorProfile
 import com.sparrowinvest.fa.data.model.FAUser
 import com.sparrowinvest.fa.data.model.LoginRequest
 import com.sparrowinvest.fa.data.model.LoginResponse
@@ -30,6 +31,9 @@ class AuthRepository @Inject constructor(
     private val _currentUser = MutableStateFlow(preferencesManager.getUser())
     val currentUser: StateFlow<FAUser?> = _currentUser.asStateFlow()
 
+    private val _advisorProfile = MutableStateFlow(preferencesManager.getAdvisorProfile())
+    val advisorProfile: StateFlow<AdvisorProfile?> = _advisorProfile.asStateFlow()
+
     suspend fun login(email: String, password: String): ApiResult<LoginResponse> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.login(LoginRequest(email, password))
@@ -53,6 +57,9 @@ class AuthRepository @Inject constructor(
                     // Update auth state
                     preferencesManager.isAuthenticated = true
                     _isAuthenticated.value = true
+
+                    // Fetch advisor profile
+                    fetchAdvisorProfile()
 
                     ApiResult.success(loginResponse)
                 } ?: ApiResult.error("Empty response")
@@ -82,6 +89,7 @@ class AuthRepository @Inject constructor(
         tokenManager.clearTokens()
         preferencesManager.clearAll()
         _currentUser.value = null
+        _advisorProfile.value = null
         _isAuthenticated.value = false
         // Clear chat data to prevent cross-user data leakage
         chatRepository.onUserLogout()
@@ -92,5 +100,20 @@ class AuthRepository @Inject constructor(
         val isAuth = preferencesManager.isAuthenticated
         _isAuthenticated.value = hasToken && isAuth
         _currentUser.value = preferencesManager.getUser()
+        _advisorProfile.value = preferencesManager.getAdvisorProfile()
+    }
+
+    private suspend fun fetchAdvisorProfile() {
+        try {
+            val response = apiService.getMe()
+            if (response.isSuccessful) {
+                response.body()?.advisorProfile?.let { profile ->
+                    preferencesManager.saveAdvisorProfile(profile)
+                    _advisorProfile.value = profile
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

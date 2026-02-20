@@ -29,6 +29,23 @@ struct LoginResponse: Decodable {
     let expiresIn: Int?
 }
 
+struct AdvisorProfile: Codable {
+    let displayName: String?
+    let companyName: String?
+    let companyLogoUrl: String?
+    let avatarUrl: String?
+}
+
+struct MeResponse: Decodable {
+    let id: String
+    let email: String
+    let name: String?
+    let phone: String?
+    let role: String?
+    let createdAt: String?
+    let advisorProfile: AdvisorProfile?
+}
+
 struct FAUser: Codable, Identifiable {
     let id: String
     let email: String

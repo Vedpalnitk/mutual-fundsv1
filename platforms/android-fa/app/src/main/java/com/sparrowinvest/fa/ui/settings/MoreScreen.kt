@@ -2,6 +2,7 @@ package com.sparrowinvest.fa.ui.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
@@ -36,9 +38,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.sparrowinvest.fa.MainActivity
 import com.sparrowinvest.fa.core.storage.ThemeMode
 import com.sparrowinvest.fa.ui.auth.AuthViewModel
@@ -66,6 +73,7 @@ fun MoreScreen(
     onLogout: () -> Unit
 ) {
     val currentUser by authViewModel.currentUser.collectAsState()
+    val advisorProfile by authViewModel.advisorProfile.collectAsState()
     val themeMode by MainActivity.themeModeFlow.collectAsState()
     val darkMode = themeMode == ThemeMode.DARK
 
@@ -92,23 +100,45 @@ fun MoreScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                val logoUrl = advisorProfile?.companyLogoUrl
+                if (!logoUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(logoUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Company logo",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Spacer(modifier = Modifier.padding(Spacing.compact))
                 Column {
+                    if (!advisorProfile?.companyName.isNullOrBlank()) {
+                        Text(
+                            text = advisorProfile!!.companyName!!,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     Text(
-                        text = currentUser?.displayName ?: "Financial Advisor",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = advisorProfile?.displayName ?: currentUser?.displayName ?: "Financial Advisor",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = currentUser?.email ?: "",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }

@@ -73,7 +73,7 @@ const Navbar = ({ mode = 'user' }: NavbarProps) => {
     ? [
         { label: 'Dashboard', href: '/advisor/dashboard' },
         { label: 'Clients', href: '/advisor/clients' },
-        { label: 'Prospects', href: '/advisor/prospects' },
+        { label: 'Pipeline', href: '/advisor/pipeline' },
         { label: 'Transactions', href: '/advisor/transactions' },
         { label: 'Deep Analysis', href: '/advisor/analysis' },
         { label: 'Reports', href: '/advisor/reports' },

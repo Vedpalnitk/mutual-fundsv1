@@ -995,6 +995,355 @@ export class AdvisorDashboardService {
   }
 
   // ============================================================
+  // Cross-Sell Opportunities
+  // ============================================================
+
+  async getCrossSellOpportunities(advisorId: string) {
+    const clients = await this.prisma.fAClient.findMany({
+      where: { advisorId, status: 'ACTIVE' },
+      include: {
+        holdings: true,
+        sips: { where: { status: 'ACTIVE' } },
+      },
+    })
+
+    return clients.map((client) => {
+      const holdings = client.holdings || []
+      const sips = client.sips || []
+      const aum = holdings.reduce((sum, h) => sum + Number(h.currentValue || 0), 0)
+      const gaps: { type: string; label: string; description: string; priority: string }[] = []
+
+      // Check asset classes present
+      const assetClasses = new Set(holdings.map(h => (h.assetClass || '').toUpperCase()))
+      const fundCategories = new Set(holdings.map(h => (h.fundCategory || '').toUpperCase()))
+
+      // Gap 1: No debt allocation
+      const hasDebt = [...assetClasses].some(a => a.includes('DEBT') || a.includes('LIQUID') || a.includes('MONEY'))
+      if (!hasDebt && holdings.length > 0) {
+        gaps.push({
+          type: 'NO_DEBT',
+          label: 'No Debt Allocation',
+          description: 'Portfolio has no debt funds for stability and income',
+          priority: 'HIGH',
+        })
+      }
+
+      // Gap 2: No active SIP
+      if (sips.length === 0 && aum > 0) {
+        gaps.push({
+          type: 'NO_SIP',
+          label: 'No Active SIP',
+          description: 'No systematic investment plan — recommend starting a SIP',
+          priority: 'HIGH',
+        })
+      }
+
+      // Gap 3: No ELSS (tax saving)
+      const hasElss = [...fundCategories].some(c => c.includes('ELSS') || c.includes('TAX'))
+      if (!hasElss && aum > 100000) {
+        gaps.push({
+          type: 'NO_ELSS',
+          label: 'No ELSS / Tax Saver',
+          description: 'Missing tax-saving ELSS fund for Section 80C benefit',
+          priority: 'MEDIUM',
+        })
+      }
+
+      // Gap 4: Low diversification (<=2 asset classes)
+      if (assetClasses.size <= 2 && holdings.length > 2) {
+        gaps.push({
+          type: 'LOW_DIVERSIFICATION',
+          label: 'Low Diversification',
+          description: `Only ${assetClasses.size} asset class(es) — consider adding more`,
+          priority: 'MEDIUM',
+        })
+      }
+
+      // Gap 5: Single AMC concentration
+      const amcs = new Set(holdings.map(h => {
+        const name = h.fundName || ''
+        const match = name.match(/^([\w\s]+?)\s+(Mutual|MF|Fund|Liquid)/i)
+        return match ? match[1].trim() : name.split(' ')[0]
+      }))
+      if (amcs.size === 1 && holdings.length > 2) {
+        gaps.push({
+          type: 'SINGLE_AMC',
+          label: 'Single AMC',
+          description: `All holdings in one AMC — diversify across fund houses`,
+          priority: 'LOW',
+        })
+      }
+
+      return {
+        clientId: client.id,
+        clientName: client.name,
+        aum: Math.round(aum * 100) / 100,
+        riskProfile: RISK_PROFILE_MAP[client.riskProfile] || 'Moderate',
+        gaps,
+        gapCount: gaps.length,
+      }
+    }).filter(c => c.gapCount > 0).sort((a, b) => b.gapCount - a.gapCount)
+  }
+
+  // ============================================================
+  // Churn Risk Assessment
+  // ============================================================
+
+  async getChurnRisk(advisorId: string) {
+    const clients = await this.prisma.fAClient.findMany({
+      where: { advisorId, status: 'ACTIVE' },
+      include: {
+        holdings: true,
+        transactions: { orderBy: { date: 'desc' }, take: 20 },
+        sips: true,
+      },
+    })
+
+    const now = new Date()
+
+    return clients.map((client) => {
+      const holdings = client.holdings || []
+      const transactions = client.transactions || []
+      const sips = client.sips || []
+      const aum = holdings.reduce((sum, h) => sum + Number(h.currentValue || 0), 0)
+      const factors: { factor: string; weight: number; detail: string }[] = []
+      let riskScore = 0
+
+      // Factor 1: Days since last transaction (30% weight)
+      const lastTxn = transactions[0]
+      const daysSinceLastTxn = lastTxn
+        ? Math.ceil((now.getTime() - new Date(lastTxn.date).getTime()) / (1000 * 60 * 60 * 24))
+        : 999
+      let inactivityScore = 0
+      if (daysSinceLastTxn > 365) inactivityScore = 30
+      else if (daysSinceLastTxn > 180) inactivityScore = 20
+      else if (daysSinceLastTxn > 90) inactivityScore = 10
+      riskScore += inactivityScore
+      factors.push({
+        factor: 'Inactivity',
+        weight: 30,
+        detail: daysSinceLastTxn < 999 ? `${daysSinceLastTxn} days since last transaction` : 'No transactions recorded',
+      })
+
+      // Factor 2: Redemption pattern (25% weight)
+      const recentRedemptions = transactions.filter(t => ['SELL', 'SWP'].includes(t.type))
+      const recentRedemptionTotal = recentRedemptions.reduce((sum, t) => sum + Number(t.amount || 0), 0)
+      let redemptionScore = 0
+      if (recentRedemptions.length >= 3) redemptionScore = 25
+      else if (recentRedemptions.length >= 2) redemptionScore = 15
+      else if (recentRedemptions.length >= 1) redemptionScore = 8
+      riskScore += redemptionScore
+      factors.push({
+        factor: 'Redemption Pattern',
+        weight: 25,
+        detail: `${recentRedemptions.length} redemptions totalling ₹${Math.round(recentRedemptionTotal).toLocaleString('en-IN')}`,
+      })
+
+      // Factor 3: SIP cancellations (20% weight)
+      const cancelledSips = sips.filter(s => s.status === 'CANCELLED')
+      const activeSips = sips.filter(s => s.status === 'ACTIVE')
+      let sipScore = 0
+      if (cancelledSips.length > 0 && activeSips.length === 0) sipScore = 20
+      else if (cancelledSips.length > activeSips.length) sipScore = 12
+      else if (cancelledSips.length > 0) sipScore = 5
+      riskScore += sipScore
+      const sipTrend = activeSips.length > cancelledSips.length ? 'growing'
+        : activeSips.length === cancelledSips.length ? 'stable' : 'declining'
+      factors.push({
+        factor: 'SIP Trend',
+        weight: 20,
+        detail: `${activeSips.length} active, ${cancelledSips.length} cancelled — ${sipTrend}`,
+      })
+
+      // Factor 4: Declining investment amounts (15% weight)
+      const purchases = transactions.filter(t => ['BUY', 'SIP'].includes(t.type))
+      let decliningScore = 0
+      if (purchases.length >= 4) {
+        const recentAvg = purchases.slice(0, 2).reduce((s, t) => s + Number(t.amount), 0) / 2
+        const olderAvg = purchases.slice(2, 4).reduce((s, t) => s + Number(t.amount), 0) / 2
+        if (olderAvg > 0 && recentAvg < olderAvg * 0.7) decliningScore = 15
+        else if (olderAvg > 0 && recentAvg < olderAvg * 0.9) decliningScore = 8
+      }
+      riskScore += decliningScore
+      factors.push({
+        factor: 'Investment Trend',
+        weight: 15,
+        detail: decliningScore > 10 ? 'Declining investment amounts' : 'Investment amounts stable',
+      })
+
+      // Factor 5: Negative returns (10% weight)
+      const invested = holdings.reduce((sum, h) => sum + Number(h.investedValue || 0), 0)
+      const returnPct = invested > 0 ? ((aum - invested) / invested) * 100 : 0
+      let returnScore = 0
+      if (returnPct < -10) returnScore = 10
+      else if (returnPct < -5) returnScore = 6
+      else if (returnPct < 0) returnScore = 3
+      riskScore += returnScore
+      factors.push({
+        factor: 'Portfolio Returns',
+        weight: 10,
+        detail: `${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(1)}% returns`,
+      })
+
+      riskScore = Math.min(100, Math.max(0, riskScore))
+      const riskLevel = riskScore >= 60 ? 'HIGH' : riskScore >= 30 ? 'MEDIUM' : 'LOW'
+
+      return {
+        clientId: client.id,
+        clientName: client.name,
+        aum: Math.round(aum * 100) / 100,
+        riskScore,
+        riskLevel,
+        factors,
+        daysSinceLastTxn: daysSinceLastTxn < 999 ? daysSinceLastTxn : null,
+        recentRedemptionTotal: Math.round(recentRedemptionTotal * 100) / 100,
+        sipTrend,
+      }
+    }).sort((a, b) => b.riskScore - a.riskScore)
+  }
+
+  // ============================================================
+  // Action Calendar
+  // ============================================================
+
+  async getActionCalendar(advisorId: string, days = 30) {
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+    const horizon = new Date(now)
+    horizon.setDate(horizon.getDate() + days)
+
+    const items: {
+      date: string; type: string; label: string; description: string;
+      clientId: string; clientName: string; priority: string; daysFromNow: number;
+    }[] = []
+
+    // 1. SIP mandate expiry (FASIP.endDate within horizon)
+    const expiringSips = await this.prisma.fASIP.findMany({
+      where: {
+        client: { advisorId },
+        status: 'ACTIVE',
+        endDate: { gte: now, lte: horizon },
+      },
+      include: { client: { select: { id: true, name: true } } },
+    })
+
+    for (const sip of expiringSips) {
+      const endDate = new Date(sip.endDate!)
+      const daysFromNow = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      items.push({
+        date: endDate.toISOString().split('T')[0],
+        type: 'SIP_EXPIRY',
+        label: 'SIP Mandate Expiring',
+        description: `${sip.fundName} — ₹${Number(sip.amount).toLocaleString('en-IN')}/month`,
+        clientId: sip.client.id,
+        clientName: sip.client.name,
+        priority: daysFromNow <= 7 ? 'HIGH' : 'MEDIUM',
+        daysFromNow,
+      })
+    }
+
+    // 2. Client birthdays (FAClient.dateOfBirth)
+    const clients = await this.prisma.fAClient.findMany({
+      where: { advisorId, dateOfBirth: { not: null } },
+      select: { id: true, name: true, dateOfBirth: true },
+    })
+
+    for (const client of clients) {
+      if (!client.dateOfBirth) continue
+      const dob = new Date(client.dateOfBirth)
+      const birthday = new Date(now.getFullYear(), dob.getMonth(), dob.getDate())
+      // Check if birthday falls within horizon
+      if (birthday < now) birthday.setFullYear(birthday.getFullYear() + 1)
+      const daysFromNow = Math.ceil((birthday.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      if (daysFromNow <= days) {
+        items.push({
+          date: birthday.toISOString().split('T')[0],
+          type: 'BIRTHDAY',
+          label: 'Client Birthday',
+          description: `${client.name}'s birthday`,
+          clientId: client.id,
+          clientName: client.name,
+          priority: daysFromNow <= 3 ? 'MEDIUM' : 'LOW',
+          daysFromNow,
+        })
+      }
+    }
+
+    // 3. Dormant follow-ups (>90 days inactive)
+    const dormantCutoff = new Date(now)
+    dormantCutoff.setDate(dormantCutoff.getDate() - 90)
+
+    const dormantClients = await this.prisma.fAClient.findMany({
+      where: {
+        advisorId,
+        status: 'ACTIVE',
+        transactions: { none: { date: { gte: dormantCutoff } } },
+      },
+      include: {
+        holdings: true,
+        transactions: { orderBy: { date: 'desc' }, take: 1 },
+      },
+    })
+
+    for (const client of dormantClients) {
+      const lastTxnDate = client.transactions[0]?.date
+      const aum = client.holdings.reduce((sum, h) => sum + Number(h.currentValue || 0), 0)
+      if (aum > 0) {
+        items.push({
+          date: now.toISOString().split('T')[0],
+          type: 'FOLLOW_UP',
+          label: 'Dormant Client Follow-up',
+          description: `No activity since ${lastTxnDate ? lastTxnDate.toISOString().split('T')[0] : 'unknown'} — AUM ₹${Math.round(aum).toLocaleString('en-IN')}`,
+          clientId: client.id,
+          clientName: client.name,
+          priority: aum > 1000000 ? 'HIGH' : 'MEDIUM',
+          daysFromNow: 0,
+        })
+      }
+    }
+
+    // 4. Upcoming SIP dates
+    const upcomingSips = await this.prisma.fASIP.findMany({
+      where: {
+        client: { advisorId },
+        status: 'ACTIVE',
+        nextSipDate: { gte: now, lte: horizon },
+      },
+      include: { client: { select: { id: true, name: true } } },
+      orderBy: { nextSipDate: 'asc' },
+      take: 20,
+    })
+
+    for (const sip of upcomingSips) {
+      const sipDate = new Date(sip.nextSipDate)
+      const daysFromNow = Math.ceil((sipDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      items.push({
+        date: sipDate.toISOString().split('T')[0],
+        type: 'SIP_DUE',
+        label: 'SIP Due',
+        description: `${sip.fundName} — ₹${Number(sip.amount).toLocaleString('en-IN')}`,
+        clientId: sip.client.id,
+        clientName: sip.client.name,
+        priority: 'LOW',
+        daysFromNow,
+      })
+    }
+
+    // Sort by date
+    items.sort((a, b) => a.daysFromNow - b.daysFromNow)
+
+    return {
+      items,
+      summary: {
+        total: items.length,
+        sipExpiring: items.filter(i => i.type === 'SIP_EXPIRY').length,
+        birthdays: items.filter(i => i.type === 'BIRTHDAY').length,
+        followUps: items.filter(i => i.type === 'FOLLOW_UP').length,
+      },
+    }
+  }
+
+  // ============================================================
   // Helpers
   // ============================================================
 

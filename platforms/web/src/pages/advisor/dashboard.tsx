@@ -18,11 +18,12 @@ import {
   ActionType,
   goalsApi,
   GoalResponse,
+  ActionCalendar,
 } from '@/services/api';
 
 // Display preferences key (shared with settings page)
 const DISPLAY_PREFS_KEY = 'fa-display-preferences';
-const ALL_WIDGETS = ['kpi', 'pending-actions', 'recent-transactions', 'top-clients', 'goal-progress', 'insights', 'upcoming-sips', 'market-summary'];
+const ALL_WIDGETS = ['kpi', 'pending-actions', 'recent-transactions', 'top-clients', 'goal-progress', 'insights', 'upcoming-sips', 'action-calendar', 'market-summary'];
 
 function loadWidgetPrefs(): string[] {
   if (typeof window === 'undefined') return ALL_WIDGETS;
@@ -495,6 +496,7 @@ const AdvisorDashboard = () => {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [pendingActions, setPendingActions] = useState<PendingAction[]>([]);
   const [goals, setGoals] = useState<GoalResponse[]>([]);
+  const [calendar, setCalendar] = useState<ActionCalendar | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enabledWidgets, setEnabledWidgets] = useState<string[]>(ALL_WIDGETS);
@@ -593,10 +595,11 @@ const AdvisorDashboard = () => {
       setError(null);
 
       try {
-        const [dashData, actionsData, goalsData] = await Promise.allSettled([
+        const [dashData, actionsData, goalsData, calendarData] = await Promise.allSettled([
           advisorDashboardApi.get(),
           actionsApi.list({ isCompleted: false, isDismissed: false, limit: 10 }),
           goalsApi.list(),
+          advisorDashboardApi.getActionCalendar(30),
         ]);
 
         if (dashData.status === 'fulfilled') {
@@ -612,6 +615,10 @@ const AdvisorDashboard = () => {
 
         if (goalsData.status === 'fulfilled') {
           setGoals(goalsData.value);
+        }
+
+        if (calendarData.status === 'fulfilled') {
+          setCalendar(calendarData.value);
         }
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
@@ -1521,6 +1528,114 @@ const AdvisorDashboard = () => {
                 </span>
               </Link>
             </div>}
+
+            {/* Action Calendar */}
+            {isWidgetEnabled('action-calendar') && calendar && (
+              <div
+                className="p-5 rounded-xl"
+                style={{ background: colors.cardBackground, border: `1px solid ${colors.cardBorder}`, boxShadow: `0 4px 24px ${colors.glassShadow}` }}
+              >
+                <div
+                  className="flex items-center justify-between"
+                  style={{
+                    background: isDark ? 'rgba(147, 197, 253, 0.04)' : 'rgba(59, 130, 246, 0.03)',
+                    margin: '-1.25rem -1.25rem 1.25rem',
+                    padding: '0.875rem 1.25rem',
+                    borderBottom: `1px solid ${colors.cardBorder}`,
+                    borderRadius: '0.75rem 0.75rem 0 0',
+                  }}
+                >
+                  <h3 className="text-sm font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Action Calendar</h3>
+                  <span
+                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                    style={{ background: `${colors.primary}15`, color: colors.primary }}
+                  >
+                    {calendar.summary.total}
+                  </span>
+                </div>
+
+                {/* Summary badges */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {calendar.summary.sipExpiring > 0 && (
+                    <span className="text-xs px-2 py-1 rounded-lg flex items-center gap-1" style={{ background: `${colors.warning}12`, color: colors.warning }}>
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {calendar.summary.sipExpiring} SIP Expiry
+                    </span>
+                  )}
+                  {calendar.summary.birthdays > 0 && (
+                    <span className="text-xs px-2 py-1 rounded-lg flex items-center gap-1" style={{ background: `${colors.secondary || colors.primary}12`, color: colors.secondary || colors.primary }}>
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                      </svg>
+                      {calendar.summary.birthdays} Birthdays
+                    </span>
+                  )}
+                  {calendar.summary.followUps > 0 && (
+                    <span className="text-xs px-2 py-1 rounded-lg flex items-center gap-1" style={{ background: `${colors.error}12`, color: colors.error }}>
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
+                      </svg>
+                      {calendar.summary.followUps} Follow-ups
+                    </span>
+                  )}
+                </div>
+
+                {/* Timeline */}
+                {calendar.items.length > 0 ? (
+                  <div className="space-y-2">
+                    {calendar.items.slice(0, 8).map((item, idx) => {
+                      const typeColors: Record<string, string> = {
+                        SIP_EXPIRY: colors.warning,
+                        BIRTHDAY: colors.secondary || colors.primary,
+                        DORMANT_FOLLOWUP: colors.error,
+                        UPCOMING_SIP: colors.success,
+                      };
+                      const typeIcons: Record<string, string> = {
+                        SIP_EXPIRY: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z',
+                        BIRTHDAY: 'M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z',
+                        DORMANT_FOLLOWUP: 'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0',
+                        UPCOMING_SIP: 'M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75',
+                      };
+                      const itemColor = typeColors[item.type] || colors.textTertiary;
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-2.5 p-2.5 rounded-xl transition-colors"
+                          style={{
+                            background: item.priority === 'HIGH' ? `${colors.error}06` : 'transparent',
+                            border: `1px solid ${item.priority === 'HIGH' ? `${colors.error}15` : colors.cardBorder}`,
+                          }}
+                        >
+                          <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                            style={{ background: `${itemColor}12` }}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} style={{ color: itemColor }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d={typeIcons[item.type] || 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'} />
+                            </svg>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate" style={{ color: colors.textPrimary }}>{item.clientName}</p>
+                            <p className="text-xs truncate" style={{ color: colors.textSecondary }}>{item.description}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-xs font-medium" style={{ color: item.daysFromNow <= 3 ? colors.error : item.daysFromNow <= 7 ? colors.warning : colors.textSecondary }}>
+                              {item.daysFromNow === 0 ? 'Today' : item.daysFromNow === 1 ? 'Tomorrow' : `${item.daysFromNow}d`}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>No upcoming actions</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Market Summary */}
             {isWidgetEnabled('market-summary') && (

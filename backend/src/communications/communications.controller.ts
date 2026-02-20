@@ -17,7 +17,7 @@ import { PreviewCommunicationDto, SendCommunicationDto, BulkSendCommunicationDto
 @ApiTags('communications')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, StaffPageGuard)
-@RequiredPage('/advisor/communications')
+@RequiredPage('/advisor/command-center')
 @Controller('api/v1/communications')
 export class CommunicationsController {
   constructor(private communicationsService: CommunicationsService) {}
