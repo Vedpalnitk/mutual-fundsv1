@@ -12,7 +12,10 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const secret = configService.get<string>('jwt.secret') || 'super-secret';
+        const secret = configService.get<string>('jwt.secret');
+        if (!secret) {
+          throw new Error('JWT_SECRET environment variable is required');
+        }
         const expiresIn = configService.get<string>('jwt.expiresIn') || '7d';
         return {
           secret,

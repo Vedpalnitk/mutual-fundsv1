@@ -1,6 +1,8 @@
 import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
+import { RolesGuard } from '../../common/guards/roles.guard'
+import { Roles } from '../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseReportsService } from './bse-reports.service'
 import { BseChildOrdersService } from './bse-child-orders.service'
@@ -8,7 +10,8 @@ import { OrderStatusQueryDto, AllotmentQueryDto, RedemptionQueryDto } from './dt
 
 @ApiTags('BSE Reports')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('advisor', 'admin', 'fa_staff')
 @Controller('api/v1/bse/reports')
 export class BseReportsController {
   constructor(

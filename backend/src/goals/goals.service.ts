@@ -471,6 +471,171 @@ export class GoalsService {
     }));
   }
 
+  // ============================================================
+  // Goal Asset Mapping (Multi-Asset Planning)
+  // ============================================================
+
+  async getAssetMappings(clientId: string, goalId: string, advisorId: string) {
+    await this.verifyClientAccess(clientId, advisorId);
+    const goal = await this.prisma.userGoal.findUnique({ where: { id: goalId } });
+    if (!goal || goal.clientId !== clientId) throw new NotFoundException('Goal not found');
+
+    const mappings = await this.prisma.goalAssetMapping.findMany({
+      where: { goalId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return mappings.map(m => ({
+      id: m.id,
+      goalId: m.goalId,
+      assetType: m.assetType,
+      schemeCode: m.schemeCode,
+      schemeName: m.schemeName,
+      folioNumber: m.folioNumber,
+      assetName: m.assetName,
+      assetIdentifier: m.assetIdentifier,
+      allocationPct: Number(m.allocationPct),
+      currentValue: m.currentValue ? Number(m.currentValue) : null,
+      notes: m.notes,
+      createdAt: m.createdAt.toISOString(),
+      updatedAt: m.updatedAt.toISOString(),
+    }));
+  }
+
+  async addAssetMapping(clientId: string, goalId: string, advisorId: string, data: {
+    assetType: string; schemeCode?: string; schemeName?: string; folioNumber?: string;
+    assetName?: string; assetIdentifier?: string; allocationPct: number; currentValue?: number; notes?: string;
+  }) {
+    await this.verifyClientAccess(clientId, advisorId);
+    const goal = await this.prisma.userGoal.findUnique({ where: { id: goalId } });
+    if (!goal || goal.clientId !== clientId) throw new NotFoundException('Goal not found');
+
+    const mapping = await this.prisma.goalAssetMapping.create({
+      data: {
+        goalId,
+        assetType: data.assetType as any,
+        schemeCode: data.schemeCode || null,
+        schemeName: data.schemeName || null,
+        folioNumber: data.folioNumber || null,
+        assetName: data.assetName || null,
+        assetIdentifier: data.assetIdentifier || null,
+        allocationPct: data.allocationPct,
+        currentValue: data.currentValue ?? null,
+        notes: data.notes || null,
+      },
+    });
+
+    return {
+      id: mapping.id,
+      goalId: mapping.goalId,
+      assetType: mapping.assetType,
+      allocationPct: Number(mapping.allocationPct),
+      currentValue: mapping.currentValue ? Number(mapping.currentValue) : null,
+      createdAt: mapping.createdAt.toISOString(),
+    };
+  }
+
+  async updateAssetMapping(clientId: string, goalId: string, mappingId: string, advisorId: string, data: {
+    assetType?: string; schemeCode?: string; schemeName?: string; assetName?: string;
+    allocationPct?: number; currentValue?: number; notes?: string;
+  }) {
+    await this.verifyClientAccess(clientId, advisorId);
+
+    const mapping = await this.prisma.goalAssetMapping.findUnique({ where: { id: mappingId } });
+    if (!mapping || mapping.goalId !== goalId) throw new NotFoundException('Asset mapping not found');
+
+    const updateData: any = {};
+    if (data.assetType !== undefined) updateData.assetType = data.assetType;
+    if (data.schemeCode !== undefined) updateData.schemeCode = data.schemeCode;
+    if (data.schemeName !== undefined) updateData.schemeName = data.schemeName;
+    if (data.assetName !== undefined) updateData.assetName = data.assetName;
+    if (data.allocationPct !== undefined) updateData.allocationPct = data.allocationPct;
+    if (data.currentValue !== undefined) updateData.currentValue = data.currentValue;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+
+    const updated = await this.prisma.goalAssetMapping.update({
+      where: { id: mappingId },
+      data: updateData,
+    });
+
+    return {
+      id: updated.id,
+      goalId: updated.goalId,
+      assetType: updated.assetType,
+      allocationPct: Number(updated.allocationPct),
+      currentValue: updated.currentValue ? Number(updated.currentValue) : null,
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  }
+
+  async removeAssetMapping(clientId: string, goalId: string, mappingId: string, advisorId: string) {
+    await this.verifyClientAccess(clientId, advisorId);
+
+    const mapping = await this.prisma.goalAssetMapping.findUnique({ where: { id: mappingId } });
+    if (!mapping || mapping.goalId !== goalId) throw new NotFoundException('Asset mapping not found');
+
+    await this.prisma.goalAssetMapping.delete({ where: { id: mappingId } });
+    return { message: 'Asset mapping removed' };
+  }
+
+  async computeShortfall(clientId: string, goalId: string, advisorId: string) {
+    await this.verifyClientAccess(clientId, advisorId);
+
+    const goal = await this.prisma.userGoal.findUnique({
+      where: { id: goalId },
+      include: { client: true },
+    });
+    if (!goal || goal.clientId !== clientId) throw new NotFoundException('Goal not found');
+
+    const mappings = await this.prisma.goalAssetMapping.findMany({ where: { goalId } });
+
+    // For MF mappings, look up live value from FAHolding
+    let mappedValue = 0;
+    for (const m of mappings) {
+      if (m.assetType === 'MUTUAL_FUND' && m.schemeCode && m.folioNumber) {
+        const holding = await this.prisma.fAHolding.findFirst({
+          where: { clientId, fundSchemeCode: m.schemeCode, folioNumber: m.folioNumber },
+        });
+        if (holding) {
+          mappedValue += Number(holding.currentValue) * (Number(m.allocationPct) / 100);
+        }
+      } else if (m.currentValue) {
+        mappedValue += Number(m.currentValue) * (Number(m.allocationPct) / 100);
+      }
+    }
+
+    const targetAmount = Number(goal.targetAmount);
+    const shortfall = Math.max(0, targetAmount - mappedValue);
+    const shortfallPct = targetAmount > 0 ? Math.round((shortfall / targetAmount) * 10000) / 100 : 0;
+
+    // Year-by-year projections (simple growth at 10% p.a.)
+    const monthsToTarget = Math.max(0, Math.ceil(
+      (new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30),
+    ));
+    const yearsToTarget = Math.ceil(monthsToTarget / 12);
+    const growthRate = 0.10;
+
+    const projections: { year: number; projectedValue: number; targetValue: number }[] = [];
+    for (let y = 0; y <= yearsToTarget; y++) {
+      projections.push({
+        year: new Date().getFullYear() + y,
+        projectedValue: Math.round(mappedValue * Math.pow(1 + growthRate, y)),
+        targetValue: targetAmount,
+      });
+    }
+
+    return {
+      goalId,
+      goalName: goal.name,
+      targetAmount,
+      mappedValue: Math.round(mappedValue),
+      shortfall: Math.round(shortfall),
+      shortfallPct,
+      assetCount: mappings.length,
+      projections,
+    };
+  }
+
   // Get all goals across all clients for an advisor (for dashboard)
   async findAllByAdvisor(advisorId: string): Promise<GoalResponseDto[]> {
     const goals = await this.prisma.userGoal.findMany({

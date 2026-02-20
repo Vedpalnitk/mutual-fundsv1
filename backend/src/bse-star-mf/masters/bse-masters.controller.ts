@@ -1,12 +1,15 @@
 import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
+import { RolesGuard } from '../../common/guards/roles.guard'
+import { Roles } from '../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseMastersService } from './bse-masters.service'
 
 @ApiTags('BSE Masters')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('advisor', 'admin', 'fa_staff')
 @Controller('api/v1/bse')
 export class BseMastersController {
   constructor(private mastersService: BseMastersService) {}

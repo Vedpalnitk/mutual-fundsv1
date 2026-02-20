@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { GoalsService } from './goals.service';
 import { CreateGoalDto, UpdateGoalDto, AddContributionDto, GoalResponseDto } from './dto/goal.dto';
+import { AddGoalAssetMappingDto, UpdateGoalAssetMappingDto } from './dto/goal-asset.dto';
 
 /**
  * FA-specific goals controller
@@ -106,5 +107,63 @@ export class FAGoalsController {
     @Param('id') goalId: string,
   ) {
     return this.goalsService.getContributionsForClient(clientId, goalId, user.id);
+  }
+
+  // ============================================================
+  // Goal Asset Mapping (Multi-Asset Planning)
+  // ============================================================
+
+  @Get(':id/assets')
+  @ApiOperation({ summary: 'List asset mappings for a goal' })
+  async getAssetMappings(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('id') goalId: string,
+  ) {
+    return this.goalsService.getAssetMappings(clientId, goalId, user.id);
+  }
+
+  @Post(':id/assets')
+  @ApiOperation({ summary: 'Add an asset mapping to a goal' })
+  async addAssetMapping(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('id') goalId: string,
+    @Body() dto: AddGoalAssetMappingDto,
+  ) {
+    return this.goalsService.addAssetMapping(clientId, goalId, user.id, dto);
+  }
+
+  @Put(':id/assets/:mappingId')
+  @ApiOperation({ summary: 'Update an asset mapping' })
+  async updateAssetMapping(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('id') goalId: string,
+    @Param('mappingId') mappingId: string,
+    @Body() dto: UpdateGoalAssetMappingDto,
+  ) {
+    return this.goalsService.updateAssetMapping(clientId, goalId, mappingId, user.id, dto);
+  }
+
+  @Delete(':id/assets/:mappingId')
+  @ApiOperation({ summary: 'Remove an asset mapping' })
+  async removeAssetMapping(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('id') goalId: string,
+    @Param('mappingId') mappingId: string,
+  ) {
+    return this.goalsService.removeAssetMapping(clientId, goalId, mappingId, user.id);
+  }
+
+  @Get(':id/shortfall')
+  @ApiOperation({ summary: 'Compute shortfall and year-by-year projection' })
+  async getShortfall(
+    @CurrentUser() user: any,
+    @Param('clientId') clientId: string,
+    @Param('id') goalId: string,
+  ) {
+    return this.goalsService.computeShortfall(clientId, goalId, user.id);
   }
 }

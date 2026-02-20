@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Param, Query, UseGuards } from '@nestjs/common'
+import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard'
 import { StaffPageGuard, RequiredPage } from '../common/guards/staff-page.guard'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { getEffectiveAdvisorId } from '../common/utils/effective-advisor'
 import { AdvisorDashboardService } from './advisor-dashboard.service'
+import { ExecuteRebalanceDto } from './dto/execute-rebalance.dto'
 
 @ApiTags('advisor-dashboard')
 @ApiBearerAuth()
@@ -54,6 +55,13 @@ export class AdvisorDashboardController {
   @ApiResponse({ status: 200, description: 'Churn risk data returned successfully' })
   async getChurnRisk(@CurrentUser() user: any) {
     return this.dashboardService.getChurnRisk(getEffectiveAdvisorId(user))
+  }
+
+  @Post('rebalancing/execute')
+  @ApiOperation({ summary: 'Execute rebalancing actions via BSE/NSE' })
+  @ApiResponse({ status: 200, description: 'Rebalancing execution results' })
+  async executeRebalancing(@CurrentUser() user: any, @Body() dto: ExecuteRebalanceDto) {
+    return this.dashboardService.executeRebalancing(getEffectiveAdvisorId(user), dto)
   }
 
   @Get('action-calendar')

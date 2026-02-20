@@ -9,6 +9,7 @@ import { BseMockService } from '../mocks/bse-mock.service'
 import { BSE_ENDPOINTS, BSE_TIMEOUTS } from '../core/bse-config'
 import { BseOrderStatus, BsePaymentMode, BsePaymentStatus } from '@prisma/client'
 import { InitiatePaymentDto, PaymentMode } from './dto/initiate-payment.dto'
+import { AuditLogService } from '../../common/services/audit-log.service'
 
 @Injectable()
 export class BsePaymentService {
@@ -23,6 +24,7 @@ export class BsePaymentService {
     private authService: BseAuthService,
     private mockService: BseMockService,
     private config: ConfigService,
+    private auditLogService: AuditLogService,
   ) {
     this.isMockMode = this.config.get<boolean>('bse.mockMode') === true
   }
@@ -74,7 +76,17 @@ export class BsePaymentService {
 
     try {
       if (this.isMockMode) {
-        return this.handleMockPaymentResponse(payment.id, order.id, order.bseOrderNumber)
+        const mockResult = await this.handleMockPaymentResponse(payment.id, order.id, order.bseOrderNumber)
+
+        this.auditLogService.log({
+          userId: advisorId,
+          action: 'PAYMENT',
+          entityType: 'BsePayment',
+          entityId: payment.id,
+          details: { orderId: order.id, paymentMode: dto.paymentMode, amount },
+        })
+
+        return mockResult
       }
 
       const token = await this.authService.getOrderEntryToken(advisorId)
@@ -127,6 +139,14 @@ export class BsePaymentService {
       })
 
       this.errorMapper.throwIfError(result)
+
+      this.auditLogService.log({
+        userId: advisorId,
+        action: 'PAYMENT',
+        entityType: 'BsePayment',
+        entityId: payment.id,
+        details: { orderId: order.id, paymentMode: dto.paymentMode, amount },
+      })
 
       return {
         id: updatedPayment.id,

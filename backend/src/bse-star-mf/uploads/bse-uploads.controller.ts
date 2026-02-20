@@ -2,12 +2,15 @@ import { Controller, Post, Body, UseGuards, UseInterceptors, UploadedFile } from
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
+import { RolesGuard } from '../../common/guards/roles.guard'
+import { Roles } from '../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseUploadService } from './bse-upload.service'
 
 @ApiTags('BSE Uploads')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('advisor', 'admin', 'fa_staff')
 @Controller('api/v1/bse/uploads')
 export class BseUploadsController {
   constructor(private uploadService: BseUploadService) {}

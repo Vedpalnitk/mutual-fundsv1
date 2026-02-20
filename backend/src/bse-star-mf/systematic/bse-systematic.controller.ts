@@ -1,6 +1,8 @@
 import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
+import { RolesGuard } from '../../common/guards/roles.guard'
+import { Roles } from '../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseSipService } from './bse-sip.service'
 import { BseXsipService } from './bse-xsip.service'
@@ -11,7 +13,8 @@ import { PrismaService } from '../../prisma/prisma.service'
 
 @ApiTags('BSE Systematic Plans')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('advisor', 'admin', 'fa_staff')
 @Controller('api/v1/bse/systematic')
 export class BseSystematicController {
   constructor(

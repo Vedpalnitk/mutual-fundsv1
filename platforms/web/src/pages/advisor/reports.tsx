@@ -10,7 +10,7 @@ import { useRouter } from 'next/router'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
 import { useFATheme, formatCurrency, formatDate } from '@/utils/fa'
 import { Report, ReportType, ReportFormat, ReportFrequency, ScheduledReport, SavedAnalysisSummary } from '@/utils/faTypes'
-import { savedAnalysisApi } from '@/services/api'
+import { savedAnalysisApi, clientsApi, faTaxApi } from '@/services/api'
 import {
   FACard,
   FAStatCard,
@@ -38,15 +38,16 @@ const REPORT_TYPES: { id: ReportType; name: string; description: string; icon: s
   { id: 'goal-report', name: 'Goal Progress Report', description: 'Track progress towards financial goals', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', pastel: 'pastelPink', iconColor: '#DB2777' },
 ]
 
-// Mock clients
-const MOCK_CLIENTS = [
-  { id: 'c1', name: 'Rajesh Sharma', email: 'rajesh.sharma@email.com' },
-  { id: 'c2', name: 'Priya Patel', email: 'priya.patel@email.com' },
-  { id: 'c3', name: 'Amit Kumar', email: 'amit.kumar@email.com' },
-  { id: 'c4', name: 'Sneha Gupta', email: 'sneha.gupta@email.com' },
-  { id: 'c5', name: 'Vikram Singh', email: 'vikram.singh@email.com' },
-  { id: 'all', name: 'All Clients (Batch)', email: '' },
-]
+// FY options for capital gains
+const FY_OPTIONS = (() => {
+  const now = new Date()
+  const currentYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
+  return [
+    `${currentYear}-${(currentYear + 1).toString().slice(-2)}`,
+    `${currentYear - 1}-${currentYear.toString().slice(-2)}`,
+    `${currentYear - 2}-${(currentYear - 1).toString().slice(-2)}`,
+  ]
+})()
 
 // Mock generated reports
 const MOCK_REPORTS: Report[] = [
@@ -77,6 +78,29 @@ const ReportsPage = () => {
   const [isGenerating, setIsGenerating] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [generatedReport, setGeneratedReport] = useState<Report | null>(null)
+
+  // Real client data
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([])
+  const [loadingClients, setLoadingClients] = useState(true)
+
+  // Capital gains state
+  const [selectedFy, setSelectedFy] = useState(FY_OPTIONS[0])
+  const [capitalGainsData, setCapitalGainsData] = useState<any>(null)
+  const [loadingGains, setLoadingGains] = useState(false)
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const res = await clientsApi.list<{ id: string; name: string }>({})
+        setClients(res.data || [])
+      } catch {
+        setClients([])
+      } finally {
+        setLoadingClients(false)
+      }
+    }
+    fetchClients()
+  }, [])
 
   // Scheduled reports state
   const [scheduledReports, setScheduledReports] = useState<ScheduledReport[]>(MOCK_SCHEDULED)
@@ -152,10 +176,37 @@ const ReportsPage = () => {
 
     setIsGenerating(true)
 
-    // Simulate report generation
-    await new Promise(resolve => setTimeout(resolve, 2500))
+    const clientName = clients.find(c => c.id === selectedClient)?.name || 'Unknown'
 
-    const clientName = MOCK_CLIENTS.find(c => c.id === selectedClient)?.name || 'Unknown'
+    // Capital gains report — fetch real data
+    if (selectedReport === 'capital-gains') {
+      setLoadingGains(true)
+      try {
+        const data = await faTaxApi.getCapitalGains(selectedClient, selectedFy)
+        setCapitalGainsData(data)
+        const newReport: Report = {
+          id: `r${Date.now()}`,
+          name: `Capital Gains ${selectedFy} - ${clientName}`,
+          type: selectedReport,
+          client: clientName,
+          clientId: selectedClient,
+          generatedAt: new Date().toISOString(),
+          size: '-',
+          format: selectedFormat,
+        }
+        setGeneratedReport(newReport)
+        setShowPreview(true)
+      } catch {
+        alert('Failed to generate capital gains report')
+      } finally {
+        setLoadingGains(false)
+        setIsGenerating(false)
+      }
+      return
+    }
+
+    // Other report types — mock
+    await new Promise(resolve => setTimeout(resolve, 2500))
     const newReport: Report = {
       id: `r${Date.now()}`,
       name: `${getReportName(selectedReport)} - ${clientName}`,
@@ -170,6 +221,12 @@ const ReportsPage = () => {
     setGeneratedReport(newReport)
     setIsGenerating(false)
     setShowPreview(true)
+  }
+
+  const handleDownloadCsv = () => {
+    if (!selectedClient) return
+    const csvUrl = faTaxApi.downloadCsv(selectedClient, selectedFy)
+    window.open(csvUrl, '_blank')
   }
 
   const openScheduleModal = (report?: ScheduledReport) => {
@@ -345,73 +402,179 @@ const ReportsPage = () => {
                 </div>
               </div>
 
-              {/* Mock Summary Section */}
+              {/* Summary Section */}
               <div className="mb-8">
                 <h2 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: colors.primary }}>
                   Summary
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[
-                    { label: 'Total Invested', value: formatCurrency(1500000) },
-                    { label: 'Current Value', value: formatCurrency(1850000) },
-                    { label: 'Total Returns', value: formatCurrency(350000) },
-                    { label: 'XIRR', value: '15.6%' },
-                  ].map((item, i) => (
-                    <div
-                      key={i}
-                      className="p-4 rounded-xl"
-                      style={{ background: colors.chipBg }}
-                    >
-                      <p className="text-xs" style={{ color: colors.textTertiary }}>{item.label}</p>
-                      <p className="text-lg font-bold mt-1" style={{ color: colors.textPrimary }}>{item.value}</p>
-                    </div>
-                  ))}
-                </div>
+                {generatedReport.type === 'capital-gains' && capitalGainsData ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      { label: 'Total LTCG', value: formatCurrency(capitalGainsData.totalLtcg || 0), color: colors.success },
+                      { label: 'Total STCG', value: formatCurrency(capitalGainsData.totalStcg || 0), color: colors.warning },
+                      { label: 'LTCG Tax Est.', value: formatCurrency(capitalGainsData.ltcgTaxEstimate || 0), color: colors.error },
+                      { label: 'STCG Tax Est.', value: formatCurrency(capitalGainsData.stcgTaxEstimate || 0), color: colors.error },
+                    ].map((item, i) => (
+                      <div key={i} className="p-4 rounded-xl" style={{ background: `${item.color}08`, border: `1px solid ${item.color}20` }}>
+                        <p className="text-xs" style={{ color: colors.textTertiary }}>{item.label}</p>
+                        <p className="text-lg font-bold mt-1" style={{ color: item.color }}>{item.value}</p>
+                      </div>
+                    ))}
+                    {capitalGainsData.ltcgExemptionUsed > 0 && (
+                      <div className="col-span-full p-3 rounded-xl" style={{ background: `${colors.primary}06`, border: `1px solid ${colors.primary}15` }}>
+                        <p className="text-xs" style={{ color: colors.textSecondary }}>
+                          LTCG Exemption Used (Section 112A): {formatCurrency(capitalGainsData.ltcgExemptionUsed)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      { label: 'Total Invested', value: formatCurrency(1500000) },
+                      { label: 'Current Value', value: formatCurrency(1850000) },
+                      { label: 'Total Returns', value: formatCurrency(350000) },
+                      { label: 'XIRR', value: '15.6%' },
+                    ].map((item, i) => (
+                      <div key={i} className="p-4 rounded-xl" style={{ background: colors.chipBg }}>
+                        <p className="text-xs" style={{ color: colors.textTertiary }}>{item.label}</p>
+                        <p className="text-lg font-bold mt-1" style={{ color: colors.textPrimary }}>{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Mock Table */}
+              {/* Data Table */}
               <div>
-                <h2 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: colors.primary }}>
-                  Holdings
-                </h2>
-                <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr style={{
-                      background: isDark
-                        ? `linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)`
-                        : `linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)`,
-                      borderBottom: `1px solid ${colors.cardBorder}`,
-                    }}>
-                      <th className="text-left px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Fund Name</th>
-                      <th className="text-right px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Invested</th>
-                      <th className="text-right px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Current</th>
-                      <th className="text-right px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Returns</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[
-                      { fund: 'HDFC Flexi Cap Fund', invested: 500000, current: 625000, returns: 25.0 },
-                      { fund: 'ICICI Prudential Bluechip', invested: 400000, current: 468000, returns: 17.0 },
-                      { fund: 'Axis Long Term Equity', invested: 300000, current: 378000, returns: 26.0 },
-                      { fund: 'SBI Corporate Bond', invested: 300000, current: 324000, returns: 8.0 },
-                    ].map((row, i) => (
-                      <tr key={i} style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
-                        <td className="p-3 text-sm" style={{ color: colors.textPrimary }}>{row.fund}</td>
-                        <td className="p-3 text-sm text-right" style={{ color: colors.textSecondary }}>
-                          {formatCurrency(row.invested)}
-                        </td>
-                        <td className="p-3 text-sm text-right" style={{ color: colors.textPrimary }}>
-                          {formatCurrency(row.current)}
-                        </td>
-                        <td className="p-3 text-sm text-right font-medium" style={{ color: colors.success }}>
-                          +{row.returns}%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
+                {generatedReport.type === 'capital-gains' && capitalGainsData ? (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>
+                        Capital Gains — FY {capitalGainsData.financialYear}
+                      </h2>
+                      <button
+                        onClick={handleDownloadCsv}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all hover:shadow-md"
+                        style={{ background: colors.chipBg, color: colors.primary, border: `1px solid ${colors.cardBorder}` }}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download CSV
+                      </button>
+                    </div>
+                    {/* LTCG Section */}
+                    {capitalGainsData.rows?.filter((r: any) => r.gainType === 'LTCG').length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-xs font-semibold mb-2 px-1" style={{ color: colors.success }}>LONG TERM CAPITAL GAINS</p>
+                        <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr style={{ background: `${colors.success}06`, borderBottom: `1px solid ${colors.cardBorder}` }}>
+                              <th className="text-left px-3 py-2 text-xs font-semibold" style={{ color: colors.success }}>Fund</th>
+                              <th className="text-right px-3 py-2 text-xs font-semibold" style={{ color: colors.success }}>Purchase</th>
+                              <th className="text-right px-3 py-2 text-xs font-semibold" style={{ color: colors.success }}>Sale</th>
+                              <th className="text-right px-3 py-2 text-xs font-semibold" style={{ color: colors.success }}>Gain</th>
+                              <th className="text-right px-3 py-2 text-xs font-semibold" style={{ color: colors.success }}>Tax Est.</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {capitalGainsData.rows.filter((r: any) => r.gainType === 'LTCG').map((row: any, i: number) => (
+                              <tr key={i} style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
+                                <td className="p-3 text-sm" style={{ color: colors.textPrimary }}>{row.fundName}</td>
+                                <td className="p-3 text-sm text-right" style={{ color: colors.textSecondary }}>{formatCurrency(row.purchaseValue)}</td>
+                                <td className="p-3 text-sm text-right" style={{ color: colors.textSecondary }}>{formatCurrency(row.saleValue)}</td>
+                                <td className="p-3 text-sm text-right font-medium" style={{ color: row.taxableGain >= 0 ? colors.success : colors.error }}>{formatCurrency(row.taxableGain)}</td>
+                                <td className="p-3 text-sm text-right" style={{ color: colors.error }}>{formatCurrency(row.estimatedTax)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        </div>
+                      </div>
+                    )}
+                    {/* STCG Section */}
+                    {capitalGainsData.rows?.filter((r: any) => r.gainType === 'STCG').length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold mb-2 px-1" style={{ color: colors.warning }}>SHORT TERM CAPITAL GAINS</p>
+                        <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr style={{ background: `${colors.warning}06`, borderBottom: `1px solid ${colors.cardBorder}` }}>
+                              <th className="text-left px-3 py-2 text-xs font-semibold" style={{ color: colors.warning }}>Fund</th>
+                              <th className="text-right px-3 py-2 text-xs font-semibold" style={{ color: colors.warning }}>Purchase</th>
+                              <th className="text-right px-3 py-2 text-xs font-semibold" style={{ color: colors.warning }}>Sale</th>
+                              <th className="text-right px-3 py-2 text-xs font-semibold" style={{ color: colors.warning }}>Gain</th>
+                              <th className="text-right px-3 py-2 text-xs font-semibold" style={{ color: colors.warning }}>Tax Est.</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {capitalGainsData.rows.filter((r: any) => r.gainType === 'STCG').map((row: any, i: number) => (
+                              <tr key={i} style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
+                                <td className="p-3 text-sm" style={{ color: colors.textPrimary }}>{row.fundName}</td>
+                                <td className="p-3 text-sm text-right" style={{ color: colors.textSecondary }}>{formatCurrency(row.purchaseValue)}</td>
+                                <td className="p-3 text-sm text-right" style={{ color: colors.textSecondary }}>{formatCurrency(row.saleValue)}</td>
+                                <td className="p-3 text-sm text-right font-medium" style={{ color: row.taxableGain >= 0 ? colors.success : colors.error }}>{formatCurrency(row.taxableGain)}</td>
+                                <td className="p-3 text-sm text-right" style={{ color: colors.error }}>{formatCurrency(row.estimatedTax)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        </div>
+                      </div>
+                    )}
+                    {(!capitalGainsData.rows || capitalGainsData.rows.length === 0) && (
+                      <div className="text-center py-8">
+                        <p className="text-sm" style={{ color: colors.textTertiary }}>No capital gains transactions found for FY {capitalGainsData.financialYear}</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: colors.primary }}>
+                      Holdings
+                    </h2>
+                    <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr style={{
+                          background: isDark
+                            ? `linear-gradient(135deg, rgba(147,197,253,0.06) 0%, rgba(125,211,252,0.03) 100%)`
+                            : `linear-gradient(135deg, rgba(59,130,246,0.05) 0%, rgba(56,189,248,0.02) 100%)`,
+                          borderBottom: `1px solid ${colors.cardBorder}`,
+                        }}>
+                          <th className="text-left px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Fund Name</th>
+                          <th className="text-right px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Invested</th>
+                          <th className="text-right px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Current</th>
+                          <th className="text-right px-3 py-2.5 text-xs font-semibold" style={{ color: colors.primary }}>Returns</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { fund: 'HDFC Flexi Cap Fund', invested: 500000, current: 625000, returns: 25.0 },
+                          { fund: 'ICICI Prudential Bluechip', invested: 400000, current: 468000, returns: 17.0 },
+                          { fund: 'Axis Long Term Equity', invested: 300000, current: 378000, returns: 26.0 },
+                          { fund: 'SBI Corporate Bond', invested: 300000, current: 324000, returns: 8.0 },
+                        ].map((row, i) => (
+                          <tr key={i} style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
+                            <td className="p-3 text-sm" style={{ color: colors.textPrimary }}>{row.fund}</td>
+                            <td className="p-3 text-sm text-right" style={{ color: colors.textSecondary }}>
+                              {formatCurrency(row.invested)}
+                            </td>
+                            <td className="p-3 text-sm text-right" style={{ color: colors.textPrimary }}>
+                              {formatCurrency(row.current)}
+                            </td>
+                            <td className="p-3 text-sm text-right font-medium" style={{ color: colors.success }}>
+                              +{row.returns}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Mock Footer */}
@@ -508,8 +671,8 @@ const ReportsPage = () => {
                   <FASelect
                     label="Client"
                     options={[
-                      { value: '', label: 'Select client...' },
-                      ...MOCK_CLIENTS.map(c => ({ value: c.id, label: c.name })),
+                      { value: '', label: loadingClients ? 'Loading...' : 'Select client...' },
+                      ...clients.map(c => ({ value: c.id, label: c.name })),
                     ]}
                     value={selectedClient}
                     onChange={(e) => setSelectedClient(e.target.value)}
@@ -561,6 +724,17 @@ const ReportsPage = () => {
                     ))}
                   </div>
                 </div>
+
+                {selectedReport === 'capital-gains' && (
+                  <div className="mt-4">
+                    <FASelect
+                      label="Financial Year"
+                      options={FY_OPTIONS.map(fy => ({ value: fy, label: `FY ${fy}` }))}
+                      value={selectedFy}
+                      onChange={(e) => setSelectedFy(e.target.value)}
+                    />
+                  </div>
+                )}
 
                 <div className="mt-6 flex gap-3">
                   <FAButton
@@ -1045,7 +1219,7 @@ const ReportsPage = () => {
                   <FASelect
                     options={[
                       { value: 'all', label: 'All Clients' },
-                      ...MOCK_CLIENTS.filter(c => c.id !== 'all').map(c => ({ value: c.id, label: c.name })),
+                      ...clients.map(c => ({ value: c.id, label: c.name })),
                     ]}
                     value={scheduleForm.clients === 'all' ? 'all' : 'selected'}
                     onChange={(e) => setScheduleForm(f => ({ ...f, clients: e.target.value === 'all' ? 'all' : [e.target.value] }))}

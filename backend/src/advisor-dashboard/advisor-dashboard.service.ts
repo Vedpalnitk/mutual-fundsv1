@@ -849,12 +849,14 @@ export class AdvisorDashboardService {
                 action: a.action,
                 priority: a.priority,
                 schemeName: a.scheme_name,
+                schemeCode: String(a.scheme_code || ''),
                 assetClass: a.asset_class,
                 currentValue: a.current_value,
                 targetValue: a.target_value,
                 transactionAmount: a.transaction_amount,
                 taxStatus: a.tax_status,
                 reason: a.reason,
+                folioNumber: (a as any).folio_number || '',
               })),
               totalSellAmount: rebalancingResult.value.summary.total_sell_amount,
               totalBuyAmount: rebalancingResult.value.summary.total_buy_amount,
@@ -1346,6 +1348,130 @@ export class AdvisorDashboardService {
   // ============================================================
   // Helpers
   // ============================================================
+
+  // ============================================================
+  // Execute Rebalancing — places orders via BSE/NSE
+  // ============================================================
+
+  async executeRebalancing(advisorId: string, dto: { clientId: string; actions: any[]; exchange: 'BSE' | 'NSE'; analysisId?: string }) {
+    // Verify client ownership
+    const client = await this.prisma.fAClient.findFirst({
+      where: { id: dto.clientId, advisorId },
+    })
+    if (!client) {
+      throw new Error('Client not found or access denied')
+    }
+
+    const results: { actionIndex: number; success: boolean; orderId?: string; error?: string }[] = []
+    let successCount = 0
+    let failedCount = 0
+
+    // Group SELL+BUY pairs in same asset class as SWITCH orders
+    const sells = dto.actions.filter(a => a.action === 'SELL')
+    const buys = dto.actions.filter(a => a.action === 'BUY' || a.action === 'ADD_NEW')
+    const switchPairs: { sell: any; buy: any }[] = []
+    const standaloneSells: any[] = []
+    const standaloneBuys: any[] = []
+
+    const usedBuyIndices = new Set<number>()
+    for (const sell of sells) {
+      const buyIdx = buys.findIndex((b, i) =>
+        !usedBuyIndices.has(i) && b.assetClass === sell.assetClass,
+      )
+      if (buyIdx >= 0) {
+        usedBuyIndices.add(buyIdx)
+        switchPairs.push({ sell, buy: buys[buyIdx] })
+      } else {
+        standaloneSells.push(sell)
+      }
+    }
+    for (let i = 0; i < buys.length; i++) {
+      if (!usedBuyIndices.has(i)) standaloneBuys.push(buys[i])
+    }
+
+    // Execute sequentially to avoid race conditions
+    let actionIdx = 0
+
+    // 1. Execute SWITCH pairs
+    for (const pair of switchPairs) {
+      try {
+        const order = await this.prisma.bseOrder.create({
+          data: {
+            clientId: dto.clientId,
+            advisorId,
+            orderType: 'SWITCH',
+            status: 'CREATED',
+            transCode: 'NEW',
+            schemeCode: pair.sell.schemeCode,
+            switchSchemeCode: pair.buy.schemeCode,
+            buySell: 'P',
+            amount: pair.sell.transactionAmount,
+            folioNumber: pair.sell.folioNumber || null,
+            referenceNumber: `RBL-${Date.now()}-${actionIdx}`,
+          },
+        })
+        results.push({ actionIndex: actionIdx, success: true, orderId: order.id })
+        successCount++
+      } catch (err: any) {
+        results.push({ actionIndex: actionIdx, success: false, error: err.message })
+        failedCount++
+      }
+      actionIdx++
+    }
+
+    // 2. Execute standalone SELLs (redemptions)
+    for (const sell of standaloneSells) {
+      try {
+        const order = await this.prisma.bseOrder.create({
+          data: {
+            clientId: dto.clientId,
+            advisorId,
+            orderType: 'REDEMPTION',
+            status: 'CREATED',
+            transCode: 'NEW',
+            schemeCode: sell.schemeCode,
+            buySell: 'R',
+            amount: sell.transactionAmount,
+            folioNumber: sell.folioNumber || null,
+            referenceNumber: `RBL-${Date.now()}-${actionIdx}`,
+          },
+        })
+        results.push({ actionIndex: actionIdx, success: true, orderId: order.id })
+        successCount++
+      } catch (err: any) {
+        results.push({ actionIndex: actionIdx, success: false, error: err.message })
+        failedCount++
+      }
+      actionIdx++
+    }
+
+    // 3. Execute standalone BUYs (purchases)
+    for (const buy of standaloneBuys) {
+      try {
+        const order = await this.prisma.bseOrder.create({
+          data: {
+            clientId: dto.clientId,
+            advisorId,
+            orderType: 'PURCHASE',
+            status: 'CREATED',
+            transCode: 'NEW',
+            schemeCode: buy.schemeCode,
+            buySell: 'P',
+            amount: buy.transactionAmount,
+            referenceNumber: `RBL-${Date.now()}-${actionIdx}`,
+          },
+        })
+        results.push({ actionIndex: actionIdx, success: true, orderId: order.id })
+        successCount++
+      } catch (err: any) {
+        results.push({ actionIndex: actionIdx, success: false, error: err.message })
+        failedCount++
+      }
+      actionIdx++
+    }
+
+    return { results, successCount, failedCount, totalActions: dto.actions.length }
+  }
 
   private formatLastActive(date: Date | null): string {
     if (!date) return 'Never'

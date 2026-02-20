@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config'
 import { BSE_ENDPOINTS, BSE_SOAP_ACTIONS } from '../core/bse-config'
 import { RegisterMandateDto, ShiftMandateDto } from './dto/register-mandate.dto'
 import { BseMandateStatus, BseMandateType } from '@prisma/client'
+import { PanCryptoService } from '../../common/services/pan-crypto.service'
 
 @Injectable()
 export class BseMandateService {
@@ -25,6 +26,7 @@ export class BseMandateService {
     private credentialsService: BseCredentialsService,
     private mockService: BseMockService,
     private config: ConfigService,
+    private panCrypto: PanCryptoService,
   ) {
     this.isMockMode = this.config.get<boolean>('bse.mockMode') === true
   }
@@ -403,7 +405,7 @@ export class BseMandateService {
         ? {
             id: m.client.id,
             name: m.client.name,
-            pan: m.client.pan,
+            pan: this.panCrypto.mask(m.client.pan),
             clientCode: m.client.bseUccRegistration?.clientCode,
           }
         : null,

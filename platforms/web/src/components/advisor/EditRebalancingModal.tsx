@@ -18,12 +18,14 @@ interface EditableAction {
   action: string
   priority: string
   schemeName: string
+  schemeCode: string
   assetClass: string
   currentValue?: number
   targetValue: number
   transactionAmount: number
   taxStatus?: string
   reason: string
+  folioNumber?: string
 }
 
 const ACTION_OPTIONS = [
@@ -60,6 +62,7 @@ const EditRebalancingModal = ({ data, onSave, onClose }: EditRebalancingModalPro
       action: 'BUY',
       priority: 'MEDIUM',
       schemeName: '',
+      schemeCode: '',
       assetClass: 'Equity',
       targetValue: 0,
       transactionAmount: 0,

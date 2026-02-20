@@ -45,24 +45,26 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Swagger documentation
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Sparrow Invest API')
-    .setDescription('AI-Based Investment Portfolio Backend API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addTag('auth', 'Authentication endpoints')
-    .addTag('admin/personas', 'Persona management (Admin)')
-    .addTag('admin/allocations', 'Allocation strategy management (Admin)')
-    .addTag('admin/models', 'ML model management (Admin)')
-    .build();
+  // Swagger documentation (disabled in production)
+  if (nodeEnv !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Sparrow Invest API')
+      .setDescription('AI-Based Investment Portfolio Backend API')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .addTag('auth', 'Authentication endpoints')
+      .addTag('admin/personas', 'Persona management (Admin)')
+      .addTag('admin/allocations', 'Allocation strategy management (Admin)')
+      .addTag('admin/models', 'ML model management (Admin)')
+      .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-  });
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+      },
+    });
+  }
 
   await app.listen(port);
 

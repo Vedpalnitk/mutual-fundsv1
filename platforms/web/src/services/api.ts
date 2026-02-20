@@ -1256,6 +1256,19 @@ export const sipsApi = {
 
   registerWithBse: (id: string) =>
     request<{ success: boolean; message: string; bseOrderId: string }>(`/api/v1/sips/${id}/register-bse`, { method: 'POST' }),
+
+  // SIP Analytics & Retry
+  retry: (id: string) =>
+    request<any>(`/api/v1/sips/${id}/retry`, { method: 'POST' }),
+
+  getMonthlyCollectionReport: (months?: number) =>
+    request<{ month: string; expected: number; actual: number }[]>(`/api/v1/sips/report/monthly-collection${months ? `?months=${months}` : ''}`),
+
+  getBookGrowth: () =>
+    request<{ month: string; newSips: number; totalAmount: number; cumulativeSips: number }[]>('/api/v1/sips/report/book-growth'),
+
+  getMandateExpiryAlerts: () =>
+    request<any[]>('/api/v1/sips/mandate-expiry-alerts'),
 };
 
 // ============= Goals API =============
@@ -1354,6 +1367,22 @@ export const goalsApi = {
 
   getContributions: (clientId: string, goalId: string) =>
     request<ContributionResponse[]>(`/api/v1/clients/${clientId}/goals/${goalId}/contributions`),
+
+  // Asset Mappings (Multi-Asset Planning)
+  getAssetMappings: (clientId: string, goalId: string) =>
+    request<any[]>(`/api/v1/clients/${clientId}/goals/${goalId}/assets`),
+
+  addAssetMapping: (clientId: string, goalId: string, data: any) =>
+    request<any>(`/api/v1/clients/${clientId}/goals/${goalId}/assets`, { method: 'POST', body: data }),
+
+  updateAssetMapping: (clientId: string, goalId: string, mappingId: string, data: any) =>
+    request<any>(`/api/v1/clients/${clientId}/goals/${goalId}/assets/${mappingId}`, { method: 'PUT', body: data }),
+
+  removeAssetMapping: (clientId: string, goalId: string, mappingId: string) =>
+    request<any>(`/api/v1/clients/${clientId}/goals/${goalId}/assets/${mappingId}`, { method: 'DELETE' }),
+
+  getShortfall: (clientId: string, goalId: string) =>
+    request<any>(`/api/v1/clients/${clientId}/goals/${goalId}/shortfall`),
 };
 
 // ============= Insurance API =============
@@ -1643,12 +1672,14 @@ export interface RebalancingRoadmap {
     action: string;
     priority: string;
     schemeName: string;
+    schemeCode: string;
     assetClass: string;
     currentValue?: number;
     targetValue: number;
     transactionAmount: number;
     taxStatus?: string;
     reason: string;
+    folioNumber?: string;
   }[];
   totalSellAmount: number;
   totalBuyAmount: number;
@@ -2610,6 +2641,8 @@ export const bseApi = {
       request<any>(`/api/v1/bse/orders/${id}`),
     cancel: (id: string) =>
       request<any>(`/api/v1/bse/orders/${id}/cancel`, { method: 'POST' }),
+    cob: (data: { clientId: string; schemeCode: string; folioNumber: string; allUnits?: boolean; units?: number; fromArn?: string; remarks?: string }) =>
+      request<any>('/api/v1/bse/orders/cob', { method: 'POST', body: data }),
   },
 
   // Payments
@@ -2665,4 +2698,198 @@ export const bseApi = {
     taxStatusCodes: () =>
       request<any>('/api/v1/bse/masters/tax-status'),
   },
+};
+
+// ============= NSE NMF API =============
+
+export const nmfApi = {
+  // Credentials
+  credentials: {
+    getStatus: () =>
+      request<any>('/api/v1/nmf/credentials'),
+    set: (data: { memberId: string; loginUserId: string; apiSecret: string; memberLicenseKey: string; ipWhitelist?: string }) =>
+      request<any>('/api/v1/nmf/credentials', { method: 'POST', body: data }),
+    test: () =>
+      request<{ success: boolean; message: string }>('/api/v1/nmf/credentials/test', { method: 'POST' }),
+  },
+
+  // UCC (Client Registration)
+  ucc: {
+    getStatus: (clientId: string) =>
+      request<any>(`/api/v1/nmf/ucc/${clientId}`),
+    register: (clientId: string, data: any) =>
+      request<any>(`/api/v1/nmf/ucc/${clientId}/register`, { method: 'POST', body: data }),
+    modify: (clientId: string, data: any) =>
+      request<any>(`/api/v1/nmf/ucc/${clientId}`, { method: 'PUT', body: data }),
+    uploadFatca: (clientId: string, data: any) =>
+      request<any>(`/api/v1/nmf/ucc/${clientId}/fatca`, { method: 'POST', body: data }),
+    initiateEkyc: (clientId: string) =>
+      request<any>(`/api/v1/nmf/ucc/${clientId}/ekyc`, { method: 'POST' }),
+  },
+
+  // Mandates
+  mandates: {
+    list: (params?: { clientId?: string; status?: string }) => {
+      const query = new URLSearchParams()
+      if (params?.clientId) query.set('clientId', params.clientId)
+      if (params?.status) query.set('status', params.status)
+      const qs = query.toString()
+      return request<any>(`/api/v1/nmf/mandates${qs ? `?${qs}` : ''}`)
+    },
+    create: (data: any) =>
+      request<any>('/api/v1/nmf/mandates', { method: 'POST', body: data }),
+    getOne: (id: string) =>
+      request<any>(`/api/v1/nmf/mandates/${id}`),
+    refreshStatus: (id: string) =>
+      request<any>(`/api/v1/nmf/mandates/${id}/refresh-status`, { method: 'POST' }),
+    uploadImage: (id: string, data: any) =>
+      request<any>(`/api/v1/nmf/mandates/${id}/upload-image`, { method: 'POST', body: data }),
+  },
+
+  // Orders
+  orders: {
+    list: (params?: { clientId?: string; status?: string; orderType?: string; page?: number; limit?: number }) => {
+      const query = new URLSearchParams()
+      if (params?.clientId) query.set('clientId', params.clientId)
+      if (params?.status) query.set('status', params.status)
+      if (params?.orderType) query.set('orderType', params.orderType)
+      if (params?.page) query.set('page', String(params.page))
+      if (params?.limit) query.set('limit', String(params.limit))
+      const qs = query.toString()
+      return request<any>(`/api/v1/nmf/orders${qs ? `?${qs}` : ''}`)
+    },
+    purchase: (data: any) =>
+      request<any>('/api/v1/nmf/orders/purchase', { method: 'POST', body: data }),
+    redeem: (data: any) =>
+      request<any>('/api/v1/nmf/orders/redeem', { method: 'POST', body: data }),
+    switchOrder: (data: any) =>
+      request<any>('/api/v1/nmf/orders/switch', { method: 'POST', body: data }),
+    getOne: (id: string) =>
+      request<any>(`/api/v1/nmf/orders/${id}`),
+    cancel: (id: string) =>
+      request<any>(`/api/v1/nmf/orders/${id}/cancel`, { method: 'POST' }),
+  },
+
+  // Payments
+  payments: {
+    initiate: (orderId: string, data: { paymentMode: string; bankCode?: string; vpa?: string; utrNo?: string; chequeNo?: string; chequeDate?: string; mandateId?: string }) =>
+      request<any>(`/api/v1/nmf/payments/${orderId}`, { method: 'POST', body: data }),
+    getStatus: (orderId: string) =>
+      request<any>(`/api/v1/nmf/payments/${orderId}/status`),
+    checkUpiStatus: (data: { orderId: string; vpa: string }) =>
+      request<any>('/api/v1/nmf/payments/upi-status', { method: 'POST', body: data }),
+  },
+
+  // Systematic Plans
+  systematic: {
+    registerSip: (data: any) =>
+      request<any>('/api/v1/nmf/systematic/sip', { method: 'POST', body: data }),
+    registerXsip: (data: any) =>
+      request<any>('/api/v1/nmf/systematic/xsip', { method: 'POST', body: data }),
+    registerStp: (data: any) =>
+      request<any>('/api/v1/nmf/systematic/stp', { method: 'POST', body: data }),
+    registerSwp: (data: any) =>
+      request<any>('/api/v1/nmf/systematic/swp', { method: 'POST', body: data }),
+    sipTopup: (data: any) =>
+      request<any>('/api/v1/nmf/systematic/sip-topup', { method: 'POST', body: data }),
+    cancel: (id: string) =>
+      request<any>(`/api/v1/nmf/systematic/${id}/cancel`, { method: 'POST' }),
+    pause: (id: string) =>
+      request<any>(`/api/v1/nmf/systematic/${id}/pause`, { method: 'POST' }),
+    resume: (id: string) =>
+      request<any>(`/api/v1/nmf/systematic/${id}/resume`, { method: 'POST' }),
+  },
+
+  // Reports
+  reports: {
+    orderStatus: (data: any) =>
+      request<any>('/api/v1/nmf/reports/order-status', { method: 'POST', body: data }),
+    allotment: (data: any) =>
+      request<any>('/api/v1/nmf/reports/allotment', { method: 'POST', body: data }),
+    orderLifecycle: (data: any) =>
+      request<any>('/api/v1/nmf/reports/order-lifecycle', { method: 'POST', body: data }),
+    mandateStatus: (data: any) =>
+      request<any>('/api/v1/nmf/reports/mandate-status', { method: 'POST', body: data }),
+    sipRegistration: (data: any) =>
+      request<any>('/api/v1/nmf/reports/sip-registration', { method: 'POST', body: data }),
+    schemeMaster: (data: any) =>
+      request<any>('/api/v1/nmf/reports/scheme-master', { method: 'POST', body: data }),
+    generic: (reportType: string, data: any) =>
+      request<any>(`/api/v1/nmf/reports/${reportType}`, { method: 'POST', body: data }),
+  },
+
+  // Uploads
+  uploads: {
+    aof: (data: any) =>
+      request<any>('/api/v1/nmf/uploads/aof', { method: 'POST', body: data }),
+    fatca: (data: any) =>
+      request<any>('/api/v1/nmf/uploads/fatca', { method: 'POST', body: data }),
+    mandate: (data: any) =>
+      request<any>('/api/v1/nmf/uploads/mandate', { method: 'POST', body: data }),
+    cancelCheque: (data: any) =>
+      request<any>('/api/v1/nmf/uploads/cancel-cheque', { method: 'POST', body: data }),
+    generic: (type: string, data: any) =>
+      request<any>(`/api/v1/nmf/uploads/${type}`, { method: 'POST', body: data }),
+  },
+
+  // Utilities
+  utilities: {
+    utrUpdate: (data: any) =>
+      request<any>('/api/v1/nmf/utilities/utr-update', { method: 'POST', body: data }),
+    shortUrl: (data: any) =>
+      request<any>('/api/v1/nmf/utilities/short-url', { method: 'POST', body: data }),
+    kycCheck: (data: { pan: string }) =>
+      request<any>('/api/v1/nmf/utilities/kyc-check', { method: 'POST', body: data }),
+    resendComm: (data: any) =>
+      request<any>('/api/v1/nmf/utilities/resend-comm', { method: 'POST', body: data }),
+    sipUmrnMapping: (data: any) =>
+      request<any>('/api/v1/nmf/utilities/sip-umrn', { method: 'POST', body: data }),
+  },
+};
+
+// ============= FA Tax API (Capital Gains) =============
+
+export const faTaxApi = {
+  getCapitalGains: (clientId: string, fy?: string) =>
+    request<any>(`/api/v1/clients/${clientId}/taxes/capital-gains${fy ? `?fy=${fy}` : ''}`),
+
+  getTaxSummary: (clientId: string, fy?: string) =>
+    request<any>(`/api/v1/clients/${clientId}/taxes/summary${fy ? `?fy=${fy}` : ''}`),
+
+  downloadCsv: (clientId: string, fy?: string) =>
+    `/api/v1/clients/${clientId}/taxes/capital-gains/csv${fy ? `?fy=${fy}` : ''}`,
+};
+
+// ============= Rebalancing Execution API =============
+
+export const rebalancingApi = {
+  execute: (data: {
+    clientId: string;
+    actions: { schemeCode: string; action: string; transactionAmount: number; toSchemeCode?: string; folioNumber?: string; schemeName: string; assetClass: string }[];
+    exchange: 'BSE' | 'NSE';
+    analysisId?: string;
+  }) =>
+    request<{ results: any[]; successCount: number; failedCount: number; totalActions: number }>(
+      '/api/v1/advisor/rebalancing/execute',
+      { method: 'POST', body: data },
+    ),
+};
+
+// ============= Marketing API =============
+
+export const marketingApi = {
+  listTemplates: () =>
+    request<{ id: string; category: string; name: string; description: string }[]>('/api/v1/marketing/templates'),
+
+  renderPreview: (templateId: string, customFields?: Record<string, string>) =>
+    request<{ html: string }>('/api/v1/marketing/preview', { method: 'POST', body: { templateId, customFields } }),
+
+  generateImageUrl: (templateId: string, customFields?: Record<string, string>) =>
+    '/api/v1/marketing/generate-image',
+
+  generateImage: (templateId: string, customFields?: Record<string, string>) =>
+    request<Blob>('/api/v1/marketing/generate-image', {
+      method: 'POST',
+      body: { templateId, customFields },
+    }),
 };

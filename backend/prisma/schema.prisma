@@ -685,9 +685,11 @@ model User {
   isActive     Boolean   @default(true)
   isVerified   Boolean   @default(false)
   role         String    @default("user")
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   profile            UserProfile?
   portfolioSnapshots UserPortfolioSnapshot[]
@@ -732,6 +734,9 @@ model User {
 
   // BSE StAR MF Relations
   bseCredential      BsePartnerCredential?
+
+  // NSE NMF Relations
+  nseCredential      NsePartnerCredential?
 
   // CAS Import Relations
   casImports         CASImport[]
@@ -941,6 +946,7 @@ model FAClient {
   tags            String[]    @default([])
   importantDates  Json?       @map("important_dates") // { anniversary: "2025-06-15", ... }
   lastActiveAt DateTime?      @map("last_active_at")
+  deletedAt    DateTime?      @map("deleted_at")
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
 
@@ -969,6 +975,11 @@ model FAClient {
   bseMandates        BseMandate[]
   bseOrders          BseOrder[]
 
+  // NSE NMF Relations
+  nseUccRegistration NseUccRegistration?
+  nseMandates        NseMandate[]
+  nseOrders          NseOrder[]
+
   // CAS Import Relations
   casImports         CASImport[]
 
@@ -989,8 +1000,9 @@ model FABankAccount {
   accountType   String  @default("Savings") @map("account_type") // Savings, Current
   isPrimary     Boolean @default(false) @map("is_primary")
   mandateStatus String? @map("mandate_status") // Active, Pending, Expired
+  deletedAt     DateTime? @map("deleted_at")
 
-  client FAClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client FAClient @relation(fields: [clientId], references: [id], onDelete: Restrict)
 
   @@map("fa_bank_accounts")
 }
@@ -1017,10 +1029,11 @@ model FAHolding {
   absoluteGainPct Decimal  @map("absolute_gain_pct") @db.Decimal(8, 4)
   xirr            Decimal? @db.Decimal(8, 4)
   lastTxnDate     DateTime @map("last_txn_date") @db.Date
+  deletedAt       DateTime? @map("deleted_at")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  client FAClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client FAClient @relation(fields: [clientId], references: [id], onDelete: Restrict)
 
   @@unique([clientId, folioNumber, fundSchemeCode])
   @@index([clientId])
@@ -1066,10 +1079,11 @@ model FATransaction {
   paymentMode    String?             @map("payment_mode") // Net Banking, UPI, NACH, Cheque
   remarks        String?
   sipId          String?             @map("sip_id") // Link to SIP if it's a SIP transaction
+  deletedAt      DateTime?           @map("deleted_at")
   createdAt      DateTime            @default(now()) @map("created_at")
   updatedAt      DateTime            @updatedAt @map("updated_at")
 
-  client FAClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client FAClient @relation(fields: [clientId], references: [id], onDelete: Restrict)
   sip    FASIP?   @relation(fields: [sipId], references: [id])
 
   @@index([clientId])
@@ -1121,10 +1135,11 @@ model FASIP {
   mandateId             String?        @map("mandate_id")
   stepUpPercent         Int?           @map("step_up_percent")
   stepUpFrequency       String?        @map("step_up_frequency") // Yearly, Half-Yearly
+  deletedAt             DateTime?      @map("deleted_at")
   createdAt             DateTime       @default(now()) @map("created_at")
   updatedAt             DateTime       @updatedAt @map("updated_at")
 
-  client       FAClient        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client       FAClient        @relation(fields: [clientId], references: [id], onDelete: Restrict)
   transactions FATransaction[]
 
   @@index([clientId])
@@ -1177,6 +1192,7 @@ model UserGoal {
   user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   client        FAClient?          @relation(fields: [clientId], references: [id])
   contributions GoalContribution[]
+  assetMappings GoalAssetMapping[]
 
   @@index([userId])
   @@index([clientId])
@@ -1197,6 +1213,43 @@ model GoalContribution {
 
   @@index([goalId])
   @@map("goal_contributions")
+}
+
+// =============================================
+// GOAL ASSET MAPPINGS (Multi-Asset Planning)
+// =============================================
+
+enum GoalAssetType {
+  MUTUAL_FUND
+  FIXED_DEPOSIT
+  INSURANCE_POLICY
+  REAL_ESTATE
+  GOLD
+  EQUITY_STOCKS
+  PPF
+  NPS
+  OTHER
+}
+
+model GoalAssetMapping {
+  id              String        @id @default(uuid())
+  goalId          String        @map("goal_id")
+  assetType       GoalAssetType
+  schemeCode      String?       @map("scheme_code")
+  schemeName      String?       @map("scheme_name")
+  folioNumber     String?       @map("folio_number")
+  assetName       String?       @map("asset_name")
+  assetIdentifier String?       @map("asset_identifier")
+  allocationPct   Decimal       @map("allocation_pct") @db.Decimal(5, 2)
+  currentValue    Decimal?      @map("current_value") @db.Decimal(14, 2)
+  notes           String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  goal UserGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+  @@map("goal_asset_mappings")
 }
 
 // =============================================
@@ -2057,12 +2110,14 @@ model ComplianceRecord {
 model AuditLog {
   id         String   @id @default(uuid())
   userId     String   @map("user_id")
-  action     String
-  entityType String   @map("entity_type")
+  action     String   // CREATE, UPDATE, DELETE, EXECUTE, CANCEL, PAYMENT, LOGIN, REGISTER
+  entityType String   @map("entity_type") // FATransaction, FASIP, BseOrder, NseOrder, BsePayment, NsePayment, User, etc.
   entityId   String?  @map("entity_id")
   oldValue   Json?    @map("old_value")
   newValue   Json?    @map("new_value")
+  details    Json?    // Structured audit data (old values, new values, metadata)
   ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
   createdAt  DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id])
@@ -2070,6 +2125,7 @@ model AuditLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@index([createdAt(sort: Desc)])
+  @@index([action])
   @@map("audit_logs")
 }
 
@@ -2118,6 +2174,7 @@ enum BseOrderType {
   SWP
   SWITCH
   SPREAD
+  COB
 }
 
 enum BseOrderStatus {
@@ -2201,10 +2258,11 @@ model BseUccRegistration {
   bseResponseCode String?      @map("bse_response_code")
   bseResponseMsg  String?      @map("bse_response_msg")
   submittedData   Json?        @map("submitted_data")
+  deletedAt       DateTime?    @map("deleted_at")
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
 
-  client FAClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client FAClient @relation(fields: [clientId], references: [id], onDelete: Restrict)
 
   @@index([advisorId])
   @@index([status])
@@ -2228,10 +2286,11 @@ model BseMandate {
   authUrl         String?         @map("auth_url")
   bseResponseCode String?         @map("bse_response_code")
   bseResponseMsg  String?         @map("bse_response_msg")
+  deletedAt       DateTime?       @map("deleted_at")
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  client FAClient  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client FAClient  @relation(fields: [clientId], references: [id], onDelete: Restrict)
   orders BseOrder[]
 
   @@index([clientId])
@@ -2277,10 +2336,11 @@ model BseOrder {
   bseResponseMsg    String?        @map("bse_response_msg")
   submittedAt       DateTime?      @map("submitted_at")
   allottedAt        DateTime?      @map("allotted_at")
+  deletedAt         DateTime?      @map("deleted_at")
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
 
-  client       FAClient       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client       FAClient       @relation(fields: [clientId], references: [id], onDelete: Restrict)
   mandate      BseMandate?    @relation(fields: [mandateId], references: [id])
   payment      BsePayment?
   childOrders  BseChildOrder[]
@@ -2307,6 +2367,7 @@ model BseChildOrder {
   status          String?
   bseResponseCode String?  @map("bse_response_code")
   bseResponseMsg  String?  @map("bse_response_msg")
+  deletedAt       DateTime? @map("deleted_at")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -2330,6 +2391,7 @@ model BsePayment {
   bseResponseCode String?          @map("bse_response_code")
   bseResponseMsg  String?          @map("bse_response_msg")
   paidAt          DateTime?        @map("paid_at")
+  deletedAt       DateTime?        @map("deleted_at")
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
@@ -2453,4 +2515,358 @@ model BseBankMaster {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("bse_bank_master")
+}
+
+// =============================================
+// NSE NMF (MFSS) INTEGRATION
+// =============================================
+
+enum NseUccStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  MODIFICATION_PENDING
+}
+
+enum NseMandateType {
+  ENACH
+  PHYSICAL
+}
+
+enum NseMandateStatus {
+  CREATED
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum NseOrderType {
+  PURCHASE
+  REDEMPTION
+  SWITCH
+}
+
+enum NseOrderStatus {
+  CREATED
+  SUBMITTED
+  TWO_FA_PENDING
+  AUTH_PENDING
+  PAYMENT_PENDING
+  PAYMENT_CONFIRMATION_PENDING
+  PENDING_FOR_RTA
+  VALIDATED_BY_RTA
+  ALLOTMENT_DONE
+  UNITS_TRANSFERRED
+  REJECTED
+  CANCELLED
+  FAILED
+}
+
+enum NsePaymentMode {
+  MANDATE
+  CHEQUE
+  UPI
+  NETBANKING
+  RTGS
+  NEFT
+}
+
+enum NsePaymentStatus {
+  INITIATED
+  PENDING
+  SUCCESS
+  FAILED
+  TIMEOUT
+}
+
+enum NseSystematicType {
+  SIP
+  XSIP
+  SIP_TOPUP
+  STP
+  SWP
+}
+
+enum NseSystematicStatus {
+  CREATED
+  SUBMITTED
+  REGISTERED
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+  FAILED
+}
+
+// NSE Partner Credentials (encrypted)
+model NsePartnerCredential {
+  id                String   @id @default(uuid())
+  userId            String   @unique @map("user_id")
+  memberId          String   @map("member_id")
+  loginUserId       String   @map("login_user_id")
+  apiSecretEnc      String   @map("api_secret_enc")
+  memberLicenseKeyEnc String @map("member_license_key_enc")
+  ivApiSecret       String   @map("iv_api_secret")
+  ivMemberLicenseKey String  @map("iv_member_license_key")
+  ipWhitelist       String[] @default([]) @map("ip_whitelist")
+  isActive          Boolean  @default(true) @map("is_active")
+  lastTestedAt      DateTime? @map("last_tested_at")
+  testStatus        String?  @map("test_status")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("nse_partner_credentials")
+}
+
+// NSE UCC (Client Code) Registration — 183 fields
+model NseUccRegistration {
+  id              String       @id @default(uuid())
+  clientId        String       @unique @map("client_id")
+  advisorId       String       @map("advisor_id")
+  clientCode      String?      @map("client_code")
+  status          NseUccStatus @default(DRAFT)
+  fatcaStatus     String?      @map("fatca_status")
+  ekycStatus      String?      @map("ekyc_status")
+  taxStatus       String?      @map("tax_status")
+  holdingNature   String?      @map("holding_nature")
+  occupationCode  String?      @map("occupation_code")
+  nseResponseCode String?      @map("nse_response_code")
+  nseResponseMsg  String?      @map("nse_response_msg")
+  submittedData   Json?        @map("submitted_data")
+  ekycLink        String?      @map("ekyc_link")
+  deletedAt       DateTime?    @map("deleted_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  client FAClient @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  @@index([advisorId])
+  @@index([status])
+  @@map("nse_ucc_registrations")
+}
+
+// NSE Mandate Records (eNACH + Physical)
+model NseMandate {
+  id              String           @id @default(uuid())
+  clientId        String           @map("client_id")
+  advisorId       String           @map("advisor_id")
+  nseMandateId    String?          @unique @map("nse_mandate_id")
+  mandateType     NseMandateType   @map("mandate_type")
+  status          NseMandateStatus @default(CREATED)
+  amount          Decimal          @db.Decimal(14, 2)
+  accountNo       String?          @map("account_no")
+  ifscCode        String?          @map("ifsc_code")
+  bankName        String?          @map("bank_name")
+  startDate       DateTime?        @map("start_date") @db.Date
+  endDate         DateTime?        @map("end_date") @db.Date
+  umrn            String?
+  authUrl         String?          @map("auth_url")
+  nseResponseCode String?          @map("nse_response_code")
+  nseResponseMsg  String?          @map("nse_response_msg")
+  deletedAt       DateTime?        @map("deleted_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  client FAClient    @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  orders NseOrder[]
+
+  @@index([clientId])
+  @@index([advisorId])
+  @@index([status])
+  @@map("nse_mandates")
+}
+
+// NSE Orders (Purchase, Redemption, Switch)
+model NseOrder {
+  id                String         @id @default(uuid())
+  clientId          String         @map("client_id")
+  advisorId         String         @map("advisor_id")
+  transactionId     String?        @map("transaction_id")
+  mandateId         String?        @map("mandate_id")
+  orderType         NseOrderType   @map("order_type")
+  status            NseOrderStatus @default(CREATED)
+  nseOrderId        String?        @unique @map("nse_order_id")
+  schemeCode        String?        @map("scheme_code")
+  schemeName        String?        @map("scheme_name")
+  amount            Decimal?       @db.Decimal(14, 2)
+  units             Decimal?       @db.Decimal(14, 4)
+  nav               Decimal?       @db.Decimal(14, 4)
+  allottedUnits     Decimal?       @map("allotted_units") @db.Decimal(14, 4)
+  allottedNav       Decimal?       @map("allotted_nav") @db.Decimal(14, 4)
+  allottedAmount    Decimal?       @map("allotted_amount") @db.Decimal(14, 2)
+  folioNumber       String?        @map("folio_number")
+  dematPhysical     String?        @map("demat_physical")
+  switchSchemeCode  String?        @map("switch_scheme_code")
+  switchSchemeName  String?        @map("switch_scheme_name")
+  nseResponseCode   String?        @map("nse_response_code")
+  nseResponseMsg    String?        @map("nse_response_msg")
+  submittedAt       DateTime?      @map("submitted_at")
+  allottedAt        DateTime?      @map("allotted_at")
+  deletedAt         DateTime?      @map("deleted_at")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  client       FAClient       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  mandate      NseMandate?    @relation(fields: [mandateId], references: [id])
+  payment      NsePayment?
+  childOrders  NseChildOrder[]
+
+  @@index([clientId])
+  @@index([advisorId])
+  @@index([status])
+  @@index([orderType])
+  @@index([transactionId])
+  @@map("nse_orders")
+}
+
+// NSE Child Order (SIP/XSIP installment records)
+model NseChildOrder {
+  id              String   @id @default(uuid())
+  orderId         String   @map("order_id")
+  registrationId  String?  @map("registration_id")
+  installmentNo   Int      @map("installment_no")
+  orderDate       DateTime @map("order_date") @db.Date
+  orderNumber     String?  @map("order_number")
+  amount          Decimal? @db.Decimal(14, 2)
+  units           Decimal? @db.Decimal(14, 4)
+  nav             Decimal? @db.Decimal(14, 4)
+  status          String?
+  nseResponseCode String?  @map("nse_response_code")
+  nseResponseMsg  String?  @map("nse_response_msg")
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  order NseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, installmentNo])
+  @@index([orderId])
+  @@index([registrationId])
+  @@map("nse_child_orders")
+}
+
+// NSE Payment Records
+model NsePayment {
+  id              String           @id @default(uuid())
+  orderId         String           @unique @map("order_id")
+  paymentMode     NsePaymentMode   @map("payment_mode")
+  status          NsePaymentStatus @default(INITIATED)
+  amount          Decimal          @db.Decimal(14, 2)
+  bankCode        String?          @map("bank_code")
+  vpa             String?
+  utrNo           String?          @map("utr_no")
+  chequeNo        String?          @map("cheque_no")
+  chequeDate      DateTime?        @map("cheque_date") @db.Date
+  callbackUrl     String?          @map("callback_url")
+  transactionRef  String?          @map("transaction_ref")
+  nseResponseCode String?          @map("nse_response_code")
+  nseResponseMsg  String?          @map("nse_response_msg")
+  paidAt          DateTime?        @map("paid_at")
+  deletedAt       DateTime?        @map("deleted_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  order NseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("nse_payments")
+}
+
+// NSE Systematic Plan Registrations (SIP/XSIP/STP/SWP)
+model NseSystematicRegistration {
+  id                String              @id @default(uuid())
+  clientId          String              @map("client_id")
+  advisorId         String              @map("advisor_id")
+  sipId             String?             @map("sip_id")
+  mandateId         String?             @map("mandate_id")
+  type              NseSystematicType
+  status            NseSystematicStatus @default(CREATED)
+  nseRegistrationId String?             @unique @map("nse_registration_id")
+  schemeCode        String?             @map("scheme_code")
+  schemeName        String?             @map("scheme_name")
+  amount            Decimal?            @db.Decimal(14, 2)
+  frequencyType     String?             @map("frequency_type")
+  startDate         DateTime?           @map("start_date") @db.Date
+  endDate           DateTime?           @map("end_date") @db.Date
+  installments      Int?
+  stepUpAmount      Decimal?            @map("step_up_amount") @db.Decimal(14, 2)
+  stepUpPercent     Decimal?            @map("step_up_percent") @db.Decimal(5, 2)
+  switchSchemeCode  String?             @map("switch_scheme_code")
+  switchSchemeName  String?             @map("switch_scheme_name")
+  folioNumber       String?             @map("folio_number")
+  nseResponseCode   String?             @map("nse_response_code")
+  nseResponseMsg    String?             @map("nse_response_msg")
+  deletedAt         DateTime?           @map("deleted_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  @@index([clientId])
+  @@index([advisorId])
+  @@index([status])
+  @@index([type])
+  @@index([sipId])
+  @@map("nse_systematic_registrations")
+}
+
+// NSE API Call Audit Log (sanitized)
+model NseApiLog {
+  id           String   @id @default(uuid())
+  advisorId    String   @map("advisor_id")
+  apiName      String   @map("api_name")
+  endpoint     String
+  method       String
+  requestData  Json?    @map("request_data")
+  responseCode String?  @map("response_code")
+  responseData Json?    @map("response_data")
+  statusCode   Int?     @map("status_code")
+  latencyMs    Int?     @map("latency_ms")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([advisorId, createdAt(sort: Desc)])
+  @@index([apiName])
+  @@map("nse_api_logs")
+}
+
+// NSE Scheme Master (reference data)
+model NseSchemeMaster {
+  id              String   @id @default(uuid())
+  schemeCode      String   @unique @map("scheme_code")
+  isin            String?
+  amcCode         String?  @map("amc_code")
+  schemeName      String   @map("scheme_name")
+  schemeType      String?  @map("scheme_type")
+  schemePlan      String?  @map("scheme_plan")
+  schemeOption    String?  @map("scheme_option")
+  purchaseAllowed Boolean  @default(false) @map("purchase_allowed")
+  redemptionAllowed Boolean @default(false) @map("redemption_allowed")
+  sipAllowed      Boolean  @default(false) @map("sip_allowed")
+  stpAllowed      Boolean  @default(false) @map("stp_allowed")
+  swpAllowed      Boolean  @default(false) @map("swp_allowed")
+  switchAllowed   Boolean  @default(false) @map("switch_allowed")
+  minPurchaseAmt  Decimal? @map("min_purchase_amt") @db.Decimal(14, 2)
+  maxPurchaseAmt  Decimal? @map("max_purchase_amt") @db.Decimal(14, 2)
+  purchaseMultiple Decimal? @map("purchase_multiple") @db.Decimal(14, 2)
+  minRedemptionAmt Decimal? @map("min_redemption_amt") @db.Decimal(14, 2)
+  minSipAmt       Decimal? @map("min_sip_amt") @db.Decimal(14, 2)
+  maxSipAmt       Decimal? @map("max_sip_amt") @db.Decimal(14, 2)
+  sipDates        String?  @map("sip_dates")
+  sipFrequencies  String?  @map("sip_frequencies")
+  startDate       DateTime? @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  exitLoad        String?  @map("exit_load")
+  lockInPeriod    String?  @map("lock_in_period")
+  lastSyncedAt    DateTime? @map("last_synced_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([amcCode])
+  @@index([isin])
+  @@index([schemeName])
+  @@map("nse_scheme_master")
 }

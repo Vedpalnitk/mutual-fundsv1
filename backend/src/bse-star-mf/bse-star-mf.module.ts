@@ -34,6 +34,7 @@ import { BseMandatesController } from './mandates/bse-mandates.controller'
 import { BseOrderService } from './orders/bse-order.service'
 import { BseSwitchService } from './orders/bse-switch.service'
 import { BseSpreadService } from './orders/bse-spread.service'
+import { BseCobService } from './orders/bse-cob.service'
 import { BseOrdersController } from './orders/bse-orders.controller'
 
 // Payments
@@ -111,6 +112,7 @@ import { BseSchemeMasterSyncJob } from './jobs/bse-scheme-master-sync.job'
     BseOrderService,
     BseSwitchService,
     BseSpreadService,
+    BseCobService,
 
     // Payments
     BsePaymentService,
@@ -142,6 +144,8 @@ import { BseSchemeMasterSyncJob } from './jobs/bse-scheme-master-sync.job'
     BseAuthService,
     BseCredentialsService,
     BseOrderService,
+    BseSwitchService,
+    BseCobService,
     BseSipService,
     BseXsipService,
     BsePaymentService,

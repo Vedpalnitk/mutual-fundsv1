@@ -1,0 +1,41 @@
+export const NSE_BATCH_LIMIT = 50
+
+export const NSE_FREQUENCY_TYPES = {
+  DAILY: 'DAILY',
+  WEEKLY: 'WEEKLY',
+  MONTHLY: 'MONTHLY',
+  QUARTERLY: 'QUARTERLY',
+  HALF_YEARLY: 'HALFYEARLY',
+  YEARLY: 'YEARLY',
+}
+
+export const NSE_TRANSACTION_TYPES = {
+  PURCHASE: 'P',
+  REDEMPTION: 'R',
+}
+
+export const NSE_MANDATE_TYPES = {
+  ENACH: 'E',
+  PHYSICAL: 'X',
+}
+
+export const NSE_PAYMENT_MODES = {
+  MANDATE: 'MANDATE',
+  CHEQUE: 'CHEQUE',
+  UPI: 'UPI',
+  NETBANKING: 'NETBANKING',
+  RTGS: 'RTGS',
+  NEFT: 'NEFT',
+}
+
+export const NSE_ACTION_FLAGS = {
+  ADD: 'A',
+  MODIFY: 'M',
+  DELETE: 'D',
+}
+
+export const NSE_DEMAT_PHYSICAL = {
+  CDSL: 'C',
+  NSDL: 'N',
+  PHYSICAL: 'P',
+}

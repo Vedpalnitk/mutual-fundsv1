@@ -7,10 +7,14 @@ import {
 } from './dto/create-client.dto';
 import { UpdateClientDto, ClientStatus, KycStatus } from './dto/update-client.dto';
 import { ClientFilterDto, SortField, SortOrder } from './dto/client-filter.dto';
+import { PanCryptoService } from '../common/services/pan-crypto.service';
 
 @Injectable()
 export class ClientsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private panCrypto: PanCryptoService,
+  ) {}
 
   async findAll(advisorId: string, filters: ClientFilterDto) {
     const {
@@ -260,7 +264,7 @@ export class ClientsService {
       name: client.name,
       email: client.email,
       phone: client.phone,
-      pan: client.pan,
+      pan: this.panCrypto.mask(client.pan),
       dateOfBirth: client.dateOfBirth?.toISOString().split('T')[0],
       address: client.address,
       city: client.city,

@@ -24,7 +24,7 @@ import {
 } from '@/components/advisor/shared'
 import { sipsApi } from '@/services/api'
 
-type ViewMode = 'list' | 'calendar'
+type ViewMode = 'list' | 'calendar' | 'analytics'
 type StatusFilter = 'all' | SIPStatus
 
 const SIPsDashboard = () => {
@@ -105,6 +105,41 @@ const SIPsDashboard = () => {
       setActionLoading(null)
     }
   }
+
+  const handleRetrySIP = async (sipId: string) => {
+    setActionLoading(sipId)
+    try {
+      await sipsApi.retry(sipId)
+      showNotification('success', 'SIP retried successfully')
+      fetchSIPs()
+    } catch (err: any) {
+      console.error('Failed to retry SIP:', err)
+      showNotification('error', err?.message || 'Failed to retry SIP')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // Analytics state
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [bookGrowth, setBookGrowth] = useState<any[]>([])
+  const [collectionReport, setCollectionReport] = useState<any[]>([])
+  const [mandateAlerts, setMandateAlerts] = useState<any[]>([])
+
+  useEffect(() => {
+    if (viewMode === 'analytics') {
+      setAnalyticsLoading(true)
+      Promise.allSettled([
+        sipsApi.getBookGrowth(),
+        sipsApi.getMonthlyCollectionReport(6),
+        sipsApi.getMandateExpiryAlerts(),
+      ]).then(([growthRes, collectionRes, alertsRes]) => {
+        if (growthRes.status === 'fulfilled') setBookGrowth(growthRes.value as any[])
+        if (collectionRes.status === 'fulfilled') setCollectionReport(collectionRes.value as any[])
+        if (alertsRes.status === 'fulfilled') setMandateAlerts(alertsRes.value as any[])
+      }).finally(() => setAnalyticsLoading(false))
+    }
+  }, [viewMode])
 
   // Client-side filtering for mock data
   const filteredSIPs = error
@@ -330,6 +365,21 @@ const SIPsDashboard = () => {
                 </svg>
                 Calendar
               </button>
+              <button
+                onClick={() => setViewMode('analytics')}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  background: viewMode === 'analytics'
+                    ? `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`
+                    : 'transparent',
+                  color: viewMode === 'analytics' ? '#FFFFFF' : colors.textSecondary,
+                }}
+              >
+                <svg className="w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                </svg>
+                Analytics
+              </button>
             </div>
           </div>
         </FACard>
@@ -376,6 +426,11 @@ const SIPsDashboard = () => {
                           <p className="text-xs" style={{ color: colors.textTertiary }}>
                             {sip.frequency}
                           </p>
+                          {(sip as any).stepUpPercent > 0 && (
+                            <p className="text-xs font-medium mt-0.5" style={{ color: colors.success }}>
+                              Step-up: +{(sip as any).stepUpPercent}% yearly
+                            </p>
+                          )}
                         </td>
                         <td className="p-4 text-center">
                           <p className="font-medium" style={{ color: colors.textPrimary }}>
@@ -495,7 +550,27 @@ const SIPsDashboard = () => {
                                 </button>
                               </>
                             )}
-                            {(sip.status === 'Completed' || sip.status === 'Cancelled' || sip.status === 'Failed') && (
+                            {sip.status === 'Failed' && (
+                              <button
+                                onClick={() => handleRetrySIP(sip.id)}
+                                disabled={actionLoading === sip.id}
+                                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:scale-105 disabled:opacity-50"
+                                style={{ background: `${colors.warning}15`, color: colors.warning }}
+                                title="Retry SIP"
+                              >
+                                {actionLoading === sip.id ? (
+                                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                )}
+                              </button>
+                            )}
+                            {(sip.status === 'Completed' || sip.status === 'Cancelled') && (
                               <span className="text-xs" style={{ color: colors.textTertiary }}>
                                 No actions
                               </span>
@@ -520,7 +595,7 @@ const SIPsDashboard = () => {
                   />
                 )}
               </FACard>
-            ) : (
+            ) : viewMode === 'calendar' ? (
               <FACard>
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-base font-semibold" style={{ color: colors.textPrimary }}>
@@ -549,6 +624,110 @@ const SIPsDashboard = () => {
                 </div>
                 {renderCalendar()}
               </FACard>
+            ) : (
+              /* Analytics View */
+              <div className="space-y-6">
+                {analyticsLoading ? (
+                  <FALoadingState message="Loading analytics..." />
+                ) : (
+                  <>
+                    {/* SIP Book Growth */}
+                    <FACard>
+                      <FASectionHeader title="SIP Book Growth (12 Months)" />
+                      <div className="mt-4 space-y-2">
+                        {bookGrowth.length > 0 ? bookGrowth.map((m: any, i: number) => {
+                          const maxAmount = Math.max(...bookGrowth.map((b: any) => b.totalAmount || 0), 1)
+                          return (
+                            <div key={i} className="flex items-center gap-3">
+                              <span className="text-xs w-16 text-right" style={{ color: colors.textTertiary }}>{m.month}</span>
+                              <div className="flex-1 h-6 rounded-full overflow-hidden" style={{ background: colors.chipBg }}>
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    width: `${((m.totalAmount || 0) / maxAmount) * 100}%`,
+                                    background: `linear-gradient(90deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
+                                    minWidth: '2px',
+                                  }}
+                                />
+                              </div>
+                              <span className="text-xs font-medium w-20 text-right" style={{ color: colors.textPrimary }}>
+                                {formatCurrency(m.totalAmount || 0)}
+                              </span>
+                              <span className="text-xs w-8 text-right" style={{ color: colors.textTertiary }}>{m.count}</span>
+                            </div>
+                          )
+                        }) : (
+                          <p className="text-sm text-center py-4" style={{ color: colors.textTertiary }}>No growth data available</p>
+                        )}
+                      </div>
+                    </FACard>
+
+                    {/* Monthly Collection Report */}
+                    <FACard>
+                      <FASectionHeader title="Monthly Collection (Expected vs Actual)" />
+                      <div className="mt-4 overflow-x-auto">
+                        {collectionReport.length > 0 ? (
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                                <th className="text-left py-2 text-xs font-semibold" style={{ color: colors.textTertiary }}>Month</th>
+                                <th className="text-right py-2 text-xs font-semibold" style={{ color: colors.textTertiary }}>Expected</th>
+                                <th className="text-right py-2 text-xs font-semibold" style={{ color: colors.textTertiary }}>Actual</th>
+                                <th className="text-right py-2 text-xs font-semibold" style={{ color: colors.textTertiary }}>Rate</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {collectionReport.map((m: any, i: number) => (
+                                <tr key={i} style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                                  <td className="py-2" style={{ color: colors.textPrimary }}>{m.month}</td>
+                                  <td className="py-2 text-right" style={{ color: colors.textSecondary }}>{formatCurrency(m.expected || 0)}</td>
+                                  <td className="py-2 text-right" style={{ color: colors.textPrimary }}>{formatCurrency(m.actual || 0)}</td>
+                                  <td className="py-2 text-right font-medium" style={{ color: (m.collectionRate || 0) >= 90 ? colors.success : colors.warning }}>
+                                    {(m.collectionRate || 0).toFixed(0)}%
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <p className="text-sm text-center py-4" style={{ color: colors.textTertiary }}>No collection data available</p>
+                        )}
+                      </div>
+                    </FACard>
+
+                    {/* Mandate Expiry Alerts */}
+                    <FACard>
+                      <FASectionHeader title="Mandate Expiry Alerts" />
+                      <div className="mt-4">
+                        {mandateAlerts.length > 0 ? (
+                          <div className="space-y-2">
+                            {mandateAlerts.map((alert: any, i: number) => (
+                              <FATintedCard key={i}>
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{alert.clientName}</p>
+                                    <p className="text-xs" style={{ color: colors.textSecondary }}>{alert.fundName}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs font-medium" style={{ color: colors.error }}>
+                                      Mandate expires: {alert.mandateExpiry ? new Date(alert.mandateExpiry).toLocaleDateString('en-IN') : 'N/A'}
+                                    </p>
+                                    <p className="text-xs" style={{ color: colors.textTertiary }}>
+                                      SIP ends: {alert.sipEndDate ? new Date(alert.sipEndDate).toLocaleDateString('en-IN') : 'N/A'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </FATintedCard>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-center py-4" style={{ color: colors.textTertiary }}>No mandate alerts</p>
+                        )}
+                      </div>
+                    </FACard>
+                  </>
+                )}
+              </div>
             )}
           </div>
 

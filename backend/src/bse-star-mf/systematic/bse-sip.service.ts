@@ -12,6 +12,7 @@ import { BSE_ENDPOINTS, BSE_SOAP_ACTIONS } from '../core/bse-config'
 import { RegisterSipDto } from './dto/register-sip.dto'
 import { BseOrderType, BseOrderStatus } from '@prisma/client'
 import { XMLParser } from 'fast-xml-parser'
+import { AuditLogService } from '../../common/services/audit-log.service'
 
 @Injectable()
 export class BseSipService {
@@ -29,6 +30,7 @@ export class BseSipService {
     private refNumberService: BseReferenceNumberService,
     private mockService: BseMockService,
     private config: ConfigService,
+    private auditLogService: AuditLogService,
   ) {
     this.isMockMode = this.config.get<boolean>('bse.mockMode') === true
   }
@@ -80,6 +82,14 @@ export class BseSipService {
           bseResponseMsg: parsed.message,
           submittedAt: new Date(),
         },
+      })
+
+      this.auditLogService.log({
+        userId: advisorId,
+        action: 'CREATE',
+        entityType: 'BseSip',
+        entityId: order.id,
+        details: { schemeCode: dto.schemeCode, amount: dto.amount, frequency: dto.frequency, clientId: dto.clientId },
       })
 
       return {
@@ -136,6 +146,14 @@ export class BseSipService {
         bseResponseMsg: result.message,
         submittedAt: new Date(),
       },
+    })
+
+    this.auditLogService.log({
+      userId: advisorId,
+      action: 'CREATE',
+      entityType: 'BseSip',
+      entityId: order.id,
+      details: { schemeCode: dto.schemeCode, amount: dto.amount, frequency: dto.frequency, clientId: dto.clientId },
     })
 
     return {

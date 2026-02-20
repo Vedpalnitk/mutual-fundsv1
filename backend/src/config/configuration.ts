@@ -16,7 +16,7 @@ export default () => ({
     bucket: process.env.MINIO_BUCKET || 'ml-models',
   },
   jwt: {
-    secret: process.env.JWT_SECRET || 'super-secret',
+    secret: process.env.JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
   mlService: {
@@ -37,8 +37,19 @@ export default () => ({
   },
   bse: {
     encryptionKey: process.env.BSE_ENCRYPTION_KEY || '',
-    mockMode: process.env.BSE_MOCK_MODE !== 'false',
+    mockMode: process.env.BSE_MOCK_MODE === 'true',
     baseUrl: process.env.BSE_BASE_URL || 'https://bsestarmfdemo.bseindia.com',
     callbackUrl: process.env.BSE_CALLBACK_URL || 'http://localhost:3801/api/v1/bse/payments/callback',
+    callbackSecret: process.env.BSE_CALLBACK_SECRET || '',
+  },
+  nmf: {
+    encryptionKey: process.env.NMF_ENCRYPTION_KEY || '',
+    mockMode: process.env.NMF_MOCK_MODE === 'true',
+    baseUrl: process.env.NMF_BASE_URL || 'https://nseinvestuat.nseindia.com',
+    callbackUrl: process.env.NMF_CALLBACK_URL || 'http://localhost:3801/api/v1/nmf/payments/callback',
+    callbackSecret: process.env.NMF_CALLBACK_SECRET || '',
+  },
+  pan: {
+    encryptionKey: process.env.PAN_ENCRYPTION_KEY || '',
   },
 });

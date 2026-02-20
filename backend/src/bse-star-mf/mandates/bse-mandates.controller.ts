@@ -1,13 +1,16 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
+import { RolesGuard } from '../../common/guards/roles.guard'
+import { Roles } from '../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseMandateService } from './bse-mandate.service'
 import { RegisterMandateDto, ShiftMandateDto } from './dto/register-mandate.dto'
 
 @ApiTags('BSE Mandates')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('advisor', 'admin', 'fa_staff')
 @Controller('api/v1/bse/mandates')
 export class BseMandatesController {
   constructor(private mandateService: BseMandateService) {}

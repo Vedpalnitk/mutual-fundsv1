@@ -472,6 +472,157 @@ export class SipsService {
     };
   }
 
+  // ============================================================
+  // Retry / Analytics Methods
+  // ============================================================
+
+  async retry(sipId: string, advisorId: string) {
+    const sip = await this.prisma.fASIP.findUnique({
+      where: { id: sipId },
+      include: { client: { select: { id: true, name: true, advisorId: true } } },
+    });
+
+    if (!sip) throw new NotFoundException(`SIP with ID ${sipId} not found`);
+    if (sip.client.advisorId !== advisorId) throw new ForbiddenException('Access denied');
+    if (sip.status !== 'FAILED') throw new BadRequestException('Only failed SIPs can be retried');
+
+    const nextSipDate = this.calculateNextSipDate(new Date(), sip.sipDate, sip.frequency);
+
+    const updated = await this.prisma.fASIP.update({
+      where: { id: sipId },
+      data: { status: 'ACTIVE', nextSipDate },
+      include: { client: { select: { id: true, name: true } } },
+    });
+
+    return this.transformSIP(updated);
+  }
+
+  async getMonthlyCollectionReport(advisorId: string, months: number = 6) {
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+
+    const sips = await this.prisma.fASIP.findMany({
+      where: { client: { advisorId }, status: { in: ['ACTIVE', 'COMPLETED'] } },
+      select: { amount: true, frequency: true, startDate: true, endDate: true },
+    });
+
+    const transactions = await this.prisma.fATransaction.findMany({
+      where: {
+        client: { advisorId },
+        type: 'SIP',
+        status: 'COMPLETED',
+        date: { gte: startDate },
+      },
+      select: { amount: true, date: true },
+    });
+
+    const report: { month: string; expected: number; actual: number }[] = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+      // Expected: sum of active SIP amounts for this month
+      let expected = 0;
+      for (const sip of sips) {
+        const sipStart = new Date(sip.startDate);
+        const sipEnd = sip.endDate ? new Date(sip.endDate) : new Date('2099-12-31');
+        if (sipStart <= d && sipEnd >= d) {
+          expected += Number(sip.amount);
+        }
+      }
+
+      // Actual: sum of SIP transactions in this month
+      const actual = transactions
+        .filter(t => {
+          const td = new Date(t.date);
+          return td.getFullYear() === d.getFullYear() && td.getMonth() === d.getMonth();
+        })
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      report.push({ month: monthKey, expected: Math.round(expected), actual: Math.round(actual) });
+    }
+
+    return report;
+  }
+
+  async getBookGrowth(advisorId: string) {
+    const sips = await this.prisma.fASIP.findMany({
+      where: { client: { advisorId } },
+      select: { amount: true, status: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const growth: { month: string; newSips: number; totalAmount: number; cumulativeSips: number }[] = [];
+    const months = new Map<string, { count: number; amount: number }>();
+
+    for (const sip of sips) {
+      const d = new Date(sip.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!months.has(key)) months.set(key, { count: 0, amount: 0 });
+      const entry = months.get(key)!;
+      entry.count++;
+      entry.amount += Number(sip.amount);
+    }
+
+    let cumulative = 0;
+    const sortedKeys = Array.from(months.keys()).sort().slice(-12);
+    for (const key of sortedKeys) {
+      const data = months.get(key)!;
+      cumulative += data.count;
+      growth.push({
+        month: key,
+        newSips: data.count,
+        totalAmount: Math.round(data.amount),
+        cumulativeSips: cumulative,
+      });
+    }
+
+    return growth;
+  }
+
+  async getMandateExpiryAlerts(advisorId: string) {
+    const sipsWithMandates = await this.prisma.fASIP.findMany({
+      where: {
+        client: { advisorId },
+        status: 'ACTIVE',
+        mandateId: { not: null },
+      },
+      include: {
+        client: { select: { id: true, name: true } },
+      },
+    });
+
+    const alerts: any[] = [];
+    for (const sip of sipsWithMandates) {
+      if (!sip.mandateId) continue;
+
+      const mandate = await this.prisma.bseMandate.findFirst({
+        where: { id: sip.mandateId },
+      });
+
+      if (mandate && mandate.endDate && sip.endDate) {
+        const mandateExpiry = new Date(mandate.endDate);
+        const sipEnd = new Date(sip.endDate);
+        if (mandateExpiry < sipEnd) {
+          alerts.push({
+            sipId: sip.id,
+            clientId: sip.clientId,
+            clientName: sip.client?.name || '',
+            fundName: sip.fundName,
+            sipAmount: Number(sip.amount),
+            mandateId: sip.mandateId,
+            mandateExpiry: mandateExpiry.toISOString().split('T')[0],
+            sipEndDate: sipEnd.toISOString().split('T')[0],
+            daysUntilExpiry: Math.ceil((mandateExpiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+          });
+        }
+      }
+    }
+
+    return alerts.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
+  }
+
   private transformSIP(s: any) {
     return {
       id: s.id,

@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { AuditLogService } from '../common/services/audit-log.service';
 import { LoginDto, RegisterDto, AuthResponseDto, UpdateProfileDto, ChangePasswordDto } from './dto/login.dto';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private storageService: StorageService,
+    private auditLogService: AuditLogService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -34,7 +36,7 @@ export class AuthService {
       data: {
         email: dto.email,
         passwordHash: hashedPassword,
-        role: 'admin', // First user is admin
+        role: 'user',
         profile: {
           create: {
             name: dto.name,
@@ -44,6 +46,14 @@ export class AuthService {
     });
 
     const token = this.generateToken(user.id, user.email, user.role);
+
+    await this.auditLogService.log({
+      userId: user.id,
+      action: 'REGISTER',
+      entityType: 'User',
+      entityId: user.id,
+      details: { email: user.email, role: user.role },
+    });
 
     return {
       accessToken: token,
@@ -64,9 +74,28 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Check if account is locked
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException('Account is temporarily locked. Try again later.');
+    }
+
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!isPasswordValid) {
+      // Increment failed login attempts
+      const failedAttempts = user.failedLoginAttempts + 1;
+      const updateData: any = { failedLoginAttempts: failedAttempts };
+
+      // Lock account after 5 failed attempts for 15 minutes
+      if (failedAttempts >= 5) {
+        updateData.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+      }
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: updateData,
+      });
+
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -74,10 +103,14 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
-    // Update last login
+    // Reset failed login attempts on successful login
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: {
+        lastLoginAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
     });
 
     // If staff, look up FAStaffMember for ownerId and allowedPages
@@ -110,6 +143,14 @@ export class AuthService {
       response.user.ownerId = staffExtra.ownerId;
       response.user.allowedPages = staffExtra.allowedPages;
     }
+
+    await this.auditLogService.log({
+      userId: user.id,
+      action: 'LOGIN',
+      entityType: 'User',
+      entityId: user.id,
+      details: { email: user.email, role: user.role },
+    });
 
     return response;
   }

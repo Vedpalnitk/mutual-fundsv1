@@ -1,22 +1,28 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
+import { RolesGuard } from '../../common/guards/roles.guard'
+import { Roles } from '../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseOrderService } from './bse-order.service'
 import { BseSwitchService } from './bse-switch.service'
 import { BseSpreadService } from './bse-spread.service'
+import { BseCobService } from './bse-cob.service'
 import { PlaceOrderDto, PlaceSwitchDto, PlaceSpreadDto } from './dto/place-order.dto'
+import { PlaceCobDto } from './dto/place-cob.dto'
 import { BseOrderStatus, BseOrderType } from '@prisma/client'
 
 @ApiTags('BSE Orders')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('advisor', 'admin', 'fa_staff')
 @Controller('api/v1/bse/orders')
 export class BseOrdersController {
   constructor(
     private orderService: BseOrderService,
     private switchService: BseSwitchService,
     private spreadService: BseSpreadService,
+    private cobService: BseCobService,
   ) {}
 
   @Get()
@@ -77,6 +83,15 @@ export class BseOrdersController {
     @Body() dto: PlaceSpreadDto,
   ) {
     return this.spreadService.placeSpread(user.id, dto)
+  }
+
+  @Post('cob')
+  @ApiOperation({ summary: 'Place a Change of Broker (Transfer In) order' })
+  async placeCob(
+    @CurrentUser() user: any,
+    @Body() dto: PlaceCobDto,
+  ) {
+    return this.cobService.placeCob(user.id, dto)
   }
 
   @Get(':id')

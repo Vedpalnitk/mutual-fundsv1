@@ -49,6 +49,7 @@ export const BSE_SOAP_ACTIONS = {
   GET_PASSWORD: 'http://bsestarmf.in/IStarMFOrder/getPassword',
   ADDITIONAL_RESPONSE: 'http://bsestarmf.in/IStarMFUpload/GenerateResponse',
   ADDITIONAL_PASSWORD: 'http://bsestarmf.in/IStarMFUpload/getPassword',
+  CHANGE_OF_BROKER_ENTRY: 'http://bsestarmf.in/IStarMFOrder/changeOfBrokerEntryParam',
 }
 
 export const BSE_TIMEOUTS = {

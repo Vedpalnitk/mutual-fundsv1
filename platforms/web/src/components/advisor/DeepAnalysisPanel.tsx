@@ -13,6 +13,7 @@ import {
   formatCurrencyCompact,
 } from '@/utils/fa'
 import { FACard } from '@/components/advisor/shared'
+import ExecuteRebalanceModal from '@/components/advisor/ExecuteRebalanceModal'
 
 interface DeepAnalysisPanelProps {
   clientId: string
@@ -170,7 +171,8 @@ const RiskSection = ({ data, colors, isDark }: { data: RiskAssessment; colors: a
 }
 
 // ========== Rebalancing Section ==========
-const RebalancingSection = ({ data, colors, isDark }: { data: RebalancingRoadmap; colors: any; isDark: boolean }) => {
+const RebalancingSection = ({ data, colors, isDark, clientId, clientName }: { data: RebalancingRoadmap; colors: any; isDark: boolean; clientId?: string; clientName?: string }) => {
+  const [showExecuteModal, setShowExecuteModal] = useState(false)
   const alignColor = data.alignmentScore >= 0.8 ? colors.success : data.alignmentScore >= 0.5 ? colors.warning : colors.error
   return (
     <div className="space-y-3">
@@ -248,6 +250,28 @@ const RebalancingSection = ({ data, colors, isDark }: { data: RebalancingRoadmap
           <span style={{ color: colors.textTertiary }}>{data.taxImpactSummary}</span>
         )}
       </div>
+      {/* Execute Rebalancing Button */}
+      {!data.isAligned && data.actions.length > 0 && clientId && (
+        <button
+          onClick={() => setShowExecuteModal(true)}
+          className="w-full mt-2 py-2 rounded-full text-xs font-semibold text-white transition-all hover:shadow-lg"
+          style={{
+            background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+            boxShadow: `0 4px 14px ${colors.glassShadow}`,
+          }}
+        >
+          Execute Rebalancing
+        </button>
+      )}
+      {showExecuteModal && clientId && (
+        <ExecuteRebalanceModal
+          clientId={clientId}
+          clientName={clientName || ''}
+          actions={data.actions}
+          onClose={() => setShowExecuteModal(false)}
+          onComplete={() => setShowExecuteModal(false)}
+        />
+      )}
     </div>
   )
 }
@@ -317,7 +341,7 @@ export default function DeepAnalysisPanel({ clientId, clientName }: DeepAnalysis
         </svg>
       ),
       section: result?.rebalancing,
-      renderData: (data: RebalancingRoadmap) => <RebalancingSection data={data} colors={colors} isDark={isDark} />,
+      renderData: (data: RebalancingRoadmap) => <RebalancingSection data={data} colors={colors} isDark={isDark} clientId={clientId} clientName={clientName} />,
     },
   ]
 

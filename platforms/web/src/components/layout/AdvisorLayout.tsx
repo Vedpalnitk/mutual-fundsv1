@@ -154,6 +154,17 @@ const ADVISOR_NAV_SECTIONS = [
       { label: 'BSE Orders', href: '/advisor/bse/orders', icon: 'arrows' },
       { label: 'BSE Mandates', href: '/advisor/bse/mandates', icon: 'document' },
       { label: 'BSE Reports', href: '/advisor/bse/reports', icon: 'chart-bar' },
+      { label: 'Transfer In', href: '/advisor/bse/cob', icon: 'arrows' },
+    ]
+  },
+  {
+    section: 'NSE NMF',
+    items: [
+      { label: 'NMF Setup', href: '/advisor/nmf/setup', icon: 'nmf' },
+      { label: 'NMF Clients', href: '/advisor/nmf/clients', icon: 'users' },
+      { label: 'NMF Orders', href: '/advisor/nmf/orders', icon: 'arrows' },
+      { label: 'NMF Mandates', href: '/advisor/nmf/mandates', icon: 'document' },
+      { label: 'NMF Reports', href: '/advisor/nmf/reports', icon: 'chart-bar' },
     ]
   },
   {
@@ -167,17 +178,17 @@ const ADVISOR_NAV_SECTIONS = [
     ]
   },
   {
+    section: 'Marketing',
+    items: [
+      { label: 'Marketing', href: '/advisor/marketing', icon: 'chart-bar' },
+    ]
+  },
+  {
     section: 'Account',
     items: [
       { label: 'Settings', href: '/advisor/settings', icon: 'settings' },
     ]
   },
-]
-
-// Flat list for staff permission filtering
-const ADVISOR_NAV_ITEMS = [
-  { section: 'Pinned', items: ADVISOR_PINNED_ITEMS },
-  ...ADVISOR_NAV_SECTIONS,
 ]
 
 // Icon component
@@ -293,6 +304,11 @@ const NavIcon = ({ name, className = "w-5 h-5" }: { name: string; className?: st
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75m16.5 3.75v3.75c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125v-3.75" />
       </svg>
     ),
+    'nmf': (
+      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+      </svg>
+    ),
     'settings': (
       <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
@@ -307,6 +323,11 @@ const NavIcon = ({ name, className = "w-5 h-5" }: { name: string; className?: st
     'chevron-right': (
       <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+      </svg>
+    ),
+    'chevron-down': (
+      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
       </svg>
     ),
     'sun': (
@@ -347,6 +368,7 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
   const colors = isDark ? COLORS_DARK : COLORS_LIGHT
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({})
   const [hasToken, setHasToken] = useState(true) // Assume true initially to avoid flash
   const [advisorProfile, setAdvisorProfile] = useState<AuthProfile | null>(null)
 
@@ -390,6 +412,22 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
       .catch(() => {}) // Silently fail — non-critical for layout
   }, [])
 
+  // Load collapsed sidebar sections from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('fa-sidebar-sections')
+      if (saved) setCollapsedSections(JSON.parse(saved))
+    } catch {}
+  }, [])
+
+  const toggleSection = (sectionName: string) => {
+    setCollapsedSections(prev => {
+      const next = { ...prev, [sectionName]: !prev[sectionName] }
+      try { localStorage.setItem('fa-sidebar-sections', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
+
   const handleLogout = () => {
     clearAuthToken()
     window.location.href = '/advisor/login'
@@ -411,15 +449,18 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
   }, [])
 
   // Filter nav items for staff users
-  const navItems = useMemo(() => {
-    if (!staffInfo) return ADVISOR_NAV_ITEMS
+  const { pinnedItems, navSections } = useMemo(() => {
+    if (!staffInfo) return { pinnedItems: ADVISOR_PINNED_ITEMS, navSections: ADVISOR_NAV_SECTIONS }
     const allowed = new Set(staffInfo.allowedPages)
-    return ADVISOR_NAV_ITEMS
-      .map(section => ({
-        ...section,
-        items: section.items.filter(item => allowed.has(item.href)),
-      }))
-      .filter(section => section.items.length > 0)
+    return {
+      pinnedItems: ADVISOR_PINNED_ITEMS.filter(item => allowed.has(item.href)),
+      navSections: ADVISOR_NAV_SECTIONS
+        .map(section => ({
+          ...section,
+          items: section.items.filter(item => allowed.has(item.href)),
+        }))
+        .filter(section => section.items.length > 0),
+    }
   }, [staffInfo])
 
   // Route guard: redirect staff to first allowed page if on disallowed page
@@ -523,46 +564,106 @@ export default function AdvisorLayout({ children, title }: AdvisorLayoutProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3">
-          {navItems.map((section, idx) => (
-            <div key={section.section} className={idx > 0 ? 'mt-6' : ''}>
-              {!collapsed && (
-                <p
-                  className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: colors.textTertiary }}
-                >
-                  {section.section}
-                </p>
-              )}
-              <div className="space-y-1">
-                {section.items.map((item) => {
-                  const isActive = isActiveLink(item.href)
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                        collapsed ? 'lg:justify-center' : ''
-                      }`}
-                      style={{
-                        background: isActive ? colors.activeBg : 'transparent',
-                        color: isActive ? colors.primary : colors.textSecondary,
-                      }}
-                      title={collapsed ? item.label : undefined}
-                    >
-                      <NavIcon name={item.icon} className="w-5 h-5 flex-shrink-0" />
-                      {!collapsed && (
-                        <span className="text-sm font-medium">{item.label}</span>
-                      )}
-                      {/* Always show labels on mobile sidebar */}
-                      {collapsed && (
-                        <span className="text-sm font-medium lg:hidden">{item.label}</span>
-                      )}
-                    </Link>
-                  )
-                })}
-              </div>
+          {/* Pinned items — always visible */}
+          {pinnedItems.length > 0 && (
+            <div className="space-y-1 mb-2">
+              {pinnedItems.map((item) => {
+                const isActive = isActiveLink(item.href)
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                      collapsed ? 'lg:justify-center' : ''
+                    }`}
+                    style={{
+                      background: isActive ? colors.activeBg : 'transparent',
+                      color: isActive ? colors.primary : colors.textSecondary,
+                    }}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <NavIcon name={item.icon} className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && (
+                      <span className="text-sm font-medium">{item.label}</span>
+                    )}
+                    {collapsed && (
+                      <span className="text-sm font-medium lg:hidden">{item.label}</span>
+                    )}
+                  </Link>
+                )
+              })}
             </div>
-          ))}
+          )}
+
+          {/* Collapsible sections */}
+          {navSections.map((section) => {
+            const isOpen = !collapsedSections[section.section]
+            const itemsHiddenClass = !isOpen ? (collapsed ? 'hidden lg:block' : 'hidden') : ''
+            return (
+              <div key={section.section} className="mt-1">
+                {/* Section header — full when expanded, separator when icon-only */}
+                {!collapsed ? (
+                  <button
+                    onClick={() => toggleSection(section.section)}
+                    className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-colors"
+                    style={{ color: colors.textTertiary }}
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-wider">
+                      {section.section}
+                    </span>
+                    <NavIcon
+                      name="chevron-down"
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
+                    />
+                  </button>
+                ) : (
+                  <>
+                    <div className="my-2 mx-3 hidden lg:block" style={{ borderTop: `1px solid ${colors.separator}` }} />
+                    <button
+                      onClick={() => toggleSection(section.section)}
+                      className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-colors lg:hidden"
+                      style={{ color: colors.textTertiary }}
+                    >
+                      <span className="text-xs font-semibold uppercase tracking-wider">
+                        {section.section}
+                      </span>
+                      <NavIcon
+                        name="chevron-down"
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
+                      />
+                    </button>
+                  </>
+                )}
+                <div className={`space-y-1 ${itemsHiddenClass}`}>
+                  {section.items.map((item) => {
+                    const isActive = isActiveLink(item.href)
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                          collapsed ? 'lg:justify-center' : ''
+                        }`}
+                        style={{
+                          background: isActive ? colors.activeBg : 'transparent',
+                          color: isActive ? colors.primary : colors.textSecondary,
+                        }}
+                        title={collapsed ? item.label : undefined}
+                      >
+                        <NavIcon name={item.icon} className="w-5 h-5 flex-shrink-0" />
+                        {!collapsed && (
+                          <span className="text-sm font-medium">{item.label}</span>
+                        )}
+                        {collapsed && (
+                          <span className="text-sm font-medium lg:hidden">{item.label}</span>
+                        )}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
         </nav>
 
         {/* FA Profile Card */}

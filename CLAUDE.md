@@ -309,6 +309,91 @@ Full BSE StAR MF API integration for real mutual fund transactions via a partner
 - `bseApi` namespace in `services/api.ts` (~50 endpoint methods)
 - See `docs/bse-star-mf-integration.md` for full reference
 
+## NSE NMF Integration
+
+Full NSE NMF (MFSS) API integration as a second exchange platform alongside BSE StAR MF.
+
+### Backend Module
+- **Location**: `backend/src/nse-nmf/` (~40 files)
+- **Module**: `NseNmfModule` imported in `app.module.ts`
+- **Mock mode**: `NMF_MOCK_MODE=true` in `.env` for local dev (no NSE UAT needed)
+- **Architecture**: Separate vertical slice — independent module, no shared base classes with BSE
+
+### NSE vs BSE Key Differences
+- **Protocol**: REST/JSON only (no SOAP)
+- **Auth**: Stateless per-request AES-128-CBC header (no session tokens)
+- **Batch support**: Up to 50 records per request
+- **SIP Pause/Resume**: Built-in (`XSIP_PAUSE` endpoint)
+- **eKYC**: Built-in registration (not available in BSE)
+- **Payment modes**: 6 modes (MANDATE/CHEQUE/UPI/NETBANKING/RTGS/NEFT)
+
+### NSE Database Models (Prisma)
+| Model | Purpose |
+|-------|---------|
+| `NsePartnerCredential` | Encrypted NSE credentials per advisor |
+| `NseUccRegistration` | FAClient → NSE UCC mapping (183 fields) |
+| `NseMandate` | eNACH + physical mandate records |
+| `NseOrder` | All NSE orders (purchase, redemption, switch) |
+| `NseChildOrder` | SIP/XSIP installment records |
+| `NsePayment` | Payment records (6 modes) |
+| `NseApiLog` | Sanitized audit log of NSE API calls |
+| `NseSchemeMaster` | NSE scheme reference data |
+| `NseSystematicRegistration` | SIP/XSIP/STP/SWP registrations |
+
+### NSE API Endpoints
+| Route | Purpose |
+|-------|---------|
+| `POST /api/v1/nmf/credentials` | Set NSE partner credentials |
+| `POST /api/v1/nmf/credentials/test` | Test NSE connection |
+| `POST /api/v1/nmf/ucc/:clientId/register` | Register client UCC (183 fields) |
+| `POST /api/v1/nmf/ucc/:clientId/fatca` | Upload FATCA |
+| `POST /api/v1/nmf/ucc/:clientId/ekyc` | Initiate eKYC |
+| `POST /api/v1/nmf/mandates` | Register mandate (eNACH/Physical) |
+| `POST /api/v1/nmf/orders/purchase` | Place purchase order |
+| `POST /api/v1/nmf/orders/redeem` | Place redemption |
+| `POST /api/v1/nmf/orders/switch` | Place switch order |
+| `POST /api/v1/nmf/payments/:orderId` | Initiate payment (6 modes) |
+| `POST /api/v1/nmf/payments/callback` | Payment callback webhook (public) |
+| `POST /api/v1/nmf/systematic/sip` | Register SIP |
+| `POST /api/v1/nmf/systematic/xsip` | Register XSIP (mandate-based, step-up) |
+| `POST /api/v1/nmf/systematic/stp` | Register STP |
+| `POST /api/v1/nmf/systematic/swp` | Register SWP |
+| `POST /api/v1/nmf/systematic/:id/pause` | Pause SIP/XSIP |
+| `POST /api/v1/nmf/systematic/:id/resume` | Resume SIP/XSIP |
+| `POST /api/v1/nmf/reports/:reportType` | Generate NSE reports (30+ types) |
+| `POST /api/v1/nmf/uploads/:type` | File uploads (7 types, base64) |
+| `POST /api/v1/nmf/utilities/kyc-check` | KYC status check by PAN |
+
+### NSE Frontend Pages
+| Page | Path |
+|------|------|
+| NMF Setup | `/advisor/nmf/setup` |
+| NMF Clients (UCC) | `/advisor/nmf/clients` |
+| UCC Registration | `/advisor/nmf/clients/[id]/register` |
+| NMF Orders | `/advisor/nmf/orders` |
+| Order Detail | `/advisor/nmf/orders/[id]` |
+| NMF Mandates | `/advisor/nmf/mandates` |
+| NMF Reports | `/advisor/nmf/reports` |
+
+### NSE Components (`components/nmf/`)
+- `NmfStatusBadge` — Color-coded status pills for orders, mandates, systematic, payments
+- `NmfOrderTimeline` — Horizontal 9-step lifecycle visualization
+- `NmfPaymentModal` — 6 payment mode selection modal
+
+### NSE Cron Jobs
+| Job | Schedule | Purpose |
+|-----|----------|---------|
+| Mandate status poll | Every 30 min | Poll NSE for pending mandates |
+| Order status poll | Every 10 min | Poll NSE for pending orders |
+| Scheme master sync | Sunday 3am | Weekly scheme data refresh |
+
+### NSE Notes
+- NSE credentials encrypted with AES-256-GCM at rest (own key: `NMF_ENCRYPTION_KEY`)
+- Per-request auth: AES-128-CBC encrypted `BASIC` header (no session tokens)
+- Soft-link bridge: `NseOrder.transactionId` is `String?` (no Prisma FK to FATransaction)
+- `nmfApi` namespace in `services/api.ts` (~50 endpoint methods)
+- See `docs/nse-nmf-api-reference.md` for full reference
+
 ## External APIs
 
 ### MFAPI.in (Mutual Fund API)
@@ -432,6 +517,47 @@ All demo users use the format `firstname.lastname@demo.com` with password `Demo@
 | `POST /api/v1/sips/:id/pause` | Pause a SIP |
 | `POST /api/v1/sips/:id/resume` | Resume a paused SIP |
 | `POST /api/v1/sips/:id/cancel` | Cancel a SIP |
+| `GET /api/v1/advisor/dashboard` | Aggregated KPIs, client alerts |
+| `GET /api/v1/advisor/action-calendar` | SIP expiries, birthdays, follow-ups, upcoming SIPs |
+| `GET /api/v1/advisor/insights` | Portfolio health scores |
+| `GET /api/v1/advisor/insights/cross-sell` | Cross-sell gap analysis per client |
+| `GET /api/v1/advisor/insights/churn-risk` | Churn risk scoring per client |
+| `GET /api/v1/advisor/insights/strategic` | Strategic insights |
+| `POST /api/v1/advisor/insights/deep/:clientId` | Deep analysis for a client |
+| `GET /api/v1/bi/aum` | AUM overview |
+| `GET /api/v1/bi/monthly-scorecard` | MoM comparison (AUM, flows, SIP, clients) |
+| `GET /api/v1/bi/revenue-attribution` | Trail income by AMC |
+| `GET /api/v1/bi/client-segmentation` | Client tiers (Diamond/Gold/Silver/Bronze) |
+| `GET /api/v1/bi/net-flows` | Net flow analysis |
+| `GET /api/v1/bi/sip-health` | SIP book health metrics |
+
+### FA Portal Pages & Navigation
+
+The FA sidebar uses collapsible sections (state persisted in localStorage as `fa-sidebar-sections`). Dashboard is pinned at top.
+
+| Section | Pages |
+|---------|-------|
+| **Pinned** | Dashboard |
+| **Clients** | Clients, Pipeline, Command Center, Insights |
+| **Transactions** | Transactions, CAS Imports |
+| **Research** | Funds, Compare, My Picks, Deep Analysis, Calculators, Reports |
+| **BSE StAR MF** | BSE Setup, BSE Clients, BSE Orders, BSE Mandates, BSE Reports |
+| **NSE NMF** | NMF Setup, NMF Clients, NMF Orders, NMF Mandates, NMF Reports |
+| **Business** | AUM & Analytics, Commissions, Team, Branches, Compliance |
+| **Account** | Settings |
+
+#### Pipeline (`/advisor/pipeline`)
+Sales pipeline for prospects/leads. Kanban board + list view with stage management.
+- Components: `components/advisor/pipeline/` (PipelineCard, PipelineBoard, PipelineList)
+- Uses ProspectFormModal, ConvertToClientModal
+
+#### Command Center (`/advisor/command-center`)
+Unified workspace with 3 tabs: Tasks, Activity, Compose.
+- **Tasks tab**: System alerts banner (failed SIPs, pending txns, KYC) + CRM task management
+- **Activity tab**: Merged timeline of CRM activities + sent communications
+- **Compose tab**: Email/WhatsApp sending with templates, bulk send, history
+- Components: `components/advisor/command-center/` (TasksTab, ActivityTab, ComposeTab, SystemAlertsBanner)
+- Backend guards: CRM + Communications controllers both use `@RequiredPage('/advisor/command-center')`
 
 ### FA Portal Components
 

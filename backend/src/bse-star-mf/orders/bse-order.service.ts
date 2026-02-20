@@ -12,6 +12,7 @@ import { BseMockService } from '../mocks/bse-mock.service'
 import { BSE_ENDPOINTS, BSE_SOAP_ACTIONS } from '../core/bse-config'
 import { BseOrderType, BseOrderStatus } from '@prisma/client'
 import { PlaceOrderDto, BseBuySell, BseBuySellType } from './dto/place-order.dto'
+import { AuditLogService } from '../../common/services/audit-log.service'
 
 interface OrderFilters {
   clientId?: string
@@ -37,6 +38,7 @@ export class BseOrderService {
     private authService: BseAuthService,
     private mockService: BseMockService,
     private config: ConfigService,
+    private auditLogService: AuditLogService,
   ) {
     this.isMockMode = this.config.get<boolean>('bse.mockMode') === true
   }
@@ -108,6 +110,13 @@ export class BseOrderService {
         },
       })
 
+      this.auditLogService.log({
+        userId: advisorId,
+        action: 'CANCEL',
+        entityType: 'BseOrder',
+        entityId: orderId,
+      })
+
       return {
         id: order.id,
         status: BseOrderStatus.CANCELLED,
@@ -169,6 +178,13 @@ export class BseOrderService {
         bseResponseCode: result.code,
         bseResponseMsg: result.message,
       },
+    })
+
+    this.auditLogService.log({
+      userId: advisorId,
+      action: 'CANCEL',
+      entityType: 'BseOrder',
+      entityId: orderId,
     })
 
     return {
@@ -268,7 +284,17 @@ export class BseOrderService {
 
     try {
       if (this.isMockMode) {
-        return this.handleMockOrderResponse(order.id, transCode)
+        const mockResult = await this.handleMockOrderResponse(order.id, transCode)
+
+        this.auditLogService.log({
+          userId: advisorId,
+          action: 'CREATE',
+          entityType: 'BseOrder',
+          entityId: order.id,
+          details: { orderType, schemeCode: dto.schemeCode, amount: dto.amount, clientId: dto.clientId },
+        })
+
+        return mockResult
       }
 
       const token = await this.authService.getOrderEntryToken(advisorId)
@@ -332,6 +358,14 @@ export class BseOrderService {
       })
 
       this.errorMapper.throwIfError(result)
+
+      this.auditLogService.log({
+        userId: advisorId,
+        action: 'CREATE',
+        entityType: 'BseOrder',
+        entityId: order.id,
+        details: { orderType, schemeCode: dto.schemeCode, amount: dto.amount, clientId: dto.clientId },
+      })
 
       return {
         id: updated.id,

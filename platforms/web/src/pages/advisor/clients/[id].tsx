@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
+import MapAssetsModal from '@/components/advisor/MapAssetsModal'
 import { clientsApi, portfolioApi, sipsApi, transactionsApi, goalsApi, notesApi, GoalResponse, CreateGoalDto, UpdateGoalDto, AddContributionDto, MeetingNote, CreateNoteRequest } from '@/services/api'
 import {
   useFATheme,
@@ -116,6 +117,8 @@ const ClientDetailPage = () => {
   const [contributeForm, setContributeForm] = useState({ amount: '', type: 'LUMPSUM', date: new Date().toISOString().split('T')[0], description: '' })
   const [contributeSubmitting, setContributeSubmitting] = useState(false)
   const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null)
+  const [mapAssetsGoalId, setMapAssetsGoalId] = useState<string | null>(null)
+  const [goalAssetMappings, setGoalAssetMappings] = useState<Record<string, any[]>>({})
   const [deleteGoalSubmitting, setDeleteGoalSubmitting] = useState(false)
 
   // Edit client profile state
@@ -1633,6 +1636,17 @@ const ClientDetailPage = () => {
                           <td className="py-3 pr-4 text-right font-medium" style={{ color: colors.textPrimary }}>{formatCurrency(goal.monthlyRequired)}</td>
                           <td className="py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
+                              {/* Map Assets */}
+                              <button
+                                onClick={() => setMapAssetsGoalId(goal.id)}
+                                title="Map Assets"
+                                className="p-1.5 rounded-lg transition-all hover:scale-105"
+                                style={{ background: `${colors.secondary}12`, color: colors.secondary }}
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-2.364a4.5 4.5 0 00-6.364-6.364L4.5 8.879a4.5 4.5 0 006.364 6.364L13.5 12.5" />
+                                </svg>
+                              </button>
                               {/* Add Contribution */}
                               <button
                                 onClick={() => handleContributeGoal(goal)}
@@ -1955,6 +1969,30 @@ const ClientDetailPage = () => {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Map Assets Modal */}
+            {mapAssetsGoalId && client && (
+              <MapAssetsModal
+                clientId={client.id}
+                goalId={mapAssetsGoalId}
+                existingMappings={goalAssetMappings[mapAssetsGoalId] || []}
+                clientHoldings={(holdings || []).map(h => ({
+                  fundName: h.fundName,
+                  fundSchemeCode: h.fundSchemeCode,
+                  folioNumber: h.folioNumber,
+                  assetClass: h.assetClass,
+                  currentValue: h.currentValue,
+                }))}
+                onSave={async () => {
+                  try {
+                    const mappings = await goalsApi.getAssetMappings(client.id, mapAssetsGoalId)
+                    setGoalAssetMappings(prev => ({ ...prev, [mapAssetsGoalId]: mappings }))
+                  } catch { /* ignore */ }
+                  setMapAssetsGoalId(null)
+                }}
+                onClose={() => setMapAssetsGoalId(null)}
+              />
             )}
 
             {/* Goal Creation Modal */}

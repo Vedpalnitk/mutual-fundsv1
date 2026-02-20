@@ -127,6 +127,41 @@ export class SipsController {
     return this.sipsService.cancel(id, getEffectiveAdvisorId(user));
   }
 
+  @Post(':id/retry')
+  @ApiOperation({ summary: 'Retry a failed SIP' })
+  @ApiResponse({ status: 200, type: SIPResponseDto })
+  async retry(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.sipsService.retry(id, getEffectiveAdvisorId(user));
+  }
+
+  @Get('report/monthly-collection')
+  @ApiOperation({ summary: 'Monthly SIP collection report (expected vs actual)' })
+  @ApiQuery({ name: 'months', required: false, type: Number })
+  async getMonthlyCollectionReport(
+    @CurrentUser() user: any,
+    @Query('months') months?: string,
+  ) {
+    return this.sipsService.getMonthlyCollectionReport(
+      getEffectiveAdvisorId(user),
+      months ? parseInt(months, 10) : 6,
+    );
+  }
+
+  @Get('report/book-growth')
+  @ApiOperation({ summary: 'SIP book growth over last 12 months' })
+  async getBookGrowth(@CurrentUser() user: any) {
+    return this.sipsService.getBookGrowth(getEffectiveAdvisorId(user));
+  }
+
+  @Get('mandate-expiry-alerts')
+  @ApiOperation({ summary: 'SIPs with mandates expiring before SIP end date' })
+  async getMandateExpiryAlerts(@CurrentUser() user: any) {
+    return this.sipsService.getMandateExpiryAlerts(getEffectiveAdvisorId(user));
+  }
+
   @Post(':id/register-bse')
   @ApiOperation({ summary: 'Register an active SIP with BSE StAR MF' })
   @ApiResponse({ status: 200, description: 'BSE SIP registration order created' })

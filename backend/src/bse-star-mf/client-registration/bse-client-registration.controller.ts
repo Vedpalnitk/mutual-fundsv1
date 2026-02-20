@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
+import { RolesGuard } from '../../common/guards/roles.guard'
+import { Roles } from '../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseUccService } from './bse-ucc.service'
 import { BseFatcaService } from './bse-fatca.service'
@@ -9,7 +11,8 @@ import { RegisterUccDto, UploadFatcaDto, UploadCkycDto } from './dto/register-uc
 
 @ApiTags('BSE Client Registration')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('advisor', 'admin', 'fa_staff')
 @Controller('api/v1/bse/ucc')
 export class BseClientRegistrationController {
   constructor(

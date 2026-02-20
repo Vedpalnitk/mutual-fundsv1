@@ -38,8 +38,11 @@ import { CommissionsModule } from './commissions/commissions.module';
 import { BusinessIntelligenceModule } from './business-intelligence/business-intelligence.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { BseStarMfModule } from './bse-star-mf/bse-star-mf.module';
+import { NseNmfModule } from './nse-nmf/nse-nmf.module';
 import { CasImportModule } from './cas-import/cas-import.module';
+import { MarketingModule } from './marketing/marketing.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -56,6 +59,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
       }],
     }),
     ScheduleModule.forRoot(),
+    CommonModule,
     PrismaModule,
     AuthModule,
     PersonasModule,
@@ -109,8 +113,12 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     ComplianceModule,
     // BSE StAR MF Integration
     BseStarMfModule,
+    // NSE NMF (MFSS) Integration
+    NseNmfModule,
     // CAS PDF Import (CAMS/KFintech portfolio ingestion)
     CasImportModule,
+    // Marketing (branded image generation)
+    MarketingModule,
   ],
   controllers: [],
   providers: [
