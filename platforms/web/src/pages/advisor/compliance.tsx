@@ -1,9 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
 import { complianceApi, ComplianceRecordData, ComplianceDashboard, RiskCheckResult } from '@/services/api'
+import { teamApi } from '@/services/api/business'
 import { useFATheme } from '@/utils/fa'
 
-type TabKey = 'dashboard' | 'records' | 'risk'
+type TabKey = 'dashboard' | 'records' | 'euin' | 'risk'
+
+interface EuinRecord {
+  id: string; displayName: string; email: string; euin: string
+  euinExpiry: string; branchName: string; daysUntilExpiry: number
+}
 
 export default function CompliancePage() {
   const { colors, isDark } = useFATheme()
@@ -19,6 +25,10 @@ export default function CompliancePage() {
   const [filterStatus, setFilterStatus] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ type: 'ARN', entityName: '', expiryDate: '', documentUrl: '', notes: '' })
+
+  // EUIN Tracker state
+  const [euinData, setEuinData] = useState<EuinRecord[]>([])
+  const [loadingEuin, setLoadingEuin] = useState(false)
 
   // Risk check state
   const [riskClientId, setRiskClientId] = useState('')
@@ -38,10 +48,15 @@ export default function CompliancePage() {
     } catch {} finally { setLoading(false) }
   }, [filterType, filterStatus])
 
+  const fetchEuinExpiry = useCallback(async () => {
+    try { setLoadingEuin(true); setEuinData(await teamApi.getEuinExpiry()) } catch {} finally { setLoadingEuin(false) }
+  }, [])
+
   useEffect(() => {
     if (activeTab === 'dashboard') fetchDashboard()
     if (activeTab === 'records') fetchRecords()
-  }, [activeTab, fetchDashboard, fetchRecords])
+    if (activeTab === 'euin') fetchEuinExpiry()
+  }, [activeTab, fetchDashboard, fetchRecords, fetchEuinExpiry])
 
   const handleCreateRecord = async () => {
     try {
@@ -69,6 +84,7 @@ export default function CompliancePage() {
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'records', label: 'Records' },
+    { key: 'euin', label: 'EUIN Tracker' },
     { key: 'risk', label: 'Risk Check' },
   ]
 
@@ -341,6 +357,70 @@ export default function CompliancePage() {
                   >Save</button>
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============= EUIN TRACKER TAB ============= */}
+      {activeTab === 'euin' && (
+        <div>
+          <div
+            className="p-5 rounded-2xl mb-4"
+            style={{
+              background: isDark
+                ? 'linear-gradient(135deg, rgba(147, 197, 253, 0.06) 0%, rgba(191, 219, 254, 0.03) 100%)'
+                : 'linear-gradient(135deg, rgba(59, 130, 246, 0.03) 0%, rgba(96, 165, 250, 0.01) 100%)',
+              border: `1px solid ${colors.cardBorder}`,
+            }}
+          >
+            <h3 className="text-sm font-semibold mb-1" style={{ color: colors.textPrimary }}>
+              EUIN Expiry Tracker
+            </h3>
+            <p className="text-xs" style={{ color: colors.textTertiary }}>
+              Staff with EUINs expiring within 90 days
+            </p>
+          </div>
+
+          {loadingEuin ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: `${colors.primary}30`, borderTopColor: colors.primary }} />
+            </div>
+          ) : euinData.length === 0 ? (
+            <div className="text-center py-12 rounded-2xl" style={{ background: colors.chipBg, border: `1px solid ${colors.cardBorder}` }}>
+              <p className="text-sm font-medium" style={{ color: colors.textSecondary }}>No expiring EUINs found</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {euinData.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-4 rounded-xl flex items-center justify-between"
+                  style={{
+                    background: isDark ? colors.chipBg : colors.inputBg,
+                    border: `1px solid ${colors.cardBorder}`,
+                    borderLeft: `4px solid ${getExpiryColor(item.daysUntilExpiry)}`,
+                  }}
+                >
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: colors.textPrimary }}>{item.displayName}</p>
+                    <p className="text-xs" style={{ color: colors.textTertiary }}>{item.email}</p>
+                    <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
+                      EUIN: <span className="font-medium">{item.euin}</span>
+                      {item.branchName && <span> | {item.branchName}</span>}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs" style={{ color: colors.textTertiary }}>Expires</p>
+                    <p className="text-sm font-semibold" style={{ color: getExpiryColor(item.daysUntilExpiry) }}>
+                      {item.euinExpiry}
+                    </p>
+                    <p className="text-xs font-medium" style={{ color: getExpiryColor(item.daysUntilExpiry) }}>
+                      {item.daysUntilExpiry <= 0 ? 'Expired' : `${item.daysUntilExpiry} days left`}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

@@ -11,6 +11,8 @@ import { useFATheme, formatCurrency, formatDate } from '@/utils/fa'
 import { nmfApi } from '@/services/api'
 import { FACard, FAButton, FASpinner } from '@/components/advisor/shared'
 import NmfPaymentModal from '@/components/nmf/NmfPaymentModal'
+import NmfStatusBadge from '@/components/nmf/NmfStatusBadge'
+import NmfOrderTimeline from '@/components/nmf/NmfOrderTimeline'
 
 type NseOrderType = 'PURCHASE' | 'REDEMPTION' | 'SWITCH'
 type NseOrderStatus =
@@ -62,51 +64,12 @@ const ORDER_TYPE_LABELS: Record<NseOrderType, string> = {
   SWITCH: 'Switch',
 }
 
-// Lifecycle steps in order (happy path)
-const LIFECYCLE_STEPS: { key: NseOrderStatus; label: string }[] = [
-  { key: 'PLACED', label: 'Placed' },
-  { key: 'TWO_FA_PENDING', label: '2FA' },
-  { key: 'AUTH_PENDING', label: 'Auth' },
-  { key: 'PAYMENT_PENDING', label: 'Payment' },
-  { key: 'PAYMENT_CONFIRMATION_PENDING', label: 'Confirming' },
-  { key: 'PENDING_RTA', label: 'RTA Pending' },
-  { key: 'VALIDATED_RTA', label: 'RTA Validated' },
-  { key: 'ALLOTMENT_DONE', label: 'Allotted' },
-  { key: 'UNITS_TRANSFERRED', label: 'Transferred' },
-]
-
 const TERMINAL_STATUSES: NseOrderStatus[] = ['REJECTED', 'CANCELLED', 'FAILED']
-
-const getStepState = (
-  stepKey: NseOrderStatus,
-  currentStatus: NseOrderStatus
-): 'completed' | 'current' | 'pending' | 'failed' => {
-  if (TERMINAL_STATUSES.includes(currentStatus)) {
-    // For terminal statuses, find the step index where we stopped
-    const currentIdx = LIFECYCLE_STEPS.findIndex(s => s.key === currentStatus)
-    const stepIdx = LIFECYCLE_STEPS.findIndex(s => s.key === stepKey)
-    // If the terminal status is not in the lifecycle (REJECTED/CANCELLED/FAILED),
-    // we treat all steps as pending and show a special terminal indicator
-    if (currentIdx === -1) return 'pending'
-    if (stepIdx < currentIdx) return 'completed'
-    if (stepIdx === currentIdx) return 'failed'
-    return 'pending'
-  }
-
-  const lifecycleKeys = LIFECYCLE_STEPS.map(s => s.key)
-  const currentIdx = lifecycleKeys.indexOf(currentStatus)
-  const stepIdx = lifecycleKeys.indexOf(stepKey)
-
-  if (currentIdx === -1) return 'pending'
-  if (stepIdx < currentIdx) return 'completed'
-  if (stepIdx === currentIdx) return 'current'
-  return 'pending'
-}
 
 const NMFOrderDetailPage = () => {
   const router = useRouter()
   const { id } = router.query
-  const { colors, isDark } = useFATheme()
+  const { colors } = useFATheme()
 
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -215,21 +178,7 @@ const NMFOrderDetailPage = () => {
               >
                 {ORDER_TYPE_LABELS[order.orderType]}
               </span>
-              {/* Status badge */}
-              <span
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
-                style={{
-                  background: isTerminal ? `${colors.error}15` : `${colors.primary}15`,
-                  color: isTerminal ? colors.error : colors.primary,
-                  border: `1px solid ${isTerminal ? `${colors.error}30` : `${colors.primary}30`}`,
-                }}
-              >
-                <span
-                  className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: isTerminal ? colors.error : colors.primary }}
-                />
-                {order.status.replace(/_/g, ' ')}
-              </span>
+              <NmfStatusBadge status={order.status} type="order" size="md" />
             </div>
             <p className="text-sm mt-0.5 truncate" style={{ color: colors.textSecondary }}>
               {order.schemeName}
@@ -262,85 +211,7 @@ const NMFOrderDetailPage = () => {
             </div>
           )}
 
-          {/* Horizontal timeline */}
-          <div className="overflow-x-auto pb-2">
-            <div className="flex items-center min-w-[700px] px-2">
-              {LIFECYCLE_STEPS.map((step, idx) => {
-                const state = getStepState(step.key, order.status)
-                const isLast = idx === LIFECYCLE_STEPS.length - 1
-
-                let dotColor = colors.cardBorder
-                let dotBg = 'transparent'
-                let labelColor = colors.textTertiary
-                let lineColor = colors.cardBorder
-
-                if (state === 'completed') {
-                  dotColor = '#10B981'
-                  dotBg = '#10B981'
-                  labelColor = '#10B981'
-                  lineColor = '#10B981'
-                } else if (state === 'current') {
-                  dotColor = colors.primary
-                  dotBg = colors.primary
-                  labelColor = colors.primary
-                } else if (state === 'failed') {
-                  dotColor = colors.error
-                  dotBg = colors.error
-                  labelColor = colors.error
-                }
-
-                return (
-                  <div key={step.key} className="flex items-center flex-1">
-                    {/* Step */}
-                    <div className="flex flex-col items-center min-w-[60px]">
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all"
-                        style={{
-                          borderColor: dotColor,
-                          background: state === 'completed' || state === 'current' || state === 'failed'
-                            ? dotBg
-                            : 'transparent',
-                        }}
-                      >
-                        {state === 'completed' ? (
-                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : state === 'current' ? (
-                          <div className="w-2.5 h-2.5 rounded-full bg-white" />
-                        ) : state === 'failed' ? (
-                          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        ) : (
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ background: colors.cardBorder }}
-                          />
-                        )}
-                      </div>
-                      <p
-                        className="text-xs font-medium mt-1.5 text-center whitespace-nowrap"
-                        style={{ color: labelColor }}
-                      >
-                        {step.label}
-                      </p>
-                    </div>
-
-                    {/* Connecting line */}
-                    {!isLast && (
-                      <div
-                        className="flex-1 h-0.5 mx-1 mt-[-18px]"
-                        style={{
-                          background: state === 'completed' ? lineColor : colors.cardBorder,
-                        }}
-                      />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          <NmfOrderTimeline currentStatus={order.status} />
         </FACard>
 
         {/* Order Details Card */}

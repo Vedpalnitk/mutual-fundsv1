@@ -86,10 +86,15 @@ sparrow-invest/
 
 ### Backend
 - **Dev server**: `cd backend && npm run start:dev`
+- **Build**: `cd backend && npm run build`
+- **Unit tests**: `cd backend && npm test`
+- **Test coverage**: `cd backend && npm run test:cov`
 - **Database migrate**: `cd backend && npm run db:migrate`
 - **Database seed**: `cd backend && npm run db:seed`
 - **Seed all data**: `cd backend && npm run db:seed:all`
 - **Prisma Studio**: `cd backend && npm run db:studio`
+- **Trigger enrichment**: Batch job `scheme_enrichment` or direct: `SchemeEnrichmentService.enrichAll()`
+- **Trigger metrics recalc**: `POST /api/v1/funds/live/sync/recalculate` (authenticated)
 
 ### Docker (Local Dev)
 - **Start services**: `docker compose -f docker-compose.dev.yml up -d`
@@ -373,12 +378,17 @@ Full NSE NMF (MFSS) API integration as a second exchange platform alongside BSE 
 | NMF Orders | `/advisor/nmf/orders` |
 | Order Detail | `/advisor/nmf/orders/[id]` |
 | NMF Mandates | `/advisor/nmf/mandates` |
+| Mandate Detail | `/advisor/nmf/mandates/[id]` |
+| NMF Systematic | `/advisor/nmf/systematic` |
+| NMF Schemes | `/advisor/nmf/scheme-master` |
 | NMF Reports | `/advisor/nmf/reports` |
 
 ### NSE Components (`components/nmf/`)
 - `NmfStatusBadge` — Color-coded status pills for orders, mandates, systematic, payments
 - `NmfOrderTimeline` — Horizontal 9-step lifecycle visualization
 - `NmfPaymentModal` — 6 payment mode selection modal
+- `NmfOrderPlacementModal` — Purchase/redeem/switch form with NmfSchemePicker
+- `NmfSchemePicker` — Autocomplete scheme search querying NSE scheme master
 
 ### NSE Cron Jobs
 | Job | Schedule | Purpose |
@@ -393,6 +403,65 @@ Full NSE NMF (MFSS) API integration as a second exchange platform alongside BSE 
 - Soft-link bridge: `NseOrder.transactionId` is `String?` (no Prisma FK to FATransaction)
 - `nmfApi` namespace in `services/api.ts` (~50 endpoint methods)
 - See `docs/nse-nmf-api-reference.md` for full reference
+
+## Scalability Infrastructure
+
+### Redis Caching (`cache-manager@5` + `cache-manager-ioredis-yet`)
+- `CacheService` in `common/services/cache.service.ts` — global, no-op fallback if Redis unavailable
+- Cached endpoints: `/auth/me/portfolio` (60s), `/advisor/dashboard` (30s), scheme searches (1h)
+- Invalidate on writes: `cacheService.del('portfolio:${userId}')`
+
+### Async Order Processing (BullMQ)
+- `QueueModule` in `common/queue/queue.module.ts` — provides `BULLMQ_CONNECTION` globally
+- BSE orders: `bse-orders` queue → `BseOrderProcessor` (5 concurrency)
+- NSE orders: `nse-orders` queue → `NseOrderProcessor` (5 concurrency)
+- API logs: `api-logs` queue → `ApiLogProcessor` (10 concurrency, low priority)
+- Order placement returns `{ status: 'QUEUED' }` immediately, processes async
+
+### Circuit Breakers (opossum)
+- `BseHttpClient` and `NseHttpClient` wrap external API calls
+- Opens after 50% failure rate (5+ calls), resets after 60s
+- Falls back to `ServiceUnavailableException`
+
+### Production Infrastructure
+- `backend/Dockerfile` — multi-stage Node 20 Alpine build
+- `docker-compose.prod.yml` — backend (2 replicas), postgres (tuned), redis, pgbouncer
+- `backend/ecosystem.config.js` — PM2 cluster mode config
+- Log cleanup cron: daily 3am, deletes BSE/NSE/audit logs > 90 days
+
+## Fund Data Pipeline
+
+Data flows in sequence: AMFI sync → NAV backfill → Metrics calculation → Enrichment
+
+### Data Flow
+| Step | Service | Batch Job ID | What it does |
+|------|---------|-------------|-------------|
+| 1. AMFI NAV Sync | `FundSyncService` | `amfi_nav` | Daily NAV from AMFI → `SchemePlanNav` (current) + `SchemePlanNavHistory` (1 record/day) |
+| 2. NAV Backfill | `BackfillService` | `fund_nav_backfill` | 5yr history from MFAPI.in → `SchemePlanNavHistory` (tiered: 3mo daily + 3mo-5yr month-end). ~6hrs for 18K funds |
+| 3. Metrics Recalc | `MetricsCalculatorService` | `POST /api/v1/funds/live/sync/recalculate` | Computes returns, volatility, Sharpe, Sortino, alpha/beta, max drawdown → `SchemePlanMetrics`. Assigns 1-5 star ratings per category |
+| 4. Enrichment | `SchemeEnrichmentService` | `scheme_enrichment` | Fills benchmark, exitLoad, lockinPeriod, transaction flags, provider logos, risk ratings |
+
+### Key Dependencies
+- **Star ratings** (`fundRating`): Require 2.5+ years NAV history + metrics recalculation. If null, run backfill then recalculate
+- **Risk ratings** (`riskRating`): Category-based fallback via enrichment (no NAV history needed). Volatility-based via metrics (needs 252+ days)
+- **Benchmark fund**: UTI Nifty 50 (MFAPI code `120716`) needed for Alpha/Beta calculation
+
+### Enrichment Service (4 phases)
+- **Location**: `backend/src/funds/scheme-enrichment.service.ts`
+- **Data files**: `backend/src/funds/data/benchmark-map.ts`, `backend/src/funds/data/provider-metadata-map.ts`
+- **Phase A**: Category → SEBI benchmark TRI (42 L3 categories)
+- **Phase B**: BSE/NSE scheme masters → transaction flags, exitLoad, lockinPeriod (matched by ISIN)
+- **Phase C**: Static map → Provider logoUrl, websiteUrl (~44 AMCs)
+- **Phase D**: Category → default risk rating 1-5 (SEBI riskometer fallback)
+- **Cron**: Sunday 4 AM IST (after BSE 2 AM + NSE 3 AM syncs)
+
+### Batch Jobs System
+- **Location**: `backend/src/batch-jobs/` (registry, service, controller, module)
+- **Registry**: `batch-jobs.registry.ts` — static array of `BatchJobDefinition` with id, schedule, cronExpression, manualTrigger flag
+- **Trigger**: `POST /api/v1/admin/batch-jobs/:jobId/trigger` (requires JWT auth)
+- **Dashboard**: `/admin/batch-jobs` — lists all jobs with latest run status, 24h stats
+- **Groups**: `fund_sync`, `compliance`, `aum`, `insurance`, `bse`, `nse`
+- **Adding a job**: Add to `BATCH_JOBS` array in registry + add switch case in `batch-jobs.service.ts`
 
 ## External APIs
 
@@ -459,6 +528,14 @@ BACKEND_URL=http://localhost:3801
 | Middleware not running | `middleware.ts` must be at `platforms/web/middleware.ts` (project root, not `src/`) for Pages Router |
 | Port 5432/6379 already in use | Use `docker-compose.dev.yml` (root), not `backend/docker-compose.yml` — local dev uses 3800-series ports |
 | Backend can't connect to DB | Ensure Docker services are running: `docker compose -f docker-compose.dev.yml up -d` |
+| Fund star ratings all null | Need NAV backfill (5yr history) then metrics recalculation. Run `fund_nav_backfill` then `recalculate` |
+| Fund risk shows "Unknown" | Run `scheme_enrichment` batch job to populate category-based default risk ratings |
+| Batch job trigger 401 | Admin endpoints require JWT auth. For local testing, use `npx ts-node` scripts directly |
+| Prisma `upsert` fails on nullable unique keys | Can't use `upsert` when composite `@@unique` includes nullable field — use `findFirst` + `update/create` instead |
+| `prisma db push` warns on constraint changes | Adding column to existing unique constraint needs `--accept-data-loss` flag (NULLs are distinct, no actual data loss) |
+| BullMQ ioredis type error | BullMQ bundles its own ioredis — type `connection` params as `any`, not `Redis` |
+| cache-manager API mismatch | Use `cache-manager@5` with `cache-manager-ioredis-yet@2.x` — use `caching()` not `createCache()` |
+| Prisma enum types stale | After adding enum values to `schema.prisma`, run `npx prisma generate` before `tsc` |
 
 ---
 
@@ -542,7 +619,7 @@ The FA sidebar uses collapsible sections (state persisted in localStorage as `fa
 | **Transactions** | Transactions, CAS Imports |
 | **Research** | Funds, Compare, My Picks, Deep Analysis, Calculators, Reports |
 | **BSE StAR MF** | BSE Setup, BSE Clients, BSE Orders, BSE Mandates, BSE Reports |
-| **NSE NMF** | NMF Setup, NMF Clients, NMF Orders, NMF Mandates, NMF Reports |
+| **NSE NMF** | NMF Setup, NMF Clients, NMF Orders, NMF Mandates, NMF Systematic, NMF Schemes, NMF Reports |
 | **Business** | AUM & Analytics, Commissions, Team, Branches, Compliance |
 | **Account** | Settings |
 

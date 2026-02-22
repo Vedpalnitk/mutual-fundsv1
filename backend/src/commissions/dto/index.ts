@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, IsDateString, IsEnum, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsDateString, IsEnum, IsArray, ValidateNested, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -121,4 +121,43 @@ export class ReconcileAndComputeDto {
   @IsString()
   @IsOptional()
   arnNumber?: string;
+}
+
+// ============= Bulk Create (Onboarding) =============
+
+export class BulkRateItemDto {
+  @ApiProperty()
+  @IsString()
+  amcId: string;
+
+  @ApiProperty()
+  @IsString()
+  schemeCategory: string;
+
+  @ApiProperty()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  @Type(() => Number)
+  trailRatePercent: number;
+
+  @ApiPropertyOptional()
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @Max(100)
+  @Type(() => Number)
+  upfrontRatePercent?: number;
+
+  @ApiProperty()
+  @IsDateString()
+  effectiveFrom: string;
+}
+
+export class BulkCreateRatesDto {
+  @ApiProperty({ type: [BulkRateItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BulkRateItemDto)
+  rates: BulkRateItemDto[];
 }

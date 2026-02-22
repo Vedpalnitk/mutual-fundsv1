@@ -83,10 +83,6 @@ export default function SystemAlertsBanner() {
   if (loading) return <FALoadingState message="Checking alerts..." />
   if (allEmpty) return null
 
-  const handleSendReminder = (clientName: string) => {
-    showNotification('success', `KYC reminder sent to ${clientName}`)
-  }
-
   return (
     <div className="mb-6">
       {/* Collapsed: Count Chips */}
@@ -244,7 +240,7 @@ export default function SystemAlertsBanner() {
                         variant="secondary"
                         size="sm"
                         icon={<BellIcon className="w-3.5 h-3.5" />}
-                        onClick={() => handleSendReminder(client.name)}
+                        onClick={() => setShareModalClient({ id: client.id, name: client.name })}
                       >
                         Send Reminder
                       </FAButton>

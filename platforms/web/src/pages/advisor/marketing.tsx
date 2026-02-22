@@ -125,17 +125,30 @@ function TemplateCard({
       }}
       onClick={onCustomize}
     >
-      {/* Template thumbnail placeholder */}
+      {/* Template thumbnail */}
       <div
-        className="w-full h-32 rounded-lg mb-4 flex items-center justify-center"
+        className="w-full h-32 rounded-lg mb-4 relative overflow-hidden flex items-end p-3"
         style={{
-          background: `linear-gradient(135deg, ${colors.primary}08 0%, ${colors.primary}03 100%)`,
-          border: `1px dashed ${colors.cardBorder}`,
+          background: (() => {
+            const gradients: Record<string, string> = {
+              FESTIVAL: `linear-gradient(135deg, #F59E0B 0%, #EF4444 50%, #EC4899 100%)`,
+              MARKET: `linear-gradient(135deg, #3B82F6 0%, #06B6D4 50%, #10B981 100%)`,
+              NFO: `linear-gradient(135deg, #8B5CF6 0%, #A855F7 50%, #EC4899 100%)`,
+              BIRTHDAY: `linear-gradient(135deg, #EC4899 0%, #F472B6 50%, #FBBF24 100%)`,
+              GENERAL: `linear-gradient(135deg, #6366F1 0%, #3B82F6 50%, #06B6D4 100%)`,
+            }
+            return gradients[template.category] || gradients.GENERAL
+          })(),
         }}
       >
-        <div style={{ color: colors.textTertiary }}>
-          <TemplateIcon />
-        </div>
+        {/* Decorative circles */}
+        <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full" style={{ background: 'rgba(255,255,255,0.15)' }} />
+        <div className="absolute top-6 -right-2 w-10 h-10 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} />
+        <div className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }} />
+        {/* Template name overlay */}
+        <span className="relative z-10 text-white text-xs font-bold leading-tight opacity-90 line-clamp-2">
+          {template.name}
+        </span>
       </div>
 
       {/* Category badge */}
@@ -254,9 +267,29 @@ function CustomizePanel({
     loadPreview()
   }
 
+  // Extract current HTML from iframe (includes user edits)
+  const getEditedHtml = (): string | undefined => {
+    if (iframeRef.current?.contentDocument) {
+      // Remove contentEditable attributes and edit styles before extracting
+      const doc = iframeRef.current.contentDocument
+      const clone = doc.documentElement.cloneNode(true) as HTMLElement
+      clone.querySelectorAll('[contenteditable]').forEach((el: any) => {
+        el.removeAttribute('contenteditable')
+        el.style.cursor = ''
+        el.style.outline = ''
+        el.style.borderRadius = ''
+        el.style.transition = ''
+        el.style.boxShadow = ''
+      })
+      return `<!DOCTYPE html><html>${clone.innerHTML}</html>`
+    }
+    return undefined
+  }
+
   const handleGenerateImage = async () => {
     setGeneratingImage(true)
     try {
+      const editedHtml = getEditedHtml()
       const token = getAuthToken()
       const apiBase = process.env.NEXT_PUBLIC_API_URL || ''
       const response = await fetch(`${apiBase}/api/v1/marketing/generate-image`, {
@@ -265,7 +298,7 @@ function CustomizePanel({
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ templateId: template.id, customFields }),
+        body: JSON.stringify({ templateId: template.id, customFields, html: editedHtml }),
       })
 
       if (!response.ok) {
@@ -296,7 +329,7 @@ function CustomizePanel({
     success('Share link opened', 'WhatsApp share dialog opened in a new tab')
   }
 
-  // Write preview HTML into iframe
+  // Write preview HTML into iframe and make text editable
   useEffect(() => {
     if (iframeRef.current && previewHtml) {
       const doc = iframeRef.current.contentDocument
@@ -304,6 +337,27 @@ function CustomizePanel({
         doc.open()
         doc.write(previewHtml)
         doc.close()
+
+        // Make text elements editable after a tick
+        setTimeout(() => {
+          const editableSelectors = 'h1, h2, p, .brand-name, .brand-arn, .highlight'
+          const elements = doc.querySelectorAll(editableSelectors)
+          elements.forEach((el: any) => {
+            el.contentEditable = 'true'
+            el.style.cursor = 'text'
+            el.style.outline = 'none'
+            el.style.borderRadius = '4px'
+            el.style.transition = 'box-shadow 0.2s'
+          })
+
+          // Add focus/hover styles via a style tag
+          const style = doc.createElement('style')
+          style.textContent = `
+            [contenteditable]:hover { box-shadow: 0 0 0 2px rgba(255,255,255,0.3); }
+            [contenteditable]:focus { box-shadow: 0 0 0 2px rgba(255,255,255,0.6); }
+          `
+          doc.head.appendChild(style)
+        }, 50)
       }
     }
   }, [previewHtml])
@@ -437,12 +491,19 @@ function CustomizePanel({
 
       {/* Live preview */}
       <div className="p-4" style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
-        <label
-          className="block text-xs font-semibold uppercase tracking-wide mb-2"
-          style={{ color: colors.primary }}
-        >
-          Preview
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: colors.primary }}
+          >
+            Preview
+          </label>
+          {previewHtml && (
+            <span className="text-xs" style={{ color: colors.textTertiary }}>
+              Click text to edit directly
+            </span>
+          )}
+        </div>
         <div
           className="rounded-xl overflow-hidden"
           style={{
@@ -465,7 +526,7 @@ function CustomizePanel({
             <iframe
               ref={iframeRef}
               className="w-full h-full"
-              sandbox="allow-same-origin"
+              sandbox="allow-same-origin allow-scripts"
               title="Template Preview"
               style={{ border: 'none' }}
             />

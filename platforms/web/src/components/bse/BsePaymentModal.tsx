@@ -84,13 +84,12 @@ export default function BsePaymentModal({
         bankCode: showBankCodeInput ? bankCode.trim() : undefined,
       })
 
-      const data = response?.data || response
-      const url = data?.redirectUrl || data?.paymentUrl || null
+      const url = response?.redirectUrl || null
 
       if (url) {
         setRedirectUrl(url)
       } else {
-        onSuccess?.(data)
+        onSuccess?.(response)
         onClose()
       }
     } catch (err: any) {

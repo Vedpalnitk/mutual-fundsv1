@@ -1,0 +1,8 @@
+export { default as OverviewTab } from './OverviewTab'
+export { default as FamilyTab } from './FamilyTab'
+export { default as HoldingsTab } from './HoldingsTab'
+export { default as TransactionsTab } from './TransactionsTab'
+export { default as SipsTab } from './SipsTab'
+export { default as GoalsTab } from './GoalsTab'
+export { default as ReportsTab } from './ReportsTab'
+export { default as NotesTab } from './NotesTab'

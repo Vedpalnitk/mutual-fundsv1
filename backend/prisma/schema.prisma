@@ -756,6 +756,10 @@ model User {
   euinCommissionSplits  EuinCommissionSplit[]
   euinCommissionPayouts EuinCommissionPayout[]
 
+  // Onboarding & Bulk Import Relations
+  onboarding  AdvisorOnboarding?
+  bulkImports BulkImport[]
+
   deletedAt DateTime? @map("deleted_at")
 
   @@index([isActive])
@@ -3106,4 +3110,70 @@ model EuinCommissionPayout {
   @@index([advisorId])
   @@index([staffMemberId])
   @@map("euin_commission_payouts")
+}
+
+// =============================================
+// ADVISOR ONBOARDING WIZARD
+// =============================================
+
+model AdvisorOnboarding {
+  id                  String    @id @default(uuid())
+  advisorId           String    @unique @map("advisor_id")
+
+  // Step completion tracking
+  profileCompleted    Boolean   @default(false) @map("profile_completed")
+  arnCompleted        Boolean   @default(false) @map("arn_completed")
+  exchangeCompleted   Boolean   @default(false) @map("exchange_completed")
+  teamCompleted       Boolean   @default(false) @map("team_completed")
+  importCompleted     Boolean   @default(false) @map("import_completed")
+  commissionCompleted Boolean   @default(false) @map("commission_completed")
+  wizardCompleted     Boolean   @default(false) @map("wizard_completed")
+
+  // Track current step for resume
+  currentStep         Int       @default(1) @map("current_step")
+
+  // Skip metadata
+  teamSkipped         Boolean   @default(false) @map("team_skipped")
+  importSkipped       Boolean   @default(false) @map("import_skipped")
+  commissionSkipped   Boolean   @default(false) @map("commission_skipped")
+
+  // Import tracking
+  camsWbrUploaded     Boolean   @default(false) @map("cams_wbr_uploaded")
+  kfintechMisUploaded Boolean   @default(false) @map("kfintech_mis_uploaded")
+  camsWbrImportId     String?   @map("cams_wbr_import_id")
+  kfintechMisImportId String?   @map("kfintech_mis_import_id")
+
+  completedAt         DateTime? @map("completed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  advisor User @relation(fields: [advisorId], references: [id])
+
+  @@map("advisor_onboarding")
+}
+
+// =============================================
+// BULK IMPORT (CAMS WBR / KFINTECH MIS)
+// =============================================
+
+model BulkImport {
+  id               String   @id @default(uuid())
+  advisorId        String   @map("advisor_id")
+  importType       String   @map("import_type") // CAMS_WBR | KFINTECH_MIS
+  fileName         String   @map("file_name")
+  fileSize         Int      @map("file_size")
+  status           String   @default("PROCESSING") // PROCESSING | COMPLETED | FAILED | PARTIAL
+  totalRecords     Int      @default(0) @map("total_records")
+  importedClients  Int      @default(0) @map("imported_clients")
+  importedHoldings Int      @default(0) @map("imported_holdings")
+  skippedRecords   Int      @default(0) @map("skipped_records")
+  errorRecords     Int      @default(0) @map("error_records")
+  errors           Json?    // array of { row, field, message }
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  advisor User @relation(fields: [advisorId], references: [id])
+
+  @@index([advisorId])
+  @@map("bulk_imports")
 }

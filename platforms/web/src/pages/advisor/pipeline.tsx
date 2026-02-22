@@ -5,7 +5,8 @@
  * Includes pipeline (kanban) view, list view, and conversion flow.
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useRouter } from 'next/router'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
 import { useFATheme, formatCurrency } from '@/utils/fa'
 import { Prospect, ProspectStage, ProspectFormData, ProspectMeetingNote, ClientFormData } from '@/utils/faTypes'
@@ -14,7 +15,9 @@ import {
   FASearchInput,
   FASelect,
   FAButton,
+  useNotification,
 } from '@/components/advisor/shared'
+import { prospectApi, ProspectStats } from '@/services/api'
 import ProspectFormModal from '@/components/advisor/ProspectFormModal'
 import ConvertToClientModal from '@/components/advisor/ConvertToClientModal'
 import PipelineBoard from '@/components/advisor/pipeline/PipelineBoard'
@@ -22,26 +25,30 @@ import PipelineList from '@/components/advisor/pipeline/PipelineList'
 
 const ALL_STAGES: ProspectStage[] = ['Discovery', 'Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost']
 
-// Mock prospects data
-const mockProspects: Prospect[] = [
-  { id: '1', name: 'Ananya Reddy', email: 'ananya.reddy@email.com', phone: '+91 98765 11111', potentialAum: 5000000, stage: 'Negotiation', source: 'Referral', nextAction: 'Send final proposal', nextActionDate: '2024-01-22', createdAt: '2024-01-05', notes: 'Interested in aggressive growth funds', meetingNotes: [
-    { id: 'mn1', title: 'Initial discussion', content: 'Discussed risk appetite and investment goals. Prefers equity-heavy portfolio.', meetingType: 'CALL', meetingDate: '2024-01-06' },
-    { id: 'mn2', title: 'Proposal review', content: 'Reviewed proposed fund allocation. Wants more mid-cap exposure.', meetingType: 'VIDEO', meetingDate: '2024-01-15' },
-  ] },
-  { id: '2', name: 'Karthik Menon', email: 'karthik.m@email.com', phone: '+91 98765 22222', potentialAum: 2500000, stage: 'Analysis', source: 'Website', nextAction: 'Complete risk profiling', nextActionDate: '2024-01-23', createdAt: '2024-01-10', notes: 'First-time investor, needs education', meetingNotes: [
-    { id: 'mn3', title: 'Intro call', content: 'First-time investor. Explained SIP basics and tax benefits of ELSS.', meetingType: 'CALL', meetingDate: '2024-01-11' },
-  ] },
-  { id: '3', name: 'Deepa Nair', email: 'deepa.nair@email.com', phone: '+91 98765 33333', potentialAum: 7500000, stage: 'Discovery', source: 'LinkedIn', nextAction: 'Schedule intro call', nextActionDate: '2024-01-21', createdAt: '2024-01-15', notes: 'HNI, currently with competitor' },
-  { id: '4', name: 'Rohit Verma', email: 'rohit.v@email.com', phone: '+91 98765 44444', potentialAum: 3200000, stage: 'Proposal', source: 'Referral', nextAction: 'Follow up on proposal', nextActionDate: '2024-01-24', createdAt: '2024-01-08', notes: 'Interested in tax saving options' },
-  { id: '5', name: 'Sunita Agarwal', email: 'sunita.a@email.com', phone: '+91 98765 55555', potentialAum: 12000000, stage: 'Negotiation', source: 'Event', nextAction: 'Negotiate fees', nextActionDate: '2024-01-25', createdAt: '2024-01-02', notes: 'Family office, long-term relationship potential' },
-  { id: '6', name: 'Manish Joshi', email: 'manish.j@email.com', phone: '+91 98765 66666', potentialAum: 1800000, stage: 'Discovery', source: 'Cold Call', nextAction: 'Send intro materials', nextActionDate: '2024-01-26', createdAt: '2024-01-18', notes: 'Young professional, starting investment journey' },
-  { id: '7', name: 'Prerna Singh', email: 'prerna.s@email.com', phone: '+91 98765 77777', potentialAum: 4500000, stage: 'Closed Won', source: 'Referral', nextAction: 'Onboard client', nextActionDate: '2024-01-20', createdAt: '2023-12-15', notes: 'Successfully converted!' },
-  { id: '8', name: 'Ashok Pillai', email: 'ashok.p@email.com', phone: '+91 98765 88888', potentialAum: 2000000, stage: 'Closed Lost', source: 'Website', nextAction: '-', nextActionDate: '', createdAt: '2023-12-20', notes: 'Went with another advisor' },
-]
+// Map API stage enum to display stage names
+const STAGE_MAP: Record<string, ProspectStage> = {
+  DISCOVERY: 'Discovery', ANALYSIS: 'Analysis', PROPOSAL: 'Proposal',
+  NEGOTIATION: 'Negotiation', CLOSED_WON: 'Closed Won', CLOSED_LOST: 'Closed Lost',
+}
+const STAGE_REVERSE: Record<string, string> = {
+  Discovery: 'DISCOVERY', Analysis: 'ANALYSIS', Proposal: 'PROPOSAL',
+  Negotiation: 'NEGOTIATION', 'Closed Won': 'CLOSED_WON', 'Closed Lost': 'CLOSED_LOST',
+}
+const SOURCE_MAP: Record<string, string> = {
+  REFERRAL: 'Referral', WEBSITE: 'Website', LINKEDIN: 'LinkedIn', EVENT: 'Event',
+  COLD_CALL: 'Cold Call', SOCIAL_MEDIA: 'Social Media', OTHER: 'Other',
+}
+const SOURCE_REVERSE: Record<string, string> = {
+  Referral: 'REFERRAL', Website: 'WEBSITE', LinkedIn: 'LINKEDIN', Event: 'EVENT',
+  'Cold Call': 'COLD_CALL', 'Social Media': 'SOCIAL_MEDIA', Other: 'OTHER',
+}
 
 const PipelinePage = () => {
+  const router = useRouter()
   const { colors, isDark } = useFATheme()
-  const [prospects, setProspects] = useState<Prospect[]>(mockProspects)
+  const { showNotification } = useNotification()
+  const [prospects, setProspects] = useState<Prospect[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStage, setFilterStage] = useState<string>('all')
   const [viewMode, setViewMode] = useState<'pipeline' | 'list'>('pipeline')
@@ -58,6 +65,46 @@ const PipelinePage = () => {
   const [closedSortDir, setClosedSortDir] = useState<'asc' | 'desc'>('asc')
   const [listSortCol, setListSortCol] = useState('')
   const [listSortDir, setListSortDir] = useState<'asc' | 'desc'>('asc')
+
+  // Stats from API
+  const [apiStats, setApiStats] = useState<ProspectStats | null>(null)
+
+  // Map API response to frontend Prospect type
+  const mapApiProspect = (p: any): Prospect => ({
+    id: p.id,
+    name: p.name,
+    email: p.email,
+    phone: p.phone,
+    potentialAum: p.potentialAum,
+    stage: STAGE_MAP[p.stage] || p.stage,
+    source: SOURCE_MAP[p.source] || p.source,
+    nextAction: p.nextAction || '',
+    nextActionDate: p.nextActionDate || '',
+    createdAt: p.createdAt?.split('T')[0] || '',
+    notes: p.notes || '',
+    referredBy: p.referredBy,
+    meetingNotes: (p.meetingNotes || []).map((n: any) => ({
+      id: n.id,
+      title: n.title,
+      content: n.content,
+      meetingType: n.meetingType,
+      meetingDate: n.meetingDate,
+    })),
+  })
+
+  const fetchProspects = useCallback(async () => {
+    try {
+      setLoading(true)
+      const [data, stats] = await Promise.allSettled([
+        prospectApi.list(),
+        prospectApi.getStats(),
+      ])
+      if (data.status === 'fulfilled') setProspects(data.value.map(mapApiProspect))
+      if (stats.status === 'fulfilled') setApiStats(stats.value)
+    } catch {} finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { fetchProspects() }, [fetchProspects])
 
   const handleClosedSort = (col: string) => {
     if (closedSortCol === col) {
@@ -85,6 +132,15 @@ const PipelinePage = () => {
   }), [prospects, searchTerm, filterStage])
 
   const stats = useMemo(() => {
+    if (apiStats) {
+      return {
+        activeCount: apiStats.activeCount,
+        pipelineValue: apiStats.pipelineValue,
+        wonCount: apiStats.wonCount,
+        wonValue: apiStats.wonValue,
+        conversionRate: apiStats.conversionRate,
+      }
+    }
     const active = prospects.filter(p => !['Closed Won', 'Closed Lost'].includes(p.stage))
     const won = prospects.filter(p => p.stage === 'Closed Won')
     const lost = prospects.filter(p => p.stage === 'Closed Lost')
@@ -97,7 +153,7 @@ const PipelinePage = () => {
       wonValue: won.reduce((s, p) => s + p.potentialAum, 0),
       conversionRate: rate,
     }
-  }, [prospects])
+  }, [prospects, apiStats])
 
   const sortedListProspects = useMemo(() => {
     if (!listSortCol) return filteredProspects
@@ -106,7 +162,7 @@ const PipelinePage = () => {
       stage: p => p.stage,
       source: p => p.source.toLowerCase(),
       aum: p => p.potentialAum,
-      action: p => p.nextAction.toLowerCase(),
+      action: p => (p.nextAction || '').toLowerCase(),
     }
     const getter = getters[listSortCol]
     if (!getter) return filteredProspects
@@ -119,18 +175,35 @@ const PipelinePage = () => {
     })
   }, [filteredProspects, listSortCol, listSortDir])
 
-  const handleAddProspect = (data: ProspectFormData, meetingNotes?: ProspectMeetingNote[]) => {
-    const newProspect: Prospect = {
-      id: `p${Date.now()}`,
-      ...data,
-      stage: 'Discovery',
-      nextAction: 'Schedule intro call',
-      nextActionDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      createdAt: new Date().toISOString().split('T')[0],
-      notes: data.notes || '',
-      meetingNotes: meetingNotes || [],
+  const handleAddProspect = async (data: ProspectFormData, meetingNotes?: ProspectMeetingNote[]) => {
+    try {
+      const created = await prospectApi.create({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        potentialAum: data.potentialAum,
+        source: SOURCE_REVERSE[data.source] || 'OTHER',
+        notes: data.notes,
+        referredBy: data.referredBy,
+        nextAction: data.nextAction,
+        nextActionDate: data.nextActionDate,
+      })
+      // Add meeting notes if any
+      if (meetingNotes?.length) {
+        for (const note of meetingNotes) {
+          await prospectApi.addMeetingNote(created.id, {
+            title: note.title,
+            content: note.content,
+            meetingType: note.meetingType,
+            meetingDate: note.meetingDate,
+          })
+        }
+      }
+      showNotification('success', `Prospect "${data.name}" added`)
+      fetchProspects()
+    } catch {
+      showNotification('error', 'Failed to add prospect')
     }
-    setProspects([newProspect, ...prospects])
   }
 
   const handleEditProspect = (prospect: Prospect) => {
@@ -138,34 +211,75 @@ const PipelinePage = () => {
     setShowProspectForm(true)
   }
 
-  const handleUpdateProspect = (data: ProspectFormData, meetingNotes?: ProspectMeetingNote[]) => {
-    if (editingProspect) {
-      setProspects(prospects.map(p =>
-        p.id === editingProspect.id ? { ...p, ...data, meetingNotes: meetingNotes || p.meetingNotes || [] } : p
-      ))
+  const handleUpdateProspect = async (data: ProspectFormData, meetingNotes?: ProspectMeetingNote[]) => {
+    if (!editingProspect) return
+    try {
+      await prospectApi.update(editingProspect.id, {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        potentialAum: data.potentialAum,
+        source: SOURCE_REVERSE[data.source] || 'OTHER',
+        notes: data.notes,
+        referredBy: data.referredBy,
+        nextAction: data.nextAction,
+        nextActionDate: data.nextActionDate,
+      })
+      // Add new meeting notes
+      if (meetingNotes) {
+        const existingIds = new Set((editingProspect.meetingNotes || []).map(n => n.id))
+        for (const note of meetingNotes) {
+          if (!existingIds.has(note.id)) {
+            await prospectApi.addMeetingNote(editingProspect.id, {
+              title: note.title,
+              content: note.content,
+              meetingType: note.meetingType,
+              meetingDate: note.meetingDate,
+            })
+          }
+        }
+      }
+      showNotification('success', 'Prospect updated')
+      fetchProspects()
+    } catch {
+      showNotification('error', 'Failed to update prospect')
     }
     setEditingProspect(null)
   }
 
-  const handleMoveStage = (prospectId: string, newStage: ProspectStage) => {
-    setProspects(prospects.map(p =>
-      p.id === prospectId ? { ...p, stage: newStage } : p
-    ))
+  const handleMoveStage = async (prospectId: string, newStage: ProspectStage) => {
+    try {
+      await prospectApi.update(prospectId, { stage: STAGE_REVERSE[newStage] || newStage })
+      fetchProspects()
+    } catch {
+      showNotification('error', 'Failed to move stage')
+    }
     setShowMoveStage(null)
   }
 
   const handleConvertClick = (prospect: Prospect) => {
-    if (prospect.stage !== 'Closed Won') {
-      setProspects(prospects.map(p =>
-        p.id === prospect.id ? { ...p, stage: 'Closed Won' } : p
-      ))
-    }
     setConvertingProspect(prospect)
     setShowConvertModal(true)
   }
 
-  const handleConvertToClient = (clientData: ClientFormData) => {
-    setProspects(prospects.filter(p => p.id !== convertingProspect?.id))
+  const handleConvertToClient = async (clientData: ClientFormData) => {
+    if (!convertingProspect) return
+    try {
+      const result = await prospectApi.convert(convertingProspect.id, {
+        pan: clientData.pan,
+        dateOfBirth: clientData.dateOfBirth,
+        riskProfile: clientData.riskProfile?.toUpperCase(),
+        address: clientData.address,
+        city: clientData.city,
+        state: clientData.state,
+        pincode: clientData.pincode,
+      })
+      showNotification('success', `${convertingProspect.name} converted to client!`)
+      fetchProspects()
+      router.push(`/advisor/clients/${result.clientId}`)
+    } catch {
+      showNotification('error', 'Failed to convert prospect')
+    }
     setConvertingProspect(null)
   }
 

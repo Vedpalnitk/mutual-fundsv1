@@ -5,7 +5,7 @@
  * Allows pre-filling client data from prospect information.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useFATheme, formatCurrency, getStageColor } from '@/utils/fa'
 import { Prospect, ClientFormData, RiskProfile } from '@/utils/faTypes'
 import {
@@ -55,7 +55,7 @@ const ConvertToClientModal = ({
   const [errors, setErrors] = useState<Partial<Record<keyof ClientFormData, string>>>({})
 
   // Reset form when prospect changes
-  useState(() => {
+  useEffect(() => {
     if (prospect) {
       setFormData({
         name: prospect.name,
@@ -71,7 +71,7 @@ const ConvertToClientModal = ({
       })
       setStep('review')
     }
-  })
+  }, [prospect])
 
   const validateDetails = (): boolean => {
     const newErrors: Partial<Record<keyof ClientFormData, string>> = {}

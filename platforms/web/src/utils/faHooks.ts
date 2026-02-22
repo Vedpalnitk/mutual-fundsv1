@@ -7,36 +7,20 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { FA_COLORS_LIGHT, FA_COLORS_DARK, FAColorPalette } from './faColors'
+import { useTheme } from '@/context/ThemeContext'
 
 /**
- * Hook to detect dark mode from document class
- * Watches for changes to the 'dark' class on documentElement
+ * Hook to detect dark mode via ThemeContext (no MutationObserver needed).
+ * Falls back to checking the document class when used outside ThemeProvider.
  */
 export const useDarkMode = (): boolean => {
-  const [isDark, setIsDark] = useState(false)
-
-  useEffect(() => {
-    // Check if we're in browser
-    if (typeof window === 'undefined') return
-
-    const checkDark = () => {
-      setIsDark(document.documentElement.classList.contains('dark'))
-    }
-
-    // Initial check
-    checkDark()
-
-    // Watch for class changes
-    const observer = new MutationObserver(checkDark)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    })
-
-    return () => observer.disconnect()
-  }, [])
-
-  return isDark
+  try {
+    const { resolvedTheme } = useTheme()
+    return resolvedTheme === 'dark'
+  } catch {
+    if (typeof window === 'undefined') return false
+    return document.documentElement.classList.contains('dark')
+  }
 }
 
 /**

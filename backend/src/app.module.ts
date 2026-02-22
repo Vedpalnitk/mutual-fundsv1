@@ -50,6 +50,8 @@ import { BatchJobsModule } from './batch-jobs/batch-jobs.module';
 import { AdminModule } from './admin/admin.module';
 import { OrganizationModule } from './organization/organization.module';
 import { EuinCommissionModule } from './euin-commission/euin-commission.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
+import { BulkImportModule } from './bulk-import/bulk-import.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { CommonModule } from './common/common.module';
@@ -201,6 +203,10 @@ import { HealthModule } from './health/health.module';
     OrganizationModule,
     // EUIN Commission — Split Sharing & Payouts
     EuinCommissionModule,
+    // Advisor Onboarding Wizard
+    OnboardingModule,
+    // Bulk Import (CAMS WBR / KFintech MIS)
+    BulkImportModule,
   ],
   controllers: [],
   providers: [

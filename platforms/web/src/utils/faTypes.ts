@@ -315,6 +315,8 @@ export interface ProspectFormData {
   source: LeadSource
   notes?: string
   referredBy?: string
+  nextAction?: string
+  nextActionDate?: string
 }
 
 // ============================================================

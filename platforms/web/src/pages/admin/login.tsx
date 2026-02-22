@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
+import { getAuthToken, clearAuthToken } from '@/services/api'
 
 // Unified Blue/Cyan palette (matches landing page)
 const COLORS = {
@@ -97,7 +98,17 @@ export default function AdminLoginPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.push('/admin/dashboard')
+      const token = getAuthToken()
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]))
+          if (payload.role === 'admin' || payload.role === 'super_admin') {
+            router.push('/admin/dashboard')
+            return
+          }
+        } catch {}
+      }
+      clearAuthToken()
     }
   }, [isAuthenticated, isLoading, router])
 

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
 import {
   advisorInsightsApi,
+  crmApi,
   AdvisorInsights,
   PortfolioHealthItem,
   RebalancingAlert,
@@ -21,8 +22,10 @@ import {
   FAChip,
   FAStatCard,
   FAEmptyState,
+  useNotification,
 } from '@/components/advisor/shared'
 import DeepAnalysisPanel from '@/components/advisor/DeepAnalysisPanel'
+import ShareModal from '@/components/advisor/ShareModal'
 
 type InsightTab = 'health' | 'rebalancing' | 'goals' | 'tax' | 'crossSell' | 'churnRisk'
 type SortDirection = 'asc' | 'desc'
@@ -83,10 +86,66 @@ function sortBy<T>(data: T[], config: SortConfig, getters: Record<string, (item:
 const InsightsPage = () => {
   const router = useRouter()
   const { colors, isDark } = useFATheme()
+  const { showNotification } = useNotification()
   const [activeTab, setActiveTab] = useState<InsightTab>('health')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [insights, setInsights] = useState<AdvisorInsights | null>(null)
+
+  // Action bridge state
+  const [shareModalClient, setShareModalClient] = useState<{ id: string; name: string } | null>(null)
+  const [showTaskModal, setShowTaskModal] = useState(false)
+  const [taskClient, setTaskClient] = useState<{ id: string; name: string } | null>(null)
+  const [taskForm, setTaskForm] = useState({ title: '', category: 'GENERAL', dueDate: '' })
+  const [savingTask, setSavingTask] = useState(false)
+
+  const handleCreateInsightTask = async () => {
+    if (!taskForm.title.trim() || !taskClient) return
+    try {
+      setSavingTask(true)
+      await crmApi.createTask({
+        title: taskForm.title,
+        clientId: taskClient.id,
+        category: taskForm.category,
+        dueDate: taskForm.dueDate || undefined,
+        priority: 'HIGH',
+      })
+      showNotification('success', `Task created for ${taskClient.name}`)
+      setShowTaskModal(false)
+      setTaskClient(null)
+      setTaskForm({ title: '', category: 'GENERAL', dueDate: '' })
+    } catch {
+      showNotification('error', 'Failed to create task')
+    } finally {
+      setSavingTask(false)
+    }
+  }
+
+  const openTaskModal = (clientId: string, clientName: string, tab: InsightTab) => {
+    const categoryMap: Record<string, string> = {
+      churnRisk: 'FOLLOW_UP',
+      crossSell: 'REVIEW',
+      rebalancing: 'REVIEW',
+      health: 'REVIEW',
+      goals: 'FOLLOW_UP',
+      tax: 'REVIEW',
+    }
+    const titleMap: Record<string, string> = {
+      churnRisk: `Follow up on churn risk — ${clientName}`,
+      crossSell: `Review cross-sell opportunities — ${clientName}`,
+      rebalancing: `Rebalance portfolio — ${clientName}`,
+      health: `Review portfolio health — ${clientName}`,
+      goals: `Goal review — ${clientName}`,
+      tax: `Tax harvesting review — ${clientName}`,
+    }
+    setTaskClient({ id: clientId, name: clientName })
+    setTaskForm({
+      title: titleMap[tab] || `Follow up — ${clientName}`,
+      category: categoryMap[tab] || 'GENERAL',
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    })
+    setShowTaskModal(true)
+  }
 
   // Tier 2: expanded client rows for deep analysis
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set())
@@ -610,7 +669,7 @@ const InsightsPage = () => {
                       AUM{sortIcon('aum')}
                     </th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Issues</th>
-                    <th className="w-8 px-2"></th>
+                    <th className="text-center px-2 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -677,18 +736,44 @@ const InsightsPage = () => {
                           )}
                         </td>
                         <td className="px-2 py-3">
-                          <button
-                            onClick={() => router.push(`/advisor/clients/${item.clientId}`)}
-                            className="p-1 rounded-lg transition-colors"
-                            style={{ color: colors.textTertiary }}
-                            title="View client"
-                            onMouseEnter={e => e.currentTarget.style.color = colors.primary}
-                            onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                            </svg>
-                          </button>
+                          <div className="flex items-center gap-1 justify-center">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openTaskModal(item.clientId, item.clientName, 'health') }}
+                              className="p-1 rounded-lg transition-colors"
+                              style={{ color: colors.textTertiary }}
+                              title="Create task"
+                              onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+                              onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setShareModalClient({ id: item.clientId, name: item.clientName }) }}
+                              className="p-1 rounded-lg transition-colors"
+                              style={{ color: colors.textTertiary }}
+                              title="Send message"
+                              onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+                              onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => router.push(`/advisor/clients/${item.clientId}`)}
+                              className="p-1 rounded-lg transition-colors"
+                              style={{ color: colors.textTertiary }}
+                              title="View client"
+                              onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+                              onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                              </svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>,
                       isExpanded && (
@@ -730,7 +815,7 @@ const InsightsPage = () => {
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('target')}>Target{sortIcon('target')}</th>
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('drift')}>Drift{sortIcon('drift')}</th>
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('amount')}>Amount{sortIcon('amount')}</th>
-                    <th className="w-8 px-2"></th>
+                    <th className="text-center px-2 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -765,9 +850,14 @@ const InsightsPage = () => {
                         </td>
                         <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>{formatCurrencyCompact(alert.amount)}</td>
                         <td className="px-2 py-3">
-                          <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                          </svg>
+                          <div className="flex items-center gap-1 justify-center">
+                            <button onClick={(e) => { e.stopPropagation(); openTaskModal(alert.clientId, alert.clientName, 'rebalancing') }} className="p-1 rounded-lg transition-colors" style={{ color: colors.textTertiary }} title="Create task" onMouseEnter={e => e.currentTarget.style.color = colors.primary} onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); setShareModalClient({ id: alert.clientId, name: alert.clientName }) }} className="p-1 rounded-lg transition-colors" style={{ color: colors.textTertiary }} title="Send message" onMouseEnter={e => e.currentTarget.style.color = colors.primary} onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -802,7 +892,7 @@ const InsightsPage = () => {
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('current')}>Current{sortIcon('current')}</th>
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('target')}>Target{sortIcon('target')}</th>
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('daysLeft')}>Days Left{sortIcon('daysLeft')}</th>
-                    <th className="w-8 px-2"></th>
+                    <th className="text-center px-2 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -836,9 +926,14 @@ const InsightsPage = () => {
                         <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>{formatCurrencyCompact(goal.targetAmount)}</td>
                         <td className="px-4 py-3 text-right text-sm" style={{ color: colors.textSecondary }}>{goal.daysRemaining}</td>
                         <td className="px-2 py-3">
-                          <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                          </svg>
+                          <div className="flex items-center gap-1 justify-center">
+                            <button onClick={(e) => { e.stopPropagation(); openTaskModal(goal.clientId, goal.clientName, 'goals') }} className="p-1 rounded-lg transition-colors" style={{ color: colors.textTertiary }} title="Create task" onMouseEnter={e => e.currentTarget.style.color = colors.primary} onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); setShareModalClient({ id: goal.clientId, name: goal.clientName }) }} className="p-1 rounded-lg transition-colors" style={{ color: colors.textTertiary }} title="Send message" onMouseEnter={e => e.currentTarget.style.color = colors.primary} onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -873,7 +968,7 @@ const InsightsPage = () => {
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('current')}>Current{sortIcon('current')}</th>
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('loss')}>Loss{sortIcon('loss')}</th>
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('savings')}>Est. Savings{sortIcon('savings')}</th>
-                    <th className="w-8 px-2"></th>
+                    <th className="text-center px-2 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -897,9 +992,14 @@ const InsightsPage = () => {
                       <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: colors.error }}>-{formatCurrencyCompact(opp.unrealizedLoss)}</td>
                       <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: colors.success }}>{formatCurrencyCompact(opp.potentialSavings)}</td>
                       <td className="px-2 py-3">
-                        <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
+                        <div className="flex items-center gap-1 justify-center">
+                          <button onClick={(e) => { e.stopPropagation(); openTaskModal(opp.clientId, opp.clientName, 'tax') }} className="p-1 rounded-lg transition-colors" style={{ color: colors.textTertiary }} title="Create task" onMouseEnter={e => e.currentTarget.style.color = colors.primary} onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); setShareModalClient({ id: opp.clientId, name: opp.clientName }) }} className="p-1 rounded-lg transition-colors" style={{ color: colors.textTertiary }} title="Send message" onMouseEnter={e => e.currentTarget.style.color = colors.primary} onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -931,7 +1031,7 @@ const InsightsPage = () => {
                     <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('riskProfile')}>Risk Profile{sortIcon('riskProfile')}</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Gaps</th>
                     <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('gapCount')}>Count{sortIcon('gapCount')}</th>
-                    <th className="w-8 px-2"></th>
+                    <th className="text-center px-2 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -972,9 +1072,14 @@ const InsightsPage = () => {
                           </span>
                         </td>
                         <td className="px-2 py-3">
-                          <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                          </svg>
+                          <div className="flex items-center gap-1 justify-center">
+                            <button onClick={(e) => { e.stopPropagation(); openTaskModal(client.clientId, client.clientName, 'crossSell') }} className="p-1 rounded-lg transition-colors" style={{ color: colors.textTertiary }} title="Create task" onMouseEnter={e => e.currentTarget.style.color = colors.primary} onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); setShareModalClient({ id: client.clientId, name: client.clientName }) }} className="p-1 rounded-lg transition-colors" style={{ color: colors.textTertiary }} title="Send message" onMouseEnter={e => e.currentTarget.style.color = colors.primary} onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -1009,7 +1114,7 @@ const InsightsPage = () => {
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('daysInactive')}>Days Inactive{sortIcon('daysInactive')}</th>
                     <th className={`text-right px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('redemptions')}>Redemptions{sortIcon('redemptions')}</th>
                     <th className={`text-center px-4 py-3 ${thClass}`} style={{ color: colors.primary }} onClick={() => handleSort('sipTrend')}>SIP Trend{sortIcon('sipTrend')}</th>
-                    <th className="w-8 px-2"></th>
+                    <th className="text-center px-2 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: colors.primary }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1057,9 +1162,14 @@ const InsightsPage = () => {
                           </span>
                         </td>
                         <td className="px-2 py-3">
-                          <svg className="w-4 h-4" style={{ color: colors.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                          </svg>
+                          <div className="flex items-center gap-1 justify-center">
+                            <button onClick={(e) => { e.stopPropagation(); openTaskModal(client.clientId, client.clientName, 'churnRisk') }} className="p-1 rounded-lg transition-colors" style={{ color: colors.textTertiary }} title="Create task" onMouseEnter={e => e.currentTarget.style.color = colors.primary} onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); setShareModalClient({ id: client.clientId, name: client.clientName }) }} className="p-1 rounded-lg transition-colors" style={{ color: colors.textTertiary }} title="Send message" onMouseEnter={e => e.currentTarget.style.color = colors.primary} onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     )
@@ -1069,6 +1179,65 @@ const InsightsPage = () => {
               </div>
             )}
           </FACard>
+        )}
+
+        {/* Share Modal */}
+        {shareModalClient && (
+          <ShareModal
+            clientId={shareModalClient.id}
+            clientName={shareModalClient.name}
+            onClose={() => setShareModalClient(null)}
+          />
+        )}
+
+        {/* Task Creation Modal */}
+        {showTaskModal && taskClient && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowTaskModal(false)}>
+            <div
+              className="w-full max-w-md mx-4 p-6 rounded-2xl"
+              style={{ background: isDark ? colors.backgroundSecondary : colors.background, border: `1px solid ${colors.cardBorder}` }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold mb-1" style={{ color: colors.textPrimary }}>Create Task</h3>
+              <p className="text-sm mb-5" style={{ color: colors.textSecondary }}>For {taskClient.name}</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Title *</label>
+                  <input className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                    style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                    value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Category</label>
+                    <select className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                      style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                      value={taskForm.category} onChange={(e) => setTaskForm({ ...taskForm, category: e.target.value })}>
+                      <option value="FOLLOW_UP">Follow Up</option>
+                      <option value="REVIEW">Review</option>
+                      <option value="ONBOARDING">Onboarding</option>
+                      <option value="KYC_UPDATE">KYC Update</option>
+                      <option value="GENERAL">General</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Due Date</label>
+                    <input type="date" className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                      style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                      value={taskForm.dueDate} onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowTaskModal(false)} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ color: colors.textSecondary, border: `1px solid ${colors.cardBorder}` }}>Cancel</button>
+                <button onClick={handleCreateInsightTask} disabled={!taskForm.title.trim() || savingTask}
+                  className="flex-1 py-2.5 rounded-full text-sm font-semibold text-white hover:shadow-lg disabled:opacity-50"
+                  style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)` }}>
+                  {savingTask ? 'Creating...' : 'Create Task'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
       </div>

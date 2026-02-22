@@ -16,6 +16,9 @@ import {
   FAEmptyState,
   FASpinner,
 } from '@/components/advisor/shared'
+import NmfOrderPlacementModal from '@/components/nmf/NmfOrderPlacementModal'
+import NmfPaymentModal from '@/components/nmf/NmfPaymentModal'
+import NmfStatusBadge from '@/components/nmf/NmfStatusBadge'
 
 type NseOrderType = 'PURCHASE' | 'REDEMPTION' | 'SWITCH'
 type NseOrderStatus =
@@ -108,6 +111,13 @@ const ALL_STATUSES: NseOrderStatus[] = [
 
 const PAGE_SIZE = 25
 
+const PAYMENT_ELIGIBLE_STATUSES: NseOrderStatus[] = [
+  'PAYMENT_PENDING',
+  'PLACED',
+  'TWO_FA_PENDING',
+  'AUTH_PENDING',
+]
+
 const NMFOrdersPage = () => {
   const router = useRouter()
   const { colors, isDark } = useFATheme()
@@ -126,8 +136,14 @@ const NMFOrdersPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const searchTimeout = useRef<NodeJS.Timeout>()
 
-  // New order placeholder
-  const [showNewOrderMsg, setShowNewOrderMsg] = useState(false)
+  // Order placement modal
+  const [showOrderModal, setShowOrderModal] = useState(false)
+
+  // Expanded row
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null)
+
+  // Payment modal
+  const [paymentOrder, setPaymentOrder] = useState<NseOrder | null>(null)
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value)
@@ -185,6 +201,14 @@ const NMFOrdersPage = () => {
   const startItem = (page - 1) * PAGE_SIZE + 1
   const endItem = Math.min(page * PAGE_SIZE, total)
 
+  const handleRowClick = (order: NseOrder) => {
+    setExpandedOrderId(expandedOrderId === order.id ? null : order.id)
+  }
+
+  const isPaymentEligible = (order: NseOrder) => {
+    return order.orderType === 'PURCHASE' && PAYMENT_ELIGIBLE_STATUSES.includes(order.status)
+  }
+
   return (
     <AdvisorLayout title="NMF Orders">
       <div style={{ background: colors.background, minHeight: '100%', margin: '-2rem', padding: '2rem' }}>
@@ -196,7 +220,7 @@ const NMFOrdersPage = () => {
             </p>
           </div>
           <button
-            onClick={() => setShowNewOrderMsg(true)}
+            onClick={() => setShowOrderModal(true)}
             className="px-5 py-2.5 rounded-full text-sm font-semibold text-white transition-all hover:shadow-lg"
             style={{
               background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
@@ -206,37 +230,6 @@ const NMFOrdersPage = () => {
             + New Order
           </button>
         </div>
-
-        {/* New Order Placeholder */}
-        {showNewOrderMsg && (
-          <FACard className="mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center"
-                  style={{ background: `${colors.primary}15` }}
-                >
-                  <svg className="w-5 h-5" style={{ color: colors.primary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>Order placement coming soon</p>
-                  <p className="text-xs" style={{ color: colors.textTertiary }}>NSE NMF order placement will be available in a future update.</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowNewOrderMsg(false)}
-                className="p-1.5 rounded-lg transition-all"
-                style={{ color: colors.textTertiary }}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </FACard>
-        )}
 
         {/* KPI Tiles */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -417,59 +410,157 @@ const NMFOrdersPage = () => {
                       const statusColor = STATUS_COLORS[order.status] || colors.textTertiary
                       const statusLabel = STATUS_LABELS[order.status] || order.status
                       const dateStr = order.orderDate || order.createdAt
+                      const isExpanded = expandedOrderId === order.id
 
                       return (
-                        <tr
-                          key={order.id}
-                          className="transition-colors cursor-pointer"
-                          style={{ borderBottom: `1px solid ${colors.cardBorder}` }}
-                          onClick={() => router.push(`/advisor/nmf/orders/${order.id}`)}
-                          onMouseEnter={e => (e.currentTarget.style.background = isDark ? 'rgba(147,197,253,0.04)' : 'rgba(59,130,246,0.02)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: colors.textSecondary }}>
-                            {dateStr
-                              ? new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
-                              : '-'}
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="text-sm font-medium truncate max-w-[300px]" style={{ color: colors.textPrimary }}>
-                              {order.schemeName}
-                            </p>
-                            {order.clientName && (
-                              <p className="text-xs" style={{ color: colors.textTertiary }}>{order.clientName}</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className="text-xs font-semibold px-2 py-0.5 rounded"
-                              style={{ background: `${typeColor}15`, color: typeColor }}
-                            >
-                              {ORDER_TYPE_LABELS[order.orderType]}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap" style={{ color: colors.textPrimary }}>
-                            {formatCurrency(order.amount)}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded"
-                              style={{ background: `${statusColor}15`, color: statusColor }}
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor }} />
-                              {statusLabel}
-                            </span>
-                          </td>
-                          <td className="px-2 py-3">
-                            <svg
-                              className="w-4 h-4"
-                              style={{ color: colors.textTertiary }}
-                              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                            </svg>
-                          </td>
-                        </tr>
+                        <>
+                          <tr
+                            key={order.id}
+                            className="transition-colors cursor-pointer"
+                            style={{
+                              borderBottom: isExpanded ? 'none' : `1px solid ${colors.cardBorder}`,
+                              background: isExpanded
+                                ? (isDark ? 'rgba(147,197,253,0.04)' : 'rgba(59,130,246,0.02)')
+                                : 'transparent',
+                            }}
+                            onClick={() => handleRowClick(order)}
+                            onMouseEnter={e => {
+                              if (!isExpanded) e.currentTarget.style.background = isDark ? 'rgba(147,197,253,0.04)' : 'rgba(59,130,246,0.02)'
+                            }}
+                            onMouseLeave={e => {
+                              if (!isExpanded) e.currentTarget.style.background = 'transparent'
+                            }}
+                          >
+                            <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: colors.textSecondary }}>
+                              {dateStr
+                                ? new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' })
+                                : '-'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="text-sm font-medium truncate max-w-[300px]" style={{ color: colors.textPrimary }}>
+                                {order.schemeName}
+                              </p>
+                              {order.clientName && (
+                                <p className="text-xs" style={{ color: colors.textTertiary }}>{order.clientName}</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span
+                                className="text-xs font-semibold px-2 py-0.5 rounded"
+                                style={{ background: `${typeColor}15`, color: typeColor }}
+                              >
+                                {ORDER_TYPE_LABELS[order.orderType]}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-semibold whitespace-nowrap" style={{ color: colors.textPrimary }}>
+                              {formatCurrency(order.amount)}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <NmfStatusBadge status={order.status} type="order" />
+                            </td>
+                            <td className="px-2 py-3">
+                              <svg
+                                className="w-4 h-4 transition-transform"
+                                style={{
+                                  color: colors.textTertiary,
+                                  transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                }}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                              </svg>
+                            </td>
+                          </tr>
+
+                          {/* Expanded Detail Row */}
+                          {isExpanded && (
+                            <tr key={`${order.id}-detail`} style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                              <td colSpan={6} className="px-4 pb-4 pt-0">
+                                <div
+                                  className="p-4 rounded-xl"
+                                  style={{
+                                    background: isDark
+                                      ? 'linear-gradient(135deg, rgba(147,197,253,0.04) 0%, rgba(125,211,252,0.02) 100%)'
+                                      : 'linear-gradient(135deg, rgba(59,130,246,0.03) 0%, rgba(56,189,248,0.01) 100%)',
+                                    border: `1px solid ${colors.cardBorder}`,
+                                  }}
+                                >
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                    <div>
+                                      <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: colors.textTertiary }}>Order ID</p>
+                                      <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>
+                                        {order.nseOrderId || order.orderId || order.id.slice(0, 8)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: colors.textTertiary }}>Client ID</p>
+                                      <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{order.clientId}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: colors.textTertiary }}>Scheme Code</p>
+                                      <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{order.schemeCode || '-'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: colors.textTertiary }}>Folio</p>
+                                      <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{order.folioNo || '-'}</p>
+                                    </div>
+                                    {order.units != null && (
+                                      <div>
+                                        <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: colors.textTertiary }}>Units</p>
+                                        <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{order.units.toFixed(4)}</p>
+                                      </div>
+                                    )}
+                                    {order.nav != null && (
+                                      <div>
+                                        <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: colors.textTertiary }}>NAV</p>
+                                        <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{formatCurrency(order.nav)}</p>
+                                      </div>
+                                    )}
+                                    {order.nseResponseMessage && (
+                                      <div className="col-span-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide mb-0.5" style={{ color: colors.textTertiary }}>NSE Response</p>
+                                        <p className="text-sm" style={{ color: colors.textSecondary }}>{order.nseResponseMessage}</p>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        router.push(`/advisor/nmf/orders/${order.id}`)
+                                      }}
+                                      className="px-4 py-2 rounded-full text-xs font-semibold transition-all"
+                                      style={{
+                                        background: colors.chipBg,
+                                        color: colors.primary,
+                                        border: `1px solid ${colors.cardBorder}`,
+                                      }}
+                                    >
+                                      View Details
+                                    </button>
+
+                                    {isPaymentEligible(order) && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setPaymentOrder(order)
+                                        }}
+                                        className="px-4 py-2 rounded-full text-xs font-semibold text-white transition-all hover:shadow-lg"
+                                        style={{
+                                          background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+                                          boxShadow: `0 4px 14px ${colors.glassShadow}`,
+                                        }}
+                                      >
+                                        Pay Now
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </>
                       )
                     })}
                   </tbody>
@@ -539,6 +630,30 @@ const NMFOrdersPage = () => {
           )}
         </FACard>
       </div>
+
+      {/* Order Placement Modal */}
+      <NmfOrderPlacementModal
+        isOpen={showOrderModal}
+        onClose={() => setShowOrderModal(false)}
+        onSuccess={() => {
+          setShowOrderModal(false)
+          fetchOrders()
+        }}
+      />
+
+      {/* Payment Modal */}
+      {paymentOrder && (
+        <NmfPaymentModal
+          isOpen={!!paymentOrder}
+          onClose={() => setPaymentOrder(null)}
+          orderId={paymentOrder.nseOrderId || paymentOrder.orderId || paymentOrder.id}
+          amount={paymentOrder.amount}
+          onSuccess={() => {
+            setPaymentOrder(null)
+            fetchOrders()
+          }}
+        />
+      )}
     </AdvisorLayout>
   )
 }

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
+import { getAuthToken, clearAuthToken } from '@/services/api'
 
 // Unified Blue/Cyan palette (matches landing page)
 const COLORS = {
@@ -94,7 +95,20 @@ export default function AdvisorLoginPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace('/advisor/dashboard')
+      // Only auto-redirect if the token has an advisor/fa_staff role
+      // (both portals share the same token key)
+      const token = getAuthToken()
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]))
+          if (payload.role === 'advisor' || payload.role === 'fa_staff') {
+            router.replace('/advisor/dashboard')
+            return
+          }
+        } catch {}
+      }
+      // Wrong role token — clear it so user can log in fresh
+      clearAuthToken()
     }
   }, [isAuthenticated, isLoading])
 
@@ -390,8 +404,13 @@ export default function AdvisorLoginPage() {
               </form>
             </div>
 
+            {/* Staff login hint */}
+            <p className="mt-5 text-center text-xs" style={{ color: colors.textTertiary }}>
+              Staff member? Use your staff credentials to log in.
+            </p>
+
             {/* Footer link */}
-            <div className="mt-6 text-center">
+            <div className="mt-4 text-center">
               <Link
                 href="/"
                 className="text-sm font-medium transition-colors hover:opacity-80"

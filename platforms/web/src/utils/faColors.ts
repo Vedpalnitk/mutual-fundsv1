@@ -49,13 +49,23 @@ export interface FAColorPalette {
   backgroundTertiary: string
   cardBackground: string
   cardBg: string // Alias for consistency
+  sidebarBg: string
 
-  // Borders & Shadows
+  // Glass
+  glassBackground: string
+  glassBorder: string
+  glassShadow: string
+
+  // Borders
   cardBorder: string
   inputBorder: string
+  separator: string
   chipBg: string
   chipBorder: string
-  glassShadow: string
+
+  // States
+  hoverBg: string
+  activeBg: string
 
   // Text
   textPrimary: string
@@ -67,6 +77,9 @@ export interface FAColorPalette {
 
   // Progress
   progressBg: string
+
+  // Cards
+  cardGradient: string
 
   // Gradients (as CSS strings)
   gradientPrimary: string
@@ -116,14 +129,24 @@ export const FA_COLORS_LIGHT: FAColorPalette = {
   backgroundSecondary: '#F8FAFC',
   backgroundTertiary: '#F1F5F9',
   cardBackground: '#FFFFFF',
-  cardBg: '#FFFFFF',
+  cardBg: 'rgba(255, 255, 255, 0.9)',
+  sidebarBg: 'rgba(255, 255, 255, 0.85)',
 
-  // Borders & Shadows - Blue-tinted subtle
+  // Glass
+  glassBackground: 'rgba(255, 255, 255, 0.85)',
+  glassBorder: 'rgba(59, 130, 246, 0.1)',
+  glassShadow: 'rgba(59, 130, 246, 0.06)',
+
+  // Borders
   cardBorder: 'rgba(59, 130, 246, 0.08)',
   inputBorder: 'rgba(59, 130, 246, 0.12)',
+  separator: 'rgba(59, 130, 246, 0.1)',
   chipBg: 'rgba(59, 130, 246, 0.04)',
   chipBorder: 'rgba(59, 130, 246, 0.1)',
-  glassShadow: 'rgba(59, 130, 246, 0.06)',
+
+  // States
+  hoverBg: 'rgba(59, 130, 246, 0.08)',
+  activeBg: 'rgba(59, 130, 246, 0.15)',
 
   // Text
   textPrimary: '#1E293B',
@@ -135,6 +158,9 @@ export const FA_COLORS_LIGHT: FAColorPalette = {
 
   // Progress
   progressBg: 'rgba(59, 130, 246, 0.08)',
+
+  // Cards
+  cardGradient: 'linear-gradient(135deg, rgba(59, 130, 246, 0.03) 0%, rgba(56, 189, 248, 0.01) 100%)',
 
   // Gradients
   gradientPrimary: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
@@ -184,14 +210,24 @@ export const FA_COLORS_DARK: FAColorPalette = {
   backgroundSecondary: '#111827',
   backgroundTertiary: '#1E293B',
   cardBackground: '#111827',
-  cardBg: '#111827',
+  cardBg: 'rgba(17, 24, 39, 0.65)',
+  sidebarBg: 'rgba(17, 24, 39, 0.85)',
 
-  // Borders & Shadows - Blue-tinted
+  // Glass
+  glassBackground: 'rgba(17, 24, 39, 0.85)',
+  glassBorder: 'rgba(147, 197, 253, 0.1)',
+  glassShadow: 'rgba(0, 0, 0, 0.3)',
+
+  // Borders
   cardBorder: 'rgba(147, 197, 253, 0.12)',
   inputBorder: 'rgba(147, 197, 253, 0.15)',
+  separator: 'rgba(147, 197, 253, 0.1)',
   chipBg: 'rgba(147, 197, 253, 0.06)',
   chipBorder: 'rgba(147, 197, 253, 0.12)',
-  glassShadow: 'rgba(0, 0, 0, 0.3)',
+
+  // States
+  hoverBg: 'rgba(147, 197, 253, 0.1)',
+  activeBg: 'rgba(147, 197, 253, 0.2)',
 
   // Text
   textPrimary: '#F8FAFC',
@@ -203,6 +239,9 @@ export const FA_COLORS_DARK: FAColorPalette = {
 
   // Progress
   progressBg: 'rgba(147, 197, 253, 0.12)',
+
+  // Cards
+  cardGradient: 'linear-gradient(135deg, rgba(147, 197, 253, 0.06) 0%, rgba(125, 211, 252, 0.03) 100%)',
 
   // Gradients
   gradientPrimary: 'linear-gradient(135deg, #93C5FD 0%, #60A5FA 100%)',

@@ -1,7 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
 import { branchesApi, Branch } from '@/services/api'
-import { useFATheme, formatCurrency } from '@/utils/fa'
+import { biApi } from '@/services/api/business'
+import { useFATheme, formatCurrency, formatCurrencyCompact } from '@/utils/fa'
+
+interface BranchAum {
+  name: string; aum: number; clientCount: number
+}
 
 export default function BranchesPage() {
   const { colors, isDark } = useFATheme()
@@ -13,6 +18,16 @@ export default function BranchesPage() {
   const [formData, setFormData] = useState({ name: '', city: '', code: '' })
   const [saving, setSaving] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+  const [branchAum, setBranchAum] = useState<Record<string, BranchAum>>({})
+
+  const fetchBranchAum = useCallback(async () => {
+    try {
+      const data = await biApi.getAumByBranch()
+      const map: Record<string, BranchAum> = {}
+      data.forEach((item: BranchAum) => { map[item.name] = item })
+      setBranchAum(map)
+    } catch {}
+  }, [])
 
   const fetchBranches = useCallback(async () => {
     try {
@@ -26,7 +41,7 @@ export default function BranchesPage() {
     }
   }, [])
 
-  useEffect(() => { fetchBranches() }, [fetchBranches])
+  useEffect(() => { fetchBranches(); fetchBranchAum() }, [fetchBranches, fetchBranchAum])
 
   const handleSave = async () => {
     if (!formData.name.trim()) return
@@ -200,6 +215,65 @@ export default function BranchesPage() {
         </div>
       )}
 
+      {/* Branch Comparison Strip (Change D) */}
+      {!loading && branches.length >= 2 && (
+        <div className="mb-6 rounded-xl overflow-hidden" style={{ border: `1px solid ${colors.cardBorder}` }}>
+          <div className="p-3" style={{ background: colors.chipBg }}>
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>Branch Comparison</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr style={{ background: colors.chipBg, borderTop: `1px solid ${colors.cardBorder}` }}>
+                  <th className="text-left px-3 py-2 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>Branch</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>AUM</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>Clients</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>Staff</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>AUM/Client</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>AUM/Staff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const rows = branches
+                    .map(b => {
+                      const aum = branchAum[b.name]
+                      const aumVal = aum?.aum || 0
+                      const clients = aum?.clientCount || 0
+                      const staff = b.staffCount || 0
+                      return {
+                        name: b.name,
+                        aum: aumVal,
+                        clients,
+                        staff,
+                        aumPerClient: clients > 0 ? aumVal / clients : 0,
+                        aumPerStaff: staff > 0 ? aumVal / staff : 0,
+                      }
+                    })
+                    .sort((a, b) => b.aum - a.aum)
+                  const maxAumPerClient = Math.max(...rows.map(r => r.aumPerClient))
+                  const maxAumPerStaff = Math.max(...rows.map(r => r.aumPerStaff))
+                  return rows.map((r) => (
+                    <tr key={r.name} style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
+                      <td className="px-3 py-2 text-xs font-medium" style={{ color: colors.textPrimary }}>{r.name}</td>
+                      <td className="px-3 py-2 text-xs text-right font-semibold" style={{ color: colors.primary }}>{formatCurrencyCompact(r.aum)}</td>
+                      <td className="px-3 py-2 text-xs text-right" style={{ color: colors.textSecondary }}>{r.clients}</td>
+                      <td className="px-3 py-2 text-xs text-right" style={{ color: colors.textSecondary }}>{r.staff}</td>
+                      <td className="px-3 py-2 text-xs text-right font-semibold" style={{ color: r.aumPerClient === maxAumPerClient && maxAumPerClient > 0 ? colors.success : colors.textSecondary }}>
+                        {formatCurrencyCompact(r.aumPerClient)}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-right font-semibold" style={{ color: r.aumPerStaff === maxAumPerStaff && maxAumPerStaff > 0 ? colors.success : colors.textSecondary }}>
+                        {formatCurrencyCompact(r.aumPerStaff)}
+                      </td>
+                    </tr>
+                  ))
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Loading */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -272,7 +346,7 @@ export default function BranchesPage() {
               </div>
 
               {/* Stats */}
-              <div className="flex items-center gap-4 mb-4">
+              <div className="flex flex-wrap items-center gap-4 mb-4">
                 {branch.code && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs" style={{ color: colors.textTertiary }}>Code:</span>
@@ -287,6 +361,26 @@ export default function BranchesPage() {
                     {branch.staffCount} staff
                   </span>
                 </div>
+                {branchAum[branch.name] && (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: colors.textTertiary }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-xs font-medium" style={{ color: colors.textSecondary }}>
+                        {formatCurrency(branchAum[branch.name].aum)} AUM
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: colors.textTertiary }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                      </svg>
+                      <span className="text-xs font-medium" style={{ color: colors.textSecondary }}>
+                        {branchAum[branch.name].clientCount} clients
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Staff list preview */}

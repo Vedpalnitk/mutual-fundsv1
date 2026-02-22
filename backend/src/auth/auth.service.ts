@@ -192,8 +192,9 @@ export class AuthService {
       },
     });
 
-    // If user is an advisor, include advisor profile data
+    // If user is an advisor, include advisor profile data + onboarding status
     let advisorProfileData: any = undefined;
+    let onboardingData: any = undefined;
     if (user.role === 'advisor') {
       const ap = await this.prisma.advisorProfile.findUnique({
         where: { userId },
@@ -212,6 +213,23 @@ export class AuthService {
           avatarUrl: ap.avatarUrl,
         };
       }
+
+      // Include onboarding status for advisor users
+      const onboarding = await this.prisma.advisorOnboarding.findUnique({
+        where: { advisorId: userId },
+      });
+      if (onboarding) {
+        onboardingData = {
+          isComplete: onboarding.wizardCompleted,
+          currentStep: onboarding.currentStep,
+        };
+      } else {
+        // No onboarding record yet = not started
+        onboardingData = {
+          isComplete: false,
+          currentStep: 1,
+        };
+      }
     }
 
     // Build profile response
@@ -223,6 +241,7 @@ export class AuthService {
       role: user.role,
       isVerified: user.isVerified,
       advisorProfile: advisorProfileData,
+      onboarding: onboardingData,
     };
 
     // If staff, add staff-specific info

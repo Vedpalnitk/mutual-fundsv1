@@ -37,6 +37,7 @@ export default function TasksTab({ staffList, clientList }: TasksTabProps) {
   const [summary, setSummary] = useState<CRMTaskSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [showTaskForm, setShowTaskForm] = useState(false)
+  const [editingTask, setEditingTask] = useState<CRMTask | null>(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [taskForm, setTaskForm] = useState({ title: '', description: '', clientId: '', assignedToId: '', dueDate: '', priority: 'MEDIUM', category: 'GENERAL' })
   const [saving, setSaving] = useState(false)
@@ -61,7 +62,7 @@ export default function TasksTab({ staffList, clientList }: TasksTabProps) {
     if (!taskForm.title.trim()) return
     try {
       setSaving(true)
-      await crmApi.createTask({
+      const data = {
         title: taskForm.title,
         description: taskForm.description || undefined,
         clientId: taskForm.clientId || undefined,
@@ -69,11 +70,38 @@ export default function TasksTab({ staffList, clientList }: TasksTabProps) {
         dueDate: taskForm.dueDate || undefined,
         priority: taskForm.priority,
         category: taskForm.category,
-      })
+      }
+      if (editingTask) {
+        await crmApi.updateTask(editingTask.id, data)
+      } else {
+        await crmApi.createTask(data)
+      }
       setShowTaskForm(false)
+      setEditingTask(null)
       setTaskForm({ title: '', description: '', clientId: '', assignedToId: '', dueDate: '', priority: 'MEDIUM', category: 'GENERAL' })
       fetchTasks()
     } catch {} finally { setSaving(false) }
+  }
+
+  const handleEditTask = (task: CRMTask) => {
+    setEditingTask(task)
+    setTaskForm({
+      title: task.title,
+      description: task.description || '',
+      clientId: task.clientId || '',
+      assignedToId: task.assignedToId || '',
+      dueDate: task.dueDate || '',
+      priority: task.priority,
+      category: task.category,
+    })
+    setShowTaskForm(true)
+  }
+
+  const handleDeleteTask = async (id: string) => {
+    try {
+      await crmApi.updateTask(id, { status: 'CANCELLED' } as Partial<CRMTask>)
+      fetchTasks()
+    } catch {}
   }
 
   const handleCompleteTask = async (id: string) => {
@@ -209,6 +237,34 @@ export default function TasksTab({ staffList, clientList }: TasksTabProps) {
                     </p>
                   </div>
                 )}
+                {task.status !== 'COMPLETED' && task.status !== 'CANCELLED' && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => handleEditTask(task)}
+                      className="p-1.5 rounded-lg transition-all hover:scale-110"
+                      style={{ color: colors.textTertiary }}
+                      title="Edit task"
+                      onMouseEnter={e => e.currentTarget.style.color = colors.primary}
+                      onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTask(task.id)}
+                      className="p-1.5 rounded-lg transition-all hover:scale-110"
+                      style={{ color: colors.textTertiary }}
+                      title="Cancel task"
+                      onMouseEnter={e => e.currentTarget.style.color = colors.error}
+                      onMouseLeave={e => e.currentTarget.style.color = colors.textTertiary}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -217,13 +273,13 @@ export default function TasksTab({ staffList, clientList }: TasksTabProps) {
 
       {/* New Task Modal */}
       {showTaskForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowTaskForm(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setShowTaskForm(false); setEditingTask(null) }}>
           <div
             className="w-full max-w-lg mx-4 p-6 rounded-2xl max-h-[90vh] overflow-y-auto"
             style={{ background: isDark ? colors.backgroundSecondary : colors.background, border: `1px solid ${colors.cardBorder}` }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold mb-5" style={{ color: colors.textPrimary }}>New Task</h3>
+            <h3 className="text-lg font-semibold mb-5" style={{ color: colors.textPrimary }}>{editingTask ? 'Edit Task' : 'New Task'}</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Title *</label>
@@ -285,11 +341,11 @@ export default function TasksTab({ staffList, clientList }: TasksTabProps) {
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowTaskForm(false)} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ color: colors.textSecondary, border: `1px solid ${colors.cardBorder}` }}>Cancel</button>
+              <button onClick={() => { setShowTaskForm(false); setEditingTask(null) }} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ color: colors.textSecondary, border: `1px solid ${colors.cardBorder}` }}>Cancel</button>
               <button onClick={handleCreateTask} disabled={!taskForm.title.trim() || saving}
                 className="flex-1 py-2.5 rounded-full text-sm font-semibold text-white hover:shadow-lg disabled:opacity-50"
                 style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)` }}>
-                {saving ? 'Creating...' : 'Create Task'}
+                {saving ? (editingTask ? 'Saving...' : 'Creating...') : (editingTask ? 'Save Changes' : 'Create Task')}
               </button>
             </div>
           </div>

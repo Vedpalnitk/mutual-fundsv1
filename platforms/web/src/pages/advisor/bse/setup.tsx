@@ -46,7 +46,7 @@ const BSESetupPage = () => {
     try {
       setLoadingStatus(true)
       const res = await bseApi.credentials.getStatus()
-      if (res?.configured) {
+      if (res?.isConfigured) {
         setStatus('connected')
         setStatusMessage(res.message || 'Credentials configured')
         // Pre-fill non-secret fields if available

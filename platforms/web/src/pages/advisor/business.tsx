@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/router'
 import AdvisorLayout from '@/components/layout/AdvisorLayout'
 import { biApi, AumOverview, NetFlowPeriod, SipHealth, RevenueProjection, ClientConcentration, MonthlyScorecard, RevenueAttribution, ClientSegmentation } from '@/services/api'
+import { complianceApi, commissionsApi, organizationApi, OrganizationArn, AumSnapshot, CommissionRecord } from '@/services/api/business'
 import { useFATheme, formatCurrency, formatCurrencyCompact } from '@/utils/fa'
 import { FACard, FAEmptyState } from '@/components/advisor/shared'
 import { exportToCSV } from '@/utils/exportUtils'
+import RevenueTrailChart from '@/components/advisor/RevenueTrailChart'
+import AumCategoryChart from '@/components/advisor/AumCategoryChart'
 
 type WidgetKey = 'category' | 'branch' | 'flows' | 'sip' | 'revenue' | 'rm' | 'concentration' | 'dormant' | 'revenueAttribution' | 'tiers'
 type TabId = 'overview' | 'details' | 'projections'
@@ -27,6 +31,7 @@ function sortBy<T>(data: T[], config: SortConfig, getters: Record<string, (item:
 
 export default function BusinessPage() {
   const { colors, isDark } = useFATheme()
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabId>('overview')
   const [selectedTable, setSelectedTable] = useState<WidgetKey>('category')
@@ -46,6 +51,22 @@ export default function BusinessPage() {
   const [revenueAttribution, setRevenueAttribution] = useState<RevenueAttribution | null>(null)
   const [segmentation, setSegmentation] = useState<ClientSegmentation | null>(null)
 
+  // Chart data
+  const [arnList, setArnList] = useState<OrganizationArn[]>([])
+  const [selectedArn, setSelectedArn] = useState<string>('')
+  const [aumSnapshots, setAumSnapshots] = useState<AumSnapshot[]>([])
+  const [commissionRecords, setCommissionRecords] = useState<CommissionRecord[]>([])
+  const [loadingCharts, setLoadingCharts] = useState(false)
+
+  // Cross-page data (Change A)
+  const [complianceSummary, setComplianceSummary] = useState<{ expiringSoon: number; expired: number; upcoming: any[] } | null>(null)
+  const [commissionDiscrepancies, setCommissionDiscrepancies] = useState<{ count: number; totalDiff: number } | null>(null)
+
+  // Goal tracking (Change G)
+  const [goals, setGoals] = useState<{ aumTarget: number; sipTarget: number; clientTarget: number } | null>(null)
+  const [showGoalModal, setShowGoalModal] = useState(false)
+  const [goalForm, setGoalForm] = useState({ aumTarget: '', sipTarget: '', clientTarget: '' })
+
   // Projections tab state (client-side only)
   const [projGrowthRate, setProjGrowthRate] = useState(12)
   const [projSipGrowth, setProjSipGrowth] = useState(5)
@@ -55,7 +76,7 @@ export default function BusinessPage() {
   const fetchAll = useCallback(async () => {
     try {
       setLoading(true)
-      const [aumR, branchR, rmR, flowsR, sipR, revR, concR, dormR, scorecardR, revAttrR, segR] = await Promise.allSettled([
+      const [aumR, branchR, rmR, flowsR, sipR, revR, concR, dormR, scorecardR, revAttrR, segR, complianceR, discrepancyR, arnsR, snapshotsR] = await Promise.allSettled([
         biApi.getAumOverview(),
         biApi.getAumByBranch(),
         biApi.getAumByRm(),
@@ -67,6 +88,10 @@ export default function BusinessPage() {
         biApi.getMonthlyScorecard(),
         biApi.getRevenueAttribution(),
         biApi.getClientSegmentation(),
+        complianceApi.getDashboard(),
+        commissionsApi.getDiscrepancies(),
+        organizationApi.listArns(),
+        biApi.getAumSnapshots(90),
       ])
       if (aumR.status === 'fulfilled') setAum(aumR.value)
       if (branchR.status === 'fulfilled') setBranches(branchR.value)
@@ -79,12 +104,37 @@ export default function BusinessPage() {
       if (scorecardR.status === 'fulfilled') setScorecard(scorecardR.value)
       if (revAttrR.status === 'fulfilled') setRevenueAttribution(revAttrR.value)
       if (segR.status === 'fulfilled') setSegmentation(segR.value)
+      if (arnsR.status === 'fulfilled') setArnList(arnsR.value)
+      if (snapshotsR.status === 'fulfilled') setAumSnapshots(snapshotsR.value)
+      if (complianceR.status === 'fulfilled') {
+        const cd = complianceR.value
+        setComplianceSummary({ expiringSoon: cd.expiringSoon, expired: cd.expired, upcoming: cd.upcoming })
+      }
+      if (discrepancyR.status === 'fulfilled') {
+        const disc = discrepancyR.value
+        setCommissionDiscrepancies({
+          count: disc.length,
+          totalDiff: disc.reduce((s: number, d: any) => s + d.difference, 0),
+        })
+      }
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Fetch commission records when ARN changes (for revenue chart)
+  useEffect(() => {
+    const fetchChartData = async () => {
+      setLoadingCharts(true)
+      try {
+        const records = await commissionsApi.listRecords(selectedArn ? { arnNumber: selectedArn } : undefined)
+        setCommissionRecords(records)
+      } catch {} finally { setLoadingCharts(false) }
+    }
+    fetchChartData()
+  }, [selectedArn])
 
   // Reset sort and date filter when switching tables
   useEffect(() => {
@@ -98,6 +148,71 @@ export default function BusinessPage() {
   const totalRmAum = rms.reduce((s, r) => s + r.aum, 0)
   const latestFlow = netFlows.length > 0 ? netFlows[netFlows.length - 1] : null
   const dormantAumAtRisk = dormantClients.reduce((s, c) => s + c.aum, 0)
+
+  // ── Health Score (Change A) ──
+
+  const healthScore = useMemo(() => {
+    let score = 100
+    if (scorecard) {
+      if (scorecard.aum.deltaPercent < -2) score -= 25
+      else if (scorecard.aum.deltaPercent < 0) score -= 15
+      else if (scorecard.aum.deltaPercent < 1) score -= 5
+    }
+    if (latestFlow) {
+      if (latestFlow.net < 0) score -= 25
+      else if (latestFlow.net === 0) score -= 10
+    }
+    if (sipHealth && sipHealth.total > 0) {
+      const cancelRate = sipHealth.cancelled / sipHealth.total
+      if (cancelRate > 0.3) score -= 20
+      else if (cancelRate > 0.15) score -= 10
+      score -= Math.min(5, sipHealth.mandateExpiringCount)
+    }
+    if (dormantClients.length > 5) score -= 15
+    else if (dormantClients.length > 2) score -= 8
+    if (commissionDiscrepancies && commissionDiscrepancies.count > 0) {
+      score -= Math.min(15, commissionDiscrepancies.count * 3)
+    }
+    return Math.max(0, Math.min(100, score))
+  }, [scorecard, latestFlow, sipHealth, dormantClients, commissionDiscrepancies])
+
+  const healthLabel = healthScore >= 80 ? 'Excellent' : healthScore >= 60 ? 'Good' : healthScore >= 40 ? 'Needs Attention' : 'At Risk'
+  const healthColor = healthScore >= 80 ? colors.success : healthScore >= 60 ? colors.warning : colors.error
+
+  const alerts = useMemo(() => {
+    const items: { icon: 'warning' | 'error' | 'info'; text: string; link?: string }[] = []
+    if (sipHealth && sipHealth.mandateExpiringCount > 0)
+      items.push({ icon: 'warning', text: `${sipHealth.mandateExpiringCount} SIP mandates expiring this month`, link: '/advisor/sips' })
+    if (latestFlow && latestFlow.net < 0)
+      items.push({ icon: 'error', text: `Net outflows of ${formatCurrencyCompact(Math.abs(latestFlow.net))} in ${latestFlow.period}` })
+    if (complianceSummary && (complianceSummary.expiringSoon > 0 || complianceSummary.expired > 0))
+      items.push({ icon: 'error', text: `${complianceSummary.expiringSoon + complianceSummary.expired} compliance items need attention`, link: '/advisor/compliance' })
+    if (commissionDiscrepancies && commissionDiscrepancies.count > 0)
+      items.push({ icon: 'warning', text: `Commission shortfall of ${formatCurrencyCompact(Math.abs(commissionDiscrepancies.totalDiff))} across ${commissionDiscrepancies.count} AMCs`, link: '/advisor/commissions' })
+    if (dormantClients.length > 0)
+      items.push({ icon: 'info', text: `${dormantClients.length} dormant clients with ${formatCurrencyCompact(dormantAumAtRisk)} AUM at risk` })
+    return items.slice(0, 4)
+  }, [sipHealth, latestFlow, complianceSummary, commissionDiscrepancies, dormantClients, dormantAumAtRisk])
+
+  // ── Goal Tracking (Change G) ──
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('fa-business-goals')
+      if (saved) setGoals(JSON.parse(saved))
+    } catch {}
+  }, [])
+
+  const saveGoals = () => {
+    const parsed = {
+      aumTarget: Number(goalForm.aumTarget) || 0,
+      sipTarget: Number(goalForm.sipTarget) || 0,
+      clientTarget: Number(goalForm.clientTarget) || 0,
+    }
+    setGoals(parsed)
+    localStorage.setItem('fa-business-goals', JSON.stringify(parsed))
+    setShowGoalModal(false)
+  }
 
   const maxFlowBar = netFlows.length > 0
     ? Math.max(...netFlows.map(f => Math.max(f.purchases, f.redemptions)), 1)
@@ -466,6 +581,144 @@ export default function BusinessPage() {
             </div>
           )}
 
+          {/* ═══ Business Health Score (Change A) ═══ */}
+          <div className="p-4 rounded-xl flex flex-col sm:flex-row gap-4" style={{
+            background: colors.chipBg,
+            border: `1px solid ${colors.cardBorder}`,
+            borderLeft: `4px solid ${healthColor}`,
+          }}>
+            <div className="flex items-center gap-4 sm:min-w-[180px]">
+              <div>
+                <p className="text-3xl font-bold" style={{ color: healthColor }}>{healthScore}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: healthColor }}>{healthLabel}</p>
+              </div>
+              <div className="flex-1 sm:w-24">
+                <div className="h-2 rounded-full overflow-hidden" style={{ background: `${colors.textTertiary}20` }}>
+                  <div className="h-full rounded-full transition-all" style={{
+                    width: `${healthScore}%`,
+                    background: `linear-gradient(90deg, ${healthColor}, ${healthScore >= 60 ? colors.success : colors.warning})`,
+                  }} />
+                </div>
+                <p className="text-[10px] mt-1" style={{ color: colors.textTertiary }}>Business Health</p>
+              </div>
+            </div>
+            {alerts.length > 0 && (
+              <div className="flex-1 space-y-1.5">
+                {alerts.map((alert, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                      style={{ color: alert.icon === 'error' ? colors.error : alert.icon === 'warning' ? colors.warning : colors.primary }}
+                    >
+                      {alert.icon === 'error' ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                      ) : alert.icon === 'warning' ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                      )}
+                    </svg>
+                    <p className="text-xs" style={{ color: colors.textSecondary }}>
+                      {alert.link ? (
+                        <button onClick={() => router.push(alert.link!)} className="underline underline-offset-2 hover:opacity-80 transition-opacity cursor-pointer" style={{ color: colors.textSecondary }}>
+                          {alert.text}
+                        </button>
+                      ) : alert.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ═══ Goal Tracker (Change G) ═══ */}
+          {goals ? (
+            <div className="p-4 rounded-xl" style={{ background: colors.chipBg, border: `1px solid ${colors.cardBorder}` }}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>Business Targets</p>
+                <button
+                  onClick={() => { setGoalForm({ aumTarget: String(goals.aumTarget), sipTarget: String(goals.sipTarget), clientTarget: String(goals.clientTarget) }); setShowGoalModal(true) }}
+                  className="text-xs font-medium px-2 py-0.5 rounded-full transition-all hover:opacity-80"
+                  style={{ color: colors.primary, background: `${colors.primary}10` }}
+                >Edit</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { label: 'AUM Target', target: goals.aumTarget, current: aum?.totalAum || 0, format: (v: number) => formatCurrencyCompact(v) },
+                  { label: 'SIP Book Target', target: goals.sipTarget, current: sipHealth?.totalMonthlyAmount || 0, format: (v: number) => formatCurrencyCompact(v) },
+                  { label: 'Client Target', target: goals.clientTarget, current: (aum as any)?.totalClients || segmentation?.tiers.reduce((s: number, t: any) => s + t.clientCount, 0) || 0, format: (v: number) => String(v) },
+                ].map((g) => {
+                  const pct = g.target > 0 ? Math.min(100, Math.round((g.current / g.target) * 100)) : 0
+                  const barColor = pct >= 80 ? colors.success : pct >= 50 ? colors.warning : colors.primary
+                  return (
+                    <div key={g.label}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: colors.textTertiary }}>{g.label}</span>
+                        <span className="text-xs font-bold" style={{ color: barColor }}>{pct}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: `${colors.textTertiary}20` }}>
+                        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+                      </div>
+                      <p className="text-[10px] mt-1" style={{ color: colors.textTertiary }}>{g.format(g.current)} / {g.format(g.target)}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowGoalModal(true)}
+              className="w-full py-2.5 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+              style={{ color: colors.primary, background: `${colors.primary}06`, border: `1px dashed ${colors.primary}30` }}
+            >
+              + Set Business Targets
+            </button>
+          )}
+
+          {/* Goal Modal */}
+          {showGoalModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+              <div className="w-full max-w-sm mx-4 rounded-2xl p-6" style={{ background: isDark ? colors.backgroundSecondary : '#FFFFFF', border: `1px solid ${colors.cardBorder}` }}>
+                <h3 className="text-base font-semibold mb-4" style={{ color: colors.textPrimary }}>Set Business Targets</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>AUM Target</label>
+                    <input type="number" placeholder="e.g. 100000000" value={goalForm.aumTarget}
+                      onChange={e => setGoalForm({ ...goalForm, aumTarget: e.target.value })}
+                      className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                      style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>SIP Monthly Target</label>
+                    <input type="number" placeholder="e.g. 5000000" value={goalForm.sipTarget}
+                      onChange={e => setGoalForm({ ...goalForm, sipTarget: e.target.value })}
+                      className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                      style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: colors.primary }}>Client Count Target</label>
+                    <input type="number" placeholder="e.g. 250" value={goalForm.clientTarget}
+                      onChange={e => setGoalForm({ ...goalForm, clientTarget: e.target.value })}
+                      className="w-full h-10 px-4 rounded-xl text-sm focus:outline-none"
+                      style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.textPrimary }}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-5">
+                  <button onClick={() => setShowGoalModal(false)}
+                    className="flex-1 py-2.5 rounded-full text-sm font-semibold transition-all"
+                    style={{ background: colors.chipBg, color: colors.textSecondary, border: `1px solid ${colors.chipBorder}` }}
+                  >Cancel</button>
+                  <button onClick={saveGoals}
+                    className="flex-1 py-2.5 rounded-full text-sm font-semibold text-white transition-all hover:shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)` }}
+                  >Save</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ═══ Tab Bar (Insights-style) ═══ */}
           <div className="flex gap-1">
             {([
@@ -515,12 +768,78 @@ export default function BusinessPage() {
                 </div>
               )}
 
+              {/* ═══ Chart Section (Revenue Trail + AUM Category Trend) ═══ */}
+              <div className="space-y-3">
+                {/* ARN Filter */}
+                {arnList.length > 1 && (
+                  <div className="flex items-center gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>ARN</p>
+                    <select
+                      value={selectedArn}
+                      onChange={(e) => setSelectedArn(e.target.value)}
+                      className="h-9 px-3 rounded-xl text-sm focus:outline-none"
+                      style={{
+                        background: colors.inputBg,
+                        border: `1px solid ${colors.inputBorder}`,
+                        color: colors.textPrimary,
+                      }}
+                    >
+                      <option value="">All ARNs</option>
+                      {arnList.map((arn) => (
+                        <option key={arn.id} value={arn.arnNumber}>
+                          {arn.arnNumber}{arn.label ? ` (${arn.label})` : ''}{arn.isDefault ? ' - Primary' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Revenue Trail Chart */}
+                  <div className="p-4 rounded-xl" style={{ background: colors.chipBg, border: `1px solid ${colors.cardBorder}` }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>Revenue Trail</p>
+                      <button
+                        onClick={() => { setActiveTab('details'); setSelectedTable('revenue') }}
+                        className="text-xs font-medium px-2 py-0.5 rounded-full transition-all hover:opacity-80"
+                        style={{ color: colors.primary, background: `${colors.primary}10` }}
+                      >
+                        View All
+                      </button>
+                    </div>
+                    <RevenueTrailChart
+                      commissionRecords={commissionRecords}
+                      projections={revenue?.projections || []}
+                      loading={loadingCharts}
+                    />
+                  </div>
+
+                  {/* AUM Category Trend Chart */}
+                  <div className="p-4 rounded-xl" style={{ background: colors.chipBg, border: `1px solid ${colors.cardBorder}` }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: colors.primary }}>AUM by Category Trend</p>
+                      <button
+                        onClick={() => { setActiveTab('details'); setSelectedTable('category') }}
+                        className="text-xs font-medium px-2 py-0.5 rounded-full transition-all hover:opacity-80"
+                        style={{ color: colors.primary, background: `${colors.primary}10` }}
+                      >
+                        View All
+                      </button>
+                    </div>
+                    <AumCategoryChart
+                      snapshots={aumSnapshots}
+                      loading={loading}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Widget Grid (2-col) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
-                {/* 1. AUM by Category */}
+                {/* 1. Category Breakdown */}
                 {aum && Object.keys(aum.byCategory).length > 0 && (
-                  <WidgetCard title="AUM by Category">
+                  <WidgetCard title="Category Breakdown">
                     <div className="space-y-2">
                       {Object.entries(aum.byCategory).slice(0, 4).map(([cat, val]) => {
                         const pct = aum.totalAum > 0 ? (val / aum.totalAum) * 100 : 0
@@ -550,7 +869,7 @@ export default function BusinessPage() {
                       {branches.slice(0, 3).map((b) => (
                         <div key={b.name} className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{b.name}</p>
+                            <button onClick={() => router.push('/advisor/branches')} className="text-sm font-medium underline underline-offset-2 cursor-pointer hover:opacity-80 transition-opacity" style={{ color: colors.textPrimary }}>{b.name}</button>
                             <p className="text-xs" style={{ color: colors.textTertiary }}>{b.clientCount} clients</p>
                           </div>
                           <p className="text-sm font-bold" style={{ color: colors.primary }}>{formatCurrencyCompact(b.aum)}</p>
@@ -617,32 +936,15 @@ export default function BusinessPage() {
                       <span>{sipHealth.paused} paused</span>
                       <span>{sipHealth.cancelled} cancelled</span>
                       {sipHealth.mandateExpiringCount > 0 && (
-                        <span style={{ color: colors.warning }}>{sipHealth.mandateExpiringCount} expiring</span>
+                        <button onClick={() => router.push('/advisor/sips')} className="underline underline-offset-2 cursor-pointer hover:opacity-80 transition-opacity" style={{ color: colors.warning }}>
+                          {sipHealth.mandateExpiringCount} expiring
+                        </button>
                       )}
                     </div>
                   </WidgetCard>
                 )}
 
-                {/* 5. Revenue Forecast */}
-                {revenue && (
-                  <WidgetCard title="Revenue Forecast">
-                    <div className="flex items-baseline gap-4 mb-2">
-                      <div>
-                        <p className="text-lg font-bold" style={{ color: colors.success }}>{formatCurrency(revenue.currentMonthlyTrail)}</p>
-                        <p className="text-[10px]" style={{ color: colors.textTertiary }}>Monthly Trail</p>
-                      </div>
-                      <div>
-                        <p className="text-lg font-bold" style={{ color: colors.warning }}>{formatCurrency(revenue.annual12MProjection)}</p>
-                        <p className="text-[10px]" style={{ color: colors.textTertiary }}>12M Projection</p>
-                      </div>
-                    </div>
-                    <p className="text-xs" style={{ color: colors.textTertiary }}>
-                      Avg trail rate: <span className="font-semibold" style={{ color: colors.textSecondary }}>{revenue.avgTrailRate.toFixed(2)}%</span>
-                    </p>
-                  </WidgetCard>
-                )}
-
-                {/* 6. Sub-broker / RM Revenue */}
+                {/* 5. Sub-broker / RM Revenue */}
                 <WidgetCard title="Sub-broker / RM Revenue">
                   {rms.length === 0 ? (
                     <p className="text-xs" style={{ color: colors.textTertiary }}>No RM data available</p>
@@ -651,7 +953,7 @@ export default function BusinessPage() {
                       {rms.slice(0, 3).map((r) => (
                         <div key={r.id} className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>{r.name}</p>
+                            <button onClick={() => router.push('/advisor/team')} className="text-sm font-medium underline underline-offset-2 cursor-pointer hover:opacity-80 transition-opacity" style={{ color: colors.textPrimary }}>{r.name}</button>
                             <p className="text-xs" style={{ color: colors.textTertiary }}>{r.clientCount} clients</p>
                           </div>
                           <p className="text-sm font-bold" style={{ color: colors.primary }}>{formatCurrencyCompact(r.aum)}</p>
@@ -668,7 +970,9 @@ export default function BusinessPage() {
                 {concentration && (
                   <WidgetCard title="Client Concentration">
                     <p className="text-sm mb-2" style={{ color: colors.textSecondary }}>
-                      Top {concentration.topN} clients hold{' '}
+                      <button onClick={() => { setActiveTab('details'); setSelectedTable('concentration') }} className="underline underline-offset-2 cursor-pointer hover:opacity-80 transition-opacity" style={{ color: colors.textSecondary }}>
+                        Top {concentration.topN} clients
+                      </button>{' '}hold{' '}
                       <span className="font-bold" style={{ color: concentration.concentrationPercent > 60 ? colors.warning : colors.success }}>
                         {concentration.concentrationPercent}%
                       </span>{' '}
@@ -693,7 +997,7 @@ export default function BusinessPage() {
                   ) : (
                     <div>
                       <div className="flex items-baseline gap-3 mb-1">
-                        <p className="text-lg font-bold" style={{ color: colors.warning }}>{dormantClients.length}</p>
+                        <button onClick={() => { setActiveTab('details'); setSelectedTable('dormant') }} className="text-lg font-bold underline underline-offset-2 cursor-pointer hover:opacity-80 transition-opacity" style={{ color: colors.warning }}>{dormantClients.length}</button>
                         <p className="text-xs" style={{ color: colors.textTertiary }}>clients inactive</p>
                       </div>
                       <p className="text-xs" style={{ color: colors.textTertiary }}>
@@ -716,7 +1020,7 @@ export default function BusinessPage() {
                     <div className="space-y-2">
                       {revenueAttribution.byAmc.slice(0, 3).map((a) => (
                         <div key={a.amcName} className="flex items-center gap-2">
-                          <span className="text-xs w-24 truncate" style={{ color: colors.textSecondary }}>{a.amcName}</span>
+                          <button onClick={() => router.push('/advisor/commissions')} className="text-xs w-24 truncate text-left underline underline-offset-2 cursor-pointer hover:opacity-80 transition-opacity" style={{ color: colors.textSecondary }}>{a.amcName}</button>
                           <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: `${colors.primary}15` }}>
                             <div className="h-full rounded-full" style={{ width: `${a.percentOfTotal}%`, background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})` }} />
                           </div>
@@ -744,7 +1048,7 @@ export default function BusinessPage() {
                         const c = tierColors[t.tier] || colors.primary
                         return (
                           <div key={t.tier} className="p-2 rounded-lg" style={{ background: `${c}08`, border: `1px solid ${c}20` }}>
-                            <p className="text-[10px] font-semibold uppercase" style={{ color: c }}>{t.tier}</p>
+                            <button onClick={() => router.push(`/advisor/clients?tier=${t.tier}`)} className="text-[10px] font-semibold uppercase underline underline-offset-2 cursor-pointer hover:opacity-80 transition-opacity" style={{ color: c }}>{t.tier}</button>
                             <p className="text-sm font-bold" style={{ color: colors.textPrimary }}>{t.clientCount}</p>
                             <p className="text-[10px]" style={{ color: colors.textTertiary }}>{formatCurrencyCompact(t.totalAum)}</p>
                           </div>

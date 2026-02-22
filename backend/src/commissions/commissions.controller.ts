@@ -12,6 +12,7 @@ import { CommissionsService } from './commissions.service';
 import {
   CreateRateDto, UpdateRateDto, CommissionFilterDto,
   CalculateExpectedDto, ReconcileDto, ReconcileAndComputeDto,
+  BulkCreateRatesDto,
 } from './dto';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
@@ -177,5 +178,26 @@ export class CommissionsController {
   @ApiOperation({ summary: 'Commission summary grouped by ARN' })
   getSummaryByArn(@CurrentUser() user: AuthenticatedUser) {
     return this.commissionsService.getSummaryByArn(getEffectiveAdvisorId(user));
+  }
+
+  // ============= DEFAULTS (ONBOARDING) =============
+
+  @Get('defaults')
+  @ApiOperation({ summary: 'Get default commission rates for onboarding' })
+  getDefaults() {
+    return this.commissionsService.getDefaults();
+  }
+
+  @Post('rates/bulk')
+  @ApiOperation({ summary: 'Bulk create commission rates (onboarding)' })
+  bulkCreateRates(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: BulkCreateRatesDto,
+  ) {
+    return this.commissionsService.bulkCreateRates(
+      getEffectiveAdvisorId(user),
+      user.id,
+      dto.rates,
+    );
   }
 }

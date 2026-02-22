@@ -7,6 +7,7 @@ import {
   CreateRateDto, UpdateRateDto, CommissionFilterDto,
   CalculateExpectedDto, ReconcileDto, ReconcileAndComputeDto,
 } from './dto';
+import { DEFAULT_COMMISSION_RATES } from './data/default-commission-rates';
 
 @Injectable()
 export class CommissionsService {
@@ -641,6 +642,78 @@ export class CommissionsService {
     }
 
     return summaries;
+  }
+
+  // ============= DEFAULTS (ONBOARDING) =============
+
+  async getDefaults() {
+    // Try to match AMC short names to Provider records
+    const providers = await this.prisma.provider.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, shortName: true },
+    });
+
+    return DEFAULT_COMMISSION_RATES.map(rate => {
+      const provider = providers.find(p =>
+        p.shortName?.toLowerCase() === rate.amcShortName.toLowerCase() ||
+        p.name?.toLowerCase().includes(rate.amcShortName.toLowerCase()),
+      );
+      return {
+        amcShortName: rate.amcShortName,
+        amcId: provider?.id || null,
+        amcFullName: provider?.name || rate.amcShortName,
+        schemeCategory: rate.schemeCategory,
+        trailRatePercent: rate.trailRatePercent,
+        upfrontRatePercent: rate.upfrontRatePercent,
+      };
+    });
+  }
+
+  async bulkCreateRates(
+    advisorId: string,
+    userId: string,
+    rates: { amcId: string; schemeCategory: string; trailRatePercent: number; upfrontRatePercent?: number; effectiveFrom: string }[],
+  ) {
+    let created = 0;
+    let skipped = 0;
+
+    for (const rate of rates) {
+      // Check if rate already exists for this AMC + category
+      const existing = await this.prisma.commissionRateMaster.findFirst({
+        where: {
+          advisorId,
+          amcId: rate.amcId,
+          schemeCategory: rate.schemeCategory,
+        },
+      });
+
+      if (existing) {
+        skipped++;
+        continue;
+      }
+
+      await this.prisma.commissionRateMaster.create({
+        data: {
+          advisorId,
+          amcId: rate.amcId,
+          schemeCategory: rate.schemeCategory,
+          trailRatePercent: rate.trailRatePercent,
+          upfrontRatePercent: rate.upfrontRatePercent || 0,
+          effectiveFrom: new Date(rate.effectiveFrom),
+        },
+      });
+      created++;
+    }
+
+    await this.audit.log({
+      userId,
+      action: 'BULK_CREATE_RATES',
+      entityType: 'CommissionRateMaster',
+      entityId: advisorId,
+      details: { created, skipped, total: rates.length },
+    });
+
+    return { created, skipped, total: rates.length };
   }
 
   // ============= HELPERS =============

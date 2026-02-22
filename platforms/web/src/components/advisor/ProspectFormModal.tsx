@@ -78,6 +78,8 @@ const ProspectFormModal = ({
         source: prospect.source,
         notes: prospect.notes,
         referredBy: prospect.referredBy || '',
+        nextAction: prospect.nextAction || '',
+        nextActionDate: prospect.nextActionDate || '',
       })
       setMeetingNotes(prospect.meetingNotes || [])
     } else {
@@ -89,6 +91,8 @@ const ProspectFormModal = ({
         source: 'Website',
         notes: '',
         referredBy: '',
+        nextAction: '',
+        nextActionDate: '',
       })
       setMeetingNotes([])
     }
@@ -265,6 +269,26 @@ const ProspectFormModal = ({
               />
             </div>
           )}
+
+          {/* Next Action */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <FALabel>Next Action</FALabel>
+              <FAInput
+                placeholder="e.g. Follow-up call"
+                value={formData.nextAction || ''}
+                onChange={(e) => setFormData({ ...formData, nextAction: e.target.value })}
+              />
+            </div>
+            <div>
+              <FALabel>Action Date</FALabel>
+              <FAInput
+                type="date"
+                value={formData.nextActionDate || ''}
+                onChange={(e) => setFormData({ ...formData, nextActionDate: e.target.value })}
+              />
+            </div>
+          </div>
 
           {/* Notes */}
           <div>

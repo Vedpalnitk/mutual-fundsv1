@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useFATheme, formatCurrency } from '@/utils/fa'
 import { bseApi } from '@/services/api'
+import { organizationApi, OrganizationArn } from '@/services/api/business'
 import BseSchemePicker from '@/components/bse/BseSchemePicker'
 
 interface BseOrderPlacementModalProps {
@@ -9,6 +10,7 @@ interface BseOrderPlacementModalProps {
   onSuccess?: (order: any) => void
   defaultType?: 'purchase' | 'redeem' | 'switch' | 'spread'
   clientId?: string
+  staffEuin?: string // Auto-populated for fa_staff users
 }
 
 type OrderType = 'purchase' | 'redeem' | 'switch' | 'spread'
@@ -17,12 +19,12 @@ interface SelectedScheme {
   id: string
   schemeCode: string
   schemeName: string
-  isin?: string
-  amcCode?: string
+  isin?: string | null
+  amcCode?: string | null
   purchaseAllowed: boolean
   sipAllowed: boolean
-  minPurchaseAmt?: number
-  minSipAmt?: number
+  minPurchaseAmt?: number | null
+  minSipAmt?: number | null
 }
 
 const ORDER_TABS: { value: OrderType; label: string; color: string }[] = [
@@ -38,6 +40,7 @@ export default function BseOrderPlacementModal({
   onSuccess,
   defaultType = 'purchase',
   clientId: presetClientId,
+  staffEuin,
 }: BseOrderPlacementModalProps) {
   const { colors, isDark } = useFATheme()
 
@@ -50,6 +53,11 @@ export default function BseOrderPlacementModal({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<{ orderId: string; message: string } | null>(null)
 
+  // EUIN + ARN
+  const [euin, setEuin] = useState(staffEuin || '')
+  const [arns, setArns] = useState<OrganizationArn[]>([])
+  const [selectedArn, setSelectedArn] = useState('')
+
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -61,8 +69,15 @@ export default function BseOrderPlacementModal({
       setLoading(false)
       setError(null)
       setSuccess(null)
+      setEuin(staffEuin || '')
+      // Fetch ARNs
+      organizationApi.listArns().then((data) => {
+        setArns(data)
+        const defaultArn = data.find(a => a.isDefault)
+        if (defaultArn) setSelectedArn(defaultArn.arnNumber)
+      }).catch(() => {})
     }
-  }, [isOpen, defaultType, presetClientId])
+  }, [isOpen, defaultType, presetClientId, staffEuin])
 
   const getFilterType = (): 'purchase' | 'sip' | 'switch' | 'redemption' => {
     switch (orderType) {
@@ -102,6 +117,11 @@ export default function BseOrderPlacementModal({
     try {
       let response: any
 
+      const euinArn = {
+        ...(euin ? { euin } : {}),
+        ...(selectedArn ? { arnNumber: selectedArn } : {}),
+      }
+
       switch (orderType) {
         case 'purchase':
           response = await bseApi.orders.purchase({
@@ -110,6 +130,7 @@ export default function BseOrderPlacementModal({
             amount: parsedAmount,
             buySell: 'P',
             buySellType: 'FRESH',
+            ...euinArn,
           })
           break
         case 'redeem':
@@ -118,6 +139,7 @@ export default function BseOrderPlacementModal({
             schemeCode: selectedScheme.schemeCode,
             amount: parsedAmount,
             buySell: 'R',
+            ...euinArn,
           })
           break
         case 'switch':
@@ -127,6 +149,7 @@ export default function BseOrderPlacementModal({
             toSchemeCode: toScheme!.schemeCode,
             amount: parsedAmount,
             buySellType: 'FRESH',
+            ...euinArn,
           })
           break
         case 'spread':
@@ -134,6 +157,7 @@ export default function BseOrderPlacementModal({
             clientId: clientId.trim(),
             schemeCode: selectedScheme.schemeCode,
             amount: parsedAmount,
+            ...euinArn,
           })
           break
       }
@@ -430,6 +454,61 @@ export default function BseOrderPlacementModal({
               <p className="mt-1 text-xs" style={{ color: colors.textTertiary }}>
                 {formatCurrency(parsedAmount, { short: true })}
               </p>
+            )}
+          </div>
+
+          {/* EUIN & ARN */}
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label
+                className="block text-xs font-semibold mb-1.5 uppercase tracking-wide"
+                style={{ color: colors.primary }}
+              >
+                EUIN
+              </label>
+              <input
+                type="text"
+                value={euin}
+                onChange={(e) => setEuin(e.target.value)}
+                placeholder="E123456"
+                className="w-full h-10 px-4 rounded-xl text-sm transition-all focus:outline-none"
+                style={{
+                  background: colors.inputBg,
+                  border: `1px solid ${colors.inputBorder}`,
+                  color: colors.textPrimary,
+                }}
+              />
+              {staffEuin && (
+                <p className="mt-1 text-xs" style={{ color: colors.textTertiary }}>
+                  Auto-filled from staff profile
+                </p>
+              )}
+            </div>
+            {arns.length > 1 && (
+              <div className="flex-1">
+                <label
+                  className="block text-xs font-semibold mb-1.5 uppercase tracking-wide"
+                  style={{ color: colors.primary }}
+                >
+                  ARN
+                </label>
+                <select
+                  value={selectedArn}
+                  onChange={(e) => setSelectedArn(e.target.value)}
+                  className="w-full h-10 px-4 rounded-xl text-sm transition-all focus:outline-none"
+                  style={{
+                    background: colors.inputBg,
+                    border: `1px solid ${colors.inputBorder}`,
+                    color: colors.textPrimary,
+                  }}
+                >
+                  {arns.filter(a => a.isActive).map((arn) => (
+                    <option key={arn.id} value={arn.arnNumber}>
+                      {arn.arnNumber}{arn.label ? ` — ${arn.label}` : ''}{arn.isDefault ? ' (Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
 

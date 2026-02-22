@@ -559,15 +559,23 @@ const AdvisorDashboard = () => {
     }
   };
 
+  // Normalize pendingTransactions (API may return array or paginated { data, pagination })
+  const pendingTxnList = useMemo(() => {
+    const raw = dashboard?.pendingTransactions
+    if (Array.isArray(raw)) return raw
+    if (raw && Array.isArray((raw as any).data)) return (raw as any).data
+    return []
+  }, [dashboard?.pendingTransactions])
+
   // Derived data
   const filteredPendingItems = useMemo<PendingItem[]>(() => {
-    const txns: PendingItem[] = (dashboard?.pendingTransactions || []).map((t) => ({ ...t, _source: 'transaction' as const }));
+    const txns: PendingItem[] = pendingTxnList.map((t: any) => ({ ...t, _source: 'transaction' as const }));
     const acts: PendingItem[] = pendingActions.map((a) => ({ ...a, _source: 'action' as const }));
     const all = [...txns, ...acts];
     if (pendingFilter === 'transactions') return all.filter((i) => i._source === 'transaction');
     if (pendingFilter === 'actions') return all.filter((i) => i._source === 'action');
     return all;
-  }, [dashboard?.pendingTransactions, pendingActions, pendingFilter]);
+  }, [pendingTxnList, pendingActions, pendingFilter]);
 
   const filteredPerformers = useMemo(() => {
     if (!dashboard?.topPerformers) return [];
@@ -984,7 +992,7 @@ const AdvisorDashboard = () => {
             </div>}
 
             {/* Recent Transactions */}
-            {isWidgetEnabled('recent-transactions') && !loading && dashboard && dashboard.pendingTransactions.length > 0 && (
+            {isWidgetEnabled('recent-transactions') && !loading && dashboard && pendingTxnList.length > 0 && (
               <div
                 className="p-5 rounded-xl"
                 style={{ background: colors.cardBackground, border: `1px solid ${colors.cardBorder}`, boxShadow: `0 4px 24px ${colors.glassShadow}` }}
@@ -1005,7 +1013,7 @@ const AdvisorDashboard = () => {
                   </Link>
                 </div>
                 <div className="space-y-1">
-                  {dashboard.pendingTransactions.slice(0, 5).map((txn) => (
+                  {pendingTxnList.slice(0, 5).map((txn: any) => (
                     <div
                       key={txn.id}
                       className="flex items-center gap-3 py-2.5 px-1"
