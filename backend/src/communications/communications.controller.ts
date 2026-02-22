@@ -13,6 +13,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { CommunicationsService } from './communications.service';
 import { PreviewCommunicationDto, SendCommunicationDto, BulkSendCommunicationDto, CommunicationHistoryFilterDto } from './dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('communications')
 @ApiBearerAuth()
@@ -29,7 +30,7 @@ export class CommunicationsController {
 
   @Post('preview')
   preview(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: PreviewCommunicationDto,
   ) {
     return this.communicationsService.preview(getEffectiveAdvisorId(user), dto);
@@ -37,7 +38,7 @@ export class CommunicationsController {
 
   @Post('send')
   send(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: SendCommunicationDto,
   ) {
     return this.communicationsService.send(getEffectiveAdvisorId(user), dto);
@@ -45,7 +46,7 @@ export class CommunicationsController {
 
   @Post('send-bulk')
   sendBulk(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: BulkSendCommunicationDto,
   ) {
     return this.communicationsService.sendBulk(getEffectiveAdvisorId(user), dto);
@@ -53,14 +54,14 @@ export class CommunicationsController {
 
   @Get('history')
   getHistory(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query() filters: CommunicationHistoryFilterDto,
   ) {
     return this.communicationsService.getHistory(getEffectiveAdvisorId(user), filters);
   }
 
   @Get('history/stats')
-  getStats(@CurrentUser() user: any) {
+  getStats(@CurrentUser() user: AuthenticatedUser) {
     return this.communicationsService.getStats(getEffectiveAdvisorId(user));
   }
 }

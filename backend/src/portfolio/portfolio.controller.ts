@@ -23,6 +23,7 @@ import { PortfolioService } from './portfolio.service';
 import { CreateHoldingDto, UpdateHoldingDto } from './dto/create-holding.dto';
 import { HoldingResponseDto } from './dto/holding-response.dto';
 import { PortfolioResponseDto, AssetAllocationDto } from './dto/portfolio-response.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('portfolio')
 @ApiBearerAuth()
@@ -36,7 +37,7 @@ export class PortfolioController {
   @ApiOperation({ summary: 'Get all holdings for a client' })
   @ApiResponse({ status: 200, type: [HoldingResponseDto] })
   async getClientHoldings(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
   ) {
     return this.portfolioService.getClientHoldings(clientId, getEffectiveAdvisorId(user));
@@ -46,7 +47,7 @@ export class PortfolioController {
   @ApiOperation({ summary: 'Get portfolio summary for a client' })
   @ApiResponse({ status: 200, type: PortfolioResponseDto })
   async getPortfolioSummary(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
   ) {
     return this.portfolioService.getPortfolioSummary(clientId, getEffectiveAdvisorId(user));
@@ -56,7 +57,7 @@ export class PortfolioController {
   @ApiOperation({ summary: 'Get computed asset allocation for a client' })
   @ApiResponse({ status: 200, type: [AssetAllocationDto] })
   async getAssetAllocation(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
   ) {
     return this.portfolioService.getAssetAllocation(clientId, getEffectiveAdvisorId(user));
@@ -65,7 +66,7 @@ export class PortfolioController {
   @Get('clients/:clientId/history')
   @ApiOperation({ summary: 'Get portfolio value history for a client' })
   async getPortfolioHistory(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Query('period') period: string = '1Y',
   ) {
@@ -76,7 +77,7 @@ export class PortfolioController {
   @ApiOperation({ summary: 'Add a new holding for a client' })
   @ApiResponse({ status: 201, type: HoldingResponseDto })
   async addHolding(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Body() dto: CreateHoldingDto,
   ) {
@@ -87,7 +88,7 @@ export class PortfolioController {
   @ApiOperation({ summary: 'Update a holding' })
   @ApiResponse({ status: 200, type: HoldingResponseDto })
   async updateHolding(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateHoldingDto,
   ) {
@@ -98,7 +99,7 @@ export class PortfolioController {
   @ApiOperation({ summary: 'Delete a holding' })
   @ApiResponse({ status: 200 })
   async deleteHolding(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.portfolioService.deleteHolding(id, getEffectiveAdvisorId(user));
@@ -107,7 +108,7 @@ export class PortfolioController {
   @Post('holdings/sync-nav')
   @ApiOperation({ summary: 'Batch sync NAV for multiple holdings' })
   async syncNavBatch(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() updates: { holdingId: string; currentNav: number }[],
   ) {
     return this.portfolioService.syncNavBatch(getEffectiveAdvisorId(user), updates);

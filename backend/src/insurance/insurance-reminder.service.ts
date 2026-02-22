@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { InsurancePolicyType } from '@prisma/client';
+import { BatchJobsTracker } from '../common/batch-jobs.tracker';
 
 const HEALTH_TYPES: InsurancePolicyType[] = ['HEALTH', 'CRITICAL_ILLNESS'];
 
@@ -13,21 +14,22 @@ export class InsuranceReminderService {
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
+    private tracker: BatchJobsTracker,
   ) {}
 
   @Cron('0 0 9 * * *', { timeZone: 'Asia/Kolkata' })
   async checkPremiumReminders() {
     this.logger.log('Insurance reminder cron triggered');
 
-    try {
+    await this.tracker.trackRun('insurance_reminders', async () => {
       await Promise.allSettled([
         this.checkUpcomingPremiums(),
         this.checkOverduePolicies(),
         this.checkRenewalsAndMaturities(),
       ]);
-    } catch (error) {
+    }).catch(error => {
       this.logger.error(`Insurance reminder cron failed: ${error.message}`);
-    }
+    });
   }
 
   private async checkUpcomingPremiums() {

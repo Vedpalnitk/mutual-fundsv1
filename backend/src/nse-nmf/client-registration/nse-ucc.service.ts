@@ -43,6 +43,18 @@ export class NseUccService {
     }
   }
 
+  async batchRegistrationStatus(clientIds: string[], advisorId: string) {
+    const registrations = await this.prisma.nseUccRegistration.findMany({
+      where: { clientId: { in: clientIds }, advisorId },
+      select: { clientId: true, status: true, clientCode: true },
+    })
+    const statusMap: Record<string, { status: string; nseClientCode: string | null }> = {}
+    for (const reg of registrations) {
+      statusMap[reg.clientId] = { status: reg.status, nseClientCode: reg.clientCode }
+    }
+    return statusMap
+  }
+
   async registerUcc(clientId: string, advisorId: string, data: any) {
     // 1. Verify client exists and belongs to advisor
     const client = await this.prisma.fAClient.findFirst({
@@ -176,6 +188,72 @@ export class NseUccService {
       },
     })
 
+    this.errorMapper.throwIfError(result)
+    return result
+  }
+
+  async addBankDetail(clientId: string, advisorId: string, data: any) {
+    const registration = await this.prisma.nseUccRegistration.findUnique({
+      where: { clientId },
+    })
+    if (!registration) throw new NotFoundException('UCC registration not found')
+
+    const isMockMode = this.config.get<boolean>('nmf.mockMode')
+
+    if (isMockMode) {
+      return { success: true, status: 'SUCCESS', message: 'Bank detail added (mock)' }
+    }
+
+    const credentials = await this.credentialsService.getDecryptedCredentials(advisorId)
+
+    const requestBody = {
+      action_flag: NSE_ACTION_FLAGS.ADD,
+      client_code: registration.clientCode,
+      ...data,
+    }
+
+    const response = await this.httpClient.jsonRequest(
+      NSE_ENDPOINTS.CLIENT_BANK_DETAIL,
+      requestBody,
+      credentials,
+      advisorId,
+      'CLIENT_BANK_DETAIL_ADD',
+    )
+
+    const result = this.errorMapper.parseResponse(response.parsed)
+    this.errorMapper.throwIfError(result)
+    return result
+  }
+
+  async deleteBankDetail(clientId: string, advisorId: string, data: any) {
+    const registration = await this.prisma.nseUccRegistration.findUnique({
+      where: { clientId },
+    })
+    if (!registration) throw new NotFoundException('UCC registration not found')
+
+    const isMockMode = this.config.get<boolean>('nmf.mockMode')
+
+    if (isMockMode) {
+      return { success: true, status: 'SUCCESS', message: 'Bank detail deleted (mock)' }
+    }
+
+    const credentials = await this.credentialsService.getDecryptedCredentials(advisorId)
+
+    const requestBody = {
+      action_flag: NSE_ACTION_FLAGS.DELETE,
+      client_code: registration.clientCode,
+      ...data,
+    }
+
+    const response = await this.httpClient.jsonRequest(
+      NSE_ENDPOINTS.CLIENT_BANK_DETAIL,
+      requestBody,
+      credentials,
+      advisorId,
+      'CLIENT_BANK_DETAIL_DELETE',
+    )
+
+    const result = this.errorMapper.parseResponse(response.parsed)
     this.errorMapper.throwIfError(result)
     return result
   }

@@ -11,6 +11,7 @@ import {
   PlaceRedemptionDto,
   PlaceSwitchOrderDto,
 } from '../dto/nmf.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('NSE NMF Orders')
 @ApiBearerAuth()
@@ -26,7 +27,7 @@ export class NseOrdersController {
   @Get()
   @ApiOperation({ summary: 'List NSE orders' })
   async list(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('clientId') clientId?: string,
     @Query('status') status?: string,
     @Query('orderType') orderType?: string,
@@ -44,31 +45,45 @@ export class NseOrdersController {
 
   @Post('purchase')
   @ApiOperation({ summary: 'Place purchase order' })
-  async purchase(@CurrentUser() user: any, @Body() data: PlacePurchaseOrderDto) {
+  async purchase(@CurrentUser() user: AuthenticatedUser, @Body() data: PlacePurchaseOrderDto) {
     return this.orderService.placePurchase(user.id, data)
   }
 
   @Post('redeem')
   @ApiOperation({ summary: 'Place redemption order' })
-  async redeem(@CurrentUser() user: any, @Body() data: PlaceRedemptionDto) {
+  async redeem(@CurrentUser() user: AuthenticatedUser, @Body() data: PlaceRedemptionDto) {
     return this.orderService.placeRedemption(user.id, data)
   }
 
   @Post('switch')
   @ApiOperation({ summary: 'Place switch order' })
-  async switchOrder(@CurrentUser() user: any, @Body() data: PlaceSwitchOrderDto) {
+  async switchOrder(@CurrentUser() user: AuthenticatedUser, @Body() data: PlaceSwitchOrderDto) {
     return this.switchService.placeSwitch(user.id, data)
+  }
+
+  @Get('scheme-master')
+  @ApiOperation({ summary: 'Search NSE NMF schemes' })
+  async searchSchemes(
+    @Query('q') query?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.orderService.searchSchemes(
+      query || '',
+      parseInt(page || '1'),
+      parseInt(limit || '20'),
+    )
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get order detail' })
-  async getOne(@Param('id') id: string, @CurrentUser() user: any) {
+  async getOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.orderService.getOrder(id, user.id)
   }
 
   @Post(':id/cancel')
   @ApiOperation({ summary: 'Cancel order' })
-  async cancel(@Param('id') id: string, @CurrentUser() user: any) {
+  async cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.orderService.cancelOrder(id, user.id)
   }
 }

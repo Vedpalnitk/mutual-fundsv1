@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { PrismaModule } from '../prisma/prisma.module'
+import { AuditModule } from '../audit/audit.module'
 
 // Core Infrastructure
 import { NseHttpClient } from './core/nse-http.client'
@@ -26,6 +27,7 @@ import { NseMandatesController } from './mandates/nse-mandates.controller'
 
 // Orders
 import { NseOrderService } from './orders/nse-order.service'
+import { NseOrderProcessor } from './orders/nse-order.processor'
 import { NseSwitchService } from './orders/nse-switch.service'
 import { NseOrdersController } from './orders/nse-orders.controller'
 
@@ -62,7 +64,7 @@ import { NseOrderStatusPollJob } from './jobs/nse-order-status-poll.job'
 import { NseSchemeMasterSyncJob } from './jobs/nse-scheme-master-sync.job'
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, AuditModule],
   controllers: [
     NseCredentialsController,
     NseClientRegistrationController,
@@ -97,6 +99,7 @@ import { NseSchemeMasterSyncJob } from './jobs/nse-scheme-master-sync.job'
 
     // Orders
     NseOrderService,
+    NseOrderProcessor,
     NseSwitchService,
 
     // Payments

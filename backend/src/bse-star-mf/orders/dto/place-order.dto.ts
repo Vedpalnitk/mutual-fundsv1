@@ -22,6 +22,8 @@ export class PlaceOrderDto {
   @ApiPropertyOptional() @IsString() @IsOptional() dpTxnMode?: string
   @ApiPropertyOptional() @IsString() @IsOptional() transactionId?: string // Link to FATransaction
   @ApiPropertyOptional() @IsString() @IsOptional() remarks?: string
+  @ApiPropertyOptional() @IsString() @IsOptional() euin?: string
+  @ApiPropertyOptional() @IsString() @IsOptional() arnNumber?: string
 }
 
 export class PlaceSwitchDto {
@@ -33,6 +35,8 @@ export class PlaceSwitchDto {
   @ApiPropertyOptional() @IsNumber() @IsOptional() units?: number
   @ApiPropertyOptional() @IsString() @IsOptional() folioNumber?: string
   @ApiPropertyOptional() @IsString() @IsOptional() transactionId?: string
+  @ApiPropertyOptional() @IsString() @IsOptional() euin?: string
+  @ApiPropertyOptional() @IsString() @IsOptional() arnNumber?: string
 }
 
 export class PlaceSpreadDto {
@@ -41,4 +45,6 @@ export class PlaceSpreadDto {
   @ApiProperty() @IsNumber() @Min(0) amount: number
   @ApiPropertyOptional() @IsString() @IsOptional() folioNumber?: string
   @ApiPropertyOptional() @IsString() @IsOptional() transactionId?: string
+  @ApiPropertyOptional() @IsString() @IsOptional() euin?: string
+  @ApiPropertyOptional() @IsString() @IsOptional() arnNumber?: string
 }

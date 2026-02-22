@@ -11,6 +11,7 @@ import { BseCobService } from './bse-cob.service'
 import { PlaceOrderDto, PlaceSwitchDto, PlaceSpreadDto } from './dto/place-order.dto'
 import { PlaceCobDto } from './dto/place-cob.dto'
 import { BseOrderStatus, BseOrderType } from '@prisma/client'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('BSE Orders')
 @ApiBearerAuth()
@@ -33,7 +34,7 @@ export class BseOrdersController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   async listOrders(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('clientId') clientId?: string,
     @Query('status') status?: BseOrderStatus,
     @Query('orderType') orderType?: BseOrderType,
@@ -52,7 +53,7 @@ export class BseOrdersController {
   @Post('purchase')
   @ApiOperation({ summary: 'Place a lumpsum purchase order' })
   async placePurchase(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: PlaceOrderDto,
   ) {
     return this.orderService.placePurchase(user.id, dto)
@@ -61,7 +62,7 @@ export class BseOrdersController {
   @Post('redeem')
   @ApiOperation({ summary: 'Place a redemption order' })
   async placeRedemption(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: PlaceOrderDto,
   ) {
     return this.orderService.placeRedemption(user.id, dto)
@@ -70,7 +71,7 @@ export class BseOrdersController {
   @Post('switch')
   @ApiOperation({ summary: 'Place a switch order' })
   async placeSwitch(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: PlaceSwitchDto,
   ) {
     return this.switchService.placeSwitch(user.id, dto)
@@ -79,7 +80,7 @@ export class BseOrdersController {
   @Post('spread')
   @ApiOperation({ summary: 'Place a spread order' })
   async placeSpread(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: PlaceSpreadDto,
   ) {
     return this.spreadService.placeSpread(user.id, dto)
@@ -88,7 +89,7 @@ export class BseOrdersController {
   @Post('cob')
   @ApiOperation({ summary: 'Place a Change of Broker (Transfer In) order' })
   async placeCob(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: PlaceCobDto,
   ) {
     return this.cobService.placeCob(user.id, dto)
@@ -97,7 +98,7 @@ export class BseOrdersController {
   @Get(':id')
   @ApiOperation({ summary: 'Get order detail' })
   async getOrder(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.orderService.getOrder(id, user.id)
@@ -106,7 +107,7 @@ export class BseOrdersController {
   @Post(':id/cancel')
   @ApiOperation({ summary: 'Cancel an order' })
   async cancelOrder(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.orderService.cancelOrder(id, user.id)

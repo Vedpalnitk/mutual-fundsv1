@@ -6,6 +6,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { NseUploadService } from './nse-upload.service'
 import { UploadFileDto } from '../dto/nmf.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('NSE NMF Uploads')
 @ApiBearerAuth()
@@ -17,25 +18,25 @@ export class NseUploadsController {
 
   @Post('aof')
   @ApiOperation({ summary: 'Upload AOF image' })
-  async uploadAof(@CurrentUser() user: any, @Body() data: UploadFileDto) {
+  async uploadAof(@CurrentUser() user: AuthenticatedUser, @Body() data: UploadFileDto) {
     return this.uploadService.uploadFile(user.id, 'aof', data)
   }
 
   @Post('fatca')
   @ApiOperation({ summary: 'Upload FATCA image' })
-  async uploadFatca(@CurrentUser() user: any, @Body() data: UploadFileDto) {
+  async uploadFatca(@CurrentUser() user: AuthenticatedUser, @Body() data: UploadFileDto) {
     return this.uploadService.uploadFile(user.id, 'fatca', data)
   }
 
   @Post('mandate')
   @ApiOperation({ summary: 'Upload mandate scan' })
-  async uploadMandate(@CurrentUser() user: any, @Body() data: UploadFileDto) {
+  async uploadMandate(@CurrentUser() user: AuthenticatedUser, @Body() data: UploadFileDto) {
     return this.uploadService.uploadFile(user.id, 'mandate', data)
   }
 
   @Post('cancel-cheque')
   @ApiOperation({ summary: 'Upload cancel cheque' })
-  async uploadCancelCheque(@CurrentUser() user: any, @Body() data: UploadFileDto) {
+  async uploadCancelCheque(@CurrentUser() user: AuthenticatedUser, @Body() data: UploadFileDto) {
     return this.uploadService.uploadFile(user.id, 'cancel-cheque', data)
   }
 
@@ -43,7 +44,7 @@ export class NseUploadsController {
   @ApiOperation({ summary: 'Upload file by type' })
   async upload(
     @Param('type') type: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() data: UploadFileDto,
   ) {
     return this.uploadService.uploadFile(user.id, type, data)

@@ -1,12 +1,22 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { ClsService } from 'nestjs-cls';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import helmet from 'helmet';
+import compression from 'compression';
+import { Queue } from 'bullmq';
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter } from '@bull-board/express';
 import { AppModule } from './app.module';
+import { BULLMQ_CONNECTION } from './common/queue/queue.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(PinoLogger));
 
   // Get config
   const configService = app.get(ConfigService);
@@ -16,6 +26,9 @@ async function bootstrap() {
   // Security headers
   app.use(helmet());
 
+  // Response compression (60-80% reduction for JSON payloads)
+  app.use(compression());
+
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
@@ -24,6 +37,10 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // Global exception filter — structured errors, no stack traces in production
+  const clsService = app.get(ClsService);
+  app.useGlobalFilters(new AllExceptionsFilter(configService, clsService));
 
   // CORS
   const devOrigins = [
@@ -45,6 +62,9 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Enable graceful shutdown hooks (triggers OnModuleDestroy on SIGTERM/SIGINT)
+  app.enableShutdownHooks()
+
   // Swagger documentation (disabled in production)
   if (nodeEnv !== 'production') {
     const swaggerConfig = new DocumentBuilder()
@@ -64,6 +84,21 @@ async function bootstrap() {
         persistAuthorization: true,
       },
     });
+
+    // Bull Board — queue monitoring dashboard
+    const serverAdapter = new ExpressAdapter();
+    serverAdapter.setBasePath('/admin/queues');
+
+    const connection = app.get(BULLMQ_CONNECTION) as any;
+    createBullBoard({
+      queues: [
+        new BullMQAdapter(new Queue('bse-orders', { connection })),
+        new BullMQAdapter(new Queue('nse-orders', { connection })),
+        new BullMQAdapter(new Queue('api-logs', { connection })),
+      ],
+      serverAdapter,
+    });
+    app.use('/admin/queues', serverAdapter.getRouter());
   }
 
   await app.listen(port);

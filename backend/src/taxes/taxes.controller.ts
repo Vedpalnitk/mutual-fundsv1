@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TaxesService } from './taxes.service';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('taxes')
 @ApiBearerAuth()
@@ -16,7 +17,7 @@ export class TaxesController {
   @ApiResponse({ status: 200, description: 'Tax summary with LTCG/STCG details' })
   @ApiQuery({ name: 'fy', required: false, description: 'Financial year (e.g., 2024-25)' })
   async getTaxSummary(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('fy') financialYear?: string,
   ) {
     return this.taxesService.getTaxSummary(user.id, financialYear);
@@ -27,7 +28,7 @@ export class TaxesController {
   @ApiResponse({ status: 200, description: 'Capital gains transaction history' })
   @ApiQuery({ name: 'fy', required: false, description: 'Financial year (e.g., 2024-25)' })
   async getCapitalGains(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('fy') financialYear?: string,
   ) {
     return this.taxesService.getCapitalGains(user.id, financialYear);

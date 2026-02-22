@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { AuditLogService } from '../common/services/audit-log.service';
+import { CacheService } from '../common/services/cache.service';
 import { LoginDto, RegisterDto, AuthResponseDto, UpdateProfileDto, ChangePasswordDto } from './dto/login.dto';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class AuthService {
     private jwtService: JwtService,
     private storageService: StorageService,
     private auditLogService: AuditLogService,
+    private cacheService: CacheService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -27,7 +29,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('Email already registered');
+      throw new ConflictException('Registration failed');
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -79,6 +81,11 @@ export class AuthService {
       throw new UnauthorizedException('Account is temporarily locked. Try again later.');
     }
 
+    // Check active status before password comparison to prevent leaking valid credentials
+    if (!user.isActive) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
 
     if (!isPasswordValid) {
@@ -99,10 +106,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is deactivated');
-    }
-
     // Reset failed login attempts on successful login
     await this.prisma.user.update({
       where: { id: user.id },
@@ -120,7 +123,7 @@ export class AuthService {
         where: { staffUserId: user.id },
       });
       if (!staffProfile || !staffProfile.isActive) {
-        throw new UnauthorizedException('Staff account is deactivated');
+        throw new UnauthorizedException('Invalid credentials');
       }
       staffExtra = {
         ownerId: staffProfile.ownerId,
@@ -179,7 +182,7 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    // Check if user is linked to an FAClient (managed client)
+    // Parallelize user-related lookups
     const client = await this.prisma.fAClient.findFirst({
       where: { userId: userId },
       include: {
@@ -296,6 +299,14 @@ export class AuthService {
   }
 
   async getClientPortfolio(userId: string) {
+    return this.cacheService.wrap(
+      `portfolio:${userId}`,
+      () => this._getClientPortfolio(userId),
+      60 * 1000, // 60s TTL
+    )
+  }
+
+  private async _getClientPortfolio(userId: string) {
     // Find the client linked to this user
     const client = await this.prisma.fAClient.findFirst({
       where: { userId: userId },
@@ -399,51 +410,65 @@ export class AuthService {
         where: { familyGroupId: client.familyGroupId },
       });
 
-      // Get holdings for each family member
-      const memberPortfolios = await Promise.all(
-        familyMembers.map(async (member) => {
-          const memberHoldings = await this.prisma.fAHolding.findMany({
-            where: { clientId: member.id },
-          });
-          const memberSips = await this.prisma.fASIP.findMany({
-            where: { clientId: member.id, status: 'ACTIVE' },
-          });
+      // Batch fetch holdings and SIPs for all family members (avoids N+1)
+      const memberIds = familyMembers.map(m => m.id);
+      const [allHoldings, allSips] = await Promise.all([
+        this.prisma.fAHolding.findMany({ where: { clientId: { in: memberIds } } }),
+        this.prisma.fASIP.findMany({ where: { clientId: { in: memberIds }, status: 'ACTIVE' } }),
+      ]);
 
-          const invested = memberHoldings.reduce((s, h) => s + Number(h.investedValue), 0);
-          const current = memberHoldings.reduce((s, h) => s + Number(h.currentValue), 0);
-          const returns = current - invested;
+      // Group by clientId in memory
+      const holdingsByClient = new Map<string, typeof allHoldings>();
+      for (const h of allHoldings) {
+        const list = holdingsByClient.get(h.clientId) || [];
+        list.push(h);
+        holdingsByClient.set(h.clientId, list);
+      }
+      const sipsByClient = new Map<string, typeof allSips>();
+      for (const s of allSips) {
+        const list = sipsByClient.get(s.clientId) || [];
+        list.push(s);
+        sipsByClient.set(s.clientId, list);
+      }
 
-          return {
-            id: member.id,
-            name: member.name,
-            role: member.familyRole,
-            riskProfile: member.riskProfile?.toLowerCase(),
-            isCurrentUser: member.userId === userId,
-            portfolio: {
-              totalValue: current,
-              totalInvested: invested,
-              totalReturns: returns,
-              returnsPercentage: invested > 0 ? (returns / invested) * 100 : 0,
-              holdingsCount: memberHoldings.length,
-              activeSIPs: memberSips.length,
-              holdings: memberHoldings.map((h) => ({
-                id: h.id,
-                fundName: h.fundName,
-                fundCategory: h.fundCategory,
-                assetClass: h.assetClass,
-                units: h.units,
-                avgNav: h.avgNav,
-                currentNav: h.currentNav,
-                investedValue: h.investedValue,
-                currentValue: h.currentValue,
-                gain: h.absoluteGain,
-                gainPercent: h.absoluteGainPct,
-                xirr: h.xirr,
-              })),
-            },
-          };
-        }),
-      );
+      const memberPortfolios = familyMembers.map((member) => {
+        const memberHoldings = holdingsByClient.get(member.id) || [];
+        const memberSips = sipsByClient.get(member.id) || [];
+
+        const invested = memberHoldings.reduce((s, h) => s + Number(h.investedValue), 0);
+        const current = memberHoldings.reduce((s, h) => s + Number(h.currentValue), 0);
+        const returns = current - invested;
+
+        return {
+          id: member.id,
+          name: member.name,
+          role: member.familyRole,
+          riskProfile: member.riskProfile?.toLowerCase(),
+          isCurrentUser: member.userId === userId,
+          portfolio: {
+            totalValue: current,
+            totalInvested: invested,
+            totalReturns: returns,
+            returnsPercentage: invested > 0 ? (returns / invested) * 100 : 0,
+            holdingsCount: memberHoldings.length,
+            activeSIPs: memberSips.length,
+            holdings: memberHoldings.map((h) => ({
+              id: h.id,
+              fundName: h.fundName,
+              fundCategory: h.fundCategory,
+              assetClass: h.assetClass,
+              units: h.units,
+              avgNav: h.avgNav,
+              currentNav: h.currentNav,
+              investedValue: h.investedValue,
+              currentValue: h.currentValue,
+              gain: h.absoluteGain,
+              gainPercent: h.absoluteGainPct,
+              xirr: h.xirr,
+            })),
+          },
+        };
+      });
 
       // Calculate family totals
       const familyTotalValue = memberPortfolios.reduce((s, m) => s + m.portfolio.totalValue, 0);

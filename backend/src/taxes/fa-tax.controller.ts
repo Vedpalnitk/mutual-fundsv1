@@ -6,6 +6,7 @@ import { StaffPageGuard, RequiredPage } from '../common/guards/staff-page.guard'
 import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { getEffectiveAdvisorId } from '../common/utils/effective-advisor'
 import { FaTaxService } from './fa-tax.service'
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('fa-taxes')
 @ApiBearerAuth()
@@ -20,7 +21,7 @@ export class FaTaxController {
   @ApiResponse({ status: 200, description: 'Capital gains computed via FIFO' })
   @ApiQuery({ name: 'fy', required: false, description: 'Financial year (e.g., 2024-25)' })
   async getCapitalGains(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Query('fy') fy?: string,
   ) {
@@ -32,7 +33,7 @@ export class FaTaxController {
   @ApiResponse({ status: 200, description: 'Aggregated tax totals' })
   @ApiQuery({ name: 'fy', required: false, description: 'Financial year (e.g., 2024-25)' })
   async getTaxSummary(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Query('fy') fy?: string,
   ) {
@@ -44,7 +45,7 @@ export class FaTaxController {
   @ApiResponse({ status: 200, description: 'CSV file download' })
   @ApiQuery({ name: 'fy', required: false, description: 'Financial year (e.g., 2024-25)' })
   async downloadCsv(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Query('fy') fy: string | undefined,
     @Res() res: Response,

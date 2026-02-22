@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { MlGatewayService } from '../ml-gateway/ml-gateway.service'
+import { CacheService } from '../common/services/cache.service'
 import {
   AdvisorDashboardDto,
   AdvisorInsightsDto,
@@ -13,41 +14,18 @@ import {
 } from './dto/dashboard.dto'
 import { DeepAnalysisResponseDto } from './dto/deep-analysis.dto'
 import { StrategicInsightsResponseDto } from './dto/strategic-insights.dto'
+import {
+  TRANSACTION_TYPE_MAP as TYPE_MAP,
+  TRANSACTION_STATUS_MAP as TXN_STATUS_MAP,
+  CLIENT_STATUS_MAP as STATUS_MAP,
+  RISK_PROFILE_MAP,
+} from '../common/constants/status-maps'
 
 // Target allocations by risk profile (used for rebalancing alerts)
 const TARGET_ALLOCATIONS: Record<string, Record<string, number>> = {
   Conservative: { Equity: 30, Debt: 50, Hybrid: 10, Gold: 5, Liquid: 5 },
   Moderate: { Equity: 50, Debt: 30, Hybrid: 10, Gold: 5, Liquid: 5 },
   Aggressive: { Equity: 70, Debt: 15, Hybrid: 10, Gold: 5, Liquid: 0 },
-}
-
-const RISK_PROFILE_MAP: Record<string, string> = {
-  CONSERVATIVE: 'Conservative',
-  MODERATE: 'Moderate',
-  AGGRESSIVE: 'Aggressive',
-}
-
-const STATUS_MAP: Record<string, string> = {
-  ACTIVE: 'Active',
-  INACTIVE: 'Inactive',
-  PENDING_KYC: 'Pending KYC',
-}
-
-const TYPE_MAP: Record<string, string> = {
-  BUY: 'Buy',
-  SELL: 'Sell',
-  SIP: 'SIP',
-  SWP: 'SWP',
-  SWITCH: 'Switch',
-  STP: 'STP',
-}
-
-const TXN_STATUS_MAP: Record<string, string> = {
-  COMPLETED: 'Completed',
-  PENDING: 'Pending',
-  PROCESSING: 'Processing',
-  FAILED: 'Failed',
-  CANCELLED: 'Cancelled',
 }
 
 @Injectable()
@@ -57,25 +35,55 @@ export class AdvisorDashboardService {
   constructor(
     private prisma: PrismaService,
     private mlGateway: MlGatewayService,
+    private cacheService: CacheService,
   ) {}
 
-  async getDashboard(advisorId: string): Promise<AdvisorDashboardDto> {
+  async getDashboard(advisorId: string, page = 1, limit = 10): Promise<AdvisorDashboardDto> {
+    return this.cacheService.wrap(
+      `dashboard:${advisorId}:p${page}:l${limit}`,
+      () => this._getDashboard(advisorId, page, limit),
+      30 * 1000, // 30s TTL
+    )
+  }
+
+  private async _getDashboard(advisorId: string, page = 1, limit = 10): Promise<AdvisorDashboardDto> {
+    const skip = (Math.max(1, page) - 1) * limit
+    const take = Math.min(Math.max(1, limit), 100)
     // Run all queries in parallel for performance
+    // Date bounds for upcoming SIPs
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const future = new Date(today)
+    future.setDate(future.getDate() + 30)
+
+    const pendingTxnWhere = { client: { advisorId }, status: 'PENDING' as const }
+    const upcomingSipWhere = {
+      client: { advisorId },
+      status: 'ACTIVE' as const,
+      nextSipDate: { gte: today, lte: future },
+    }
+    const failedSipWhere = { client: { advisorId }, status: 'FAILED' as const }
+
     const [
       clients,
       activeSipsCount,
       monthlySipValue,
       pendingActionsCount,
       pendingTransactions,
+      pendingTransactionsTotal,
       upcomingSips,
+      upcomingSipsTotal,
       failedSips,
+      failedSipsTotal,
     ] = await Promise.all([
-      // All clients with holdings and active SIPs
+      // All clients with minimal holdings data and active SIP count
       this.prisma.fAClient.findMany({
         where: { advisorId },
-        include: {
-          holdings: true,
-          sips: { where: { status: 'ACTIVE' } },
+        select: {
+          id: true, name: true, email: true, status: true,
+          riskProfile: true, lastActiveAt: true, createdAt: true,
+          holdings: { select: { currentValue: true, investedValue: true, assetClass: true } },
+          _count: { select: { sips: { where: { status: 'ACTIVE' } } } },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -97,49 +105,38 @@ export class AdvisorDashboardService {
           OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         },
       }),
-      // Pending transactions
+      // Pending transactions (paginated)
       this.prisma.fATransaction.findMany({
-        where: {
-          client: { advisorId },
-          status: 'PENDING',
-        },
+        where: pendingTxnWhere,
         include: { client: { select: { id: true, name: true } } },
         orderBy: { date: 'desc' },
-        take: 10,
+        skip,
+        take,
       }),
-      // Upcoming SIPs (next 30 days) — use date-only for @db.Date field
-      (() => {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const future = new Date(today)
-        future.setDate(future.getDate() + 30)
-        return this.prisma.fASIP.findMany({
-          where: {
-            client: { advisorId },
-            status: 'ACTIVE',
-            nextSipDate: { gte: today, lte: future },
-          },
-          include: { client: { select: { id: true, name: true } } },
-          orderBy: { nextSipDate: 'asc' },
-          take: 10,
-        })
-      })(),
-      // Failed SIPs
+      this.prisma.fATransaction.count({ where: pendingTxnWhere }),
+      // Upcoming SIPs (next 30 days, paginated)
       this.prisma.fASIP.findMany({
-        where: {
-          client: { advisorId },
-          status: 'FAILED',
-        },
+        where: upcomingSipWhere,
+        include: { client: { select: { id: true, name: true } } },
+        orderBy: { nextSipDate: 'asc' },
+        skip,
+        take,
+      }),
+      this.prisma.fASIP.count({ where: upcomingSipWhere }),
+      // Failed SIPs (paginated)
+      this.prisma.fASIP.findMany({
+        where: failedSipWhere,
         include: { client: { select: { id: true, name: true } } },
         orderBy: { updatedAt: 'desc' },
-        take: 10,
+        skip,
+        take,
       }),
+      this.prisma.fASIP.count({ where: failedSipWhere }),
     ])
 
     // Compute client-level KPIs
     const clientData = clients.map((c) => {
       const holdings = c.holdings || []
-      const sips = c.sips || []
       const aum = holdings.reduce((sum, h) => sum + Number(h.currentValue || 0), 0)
       const invested = holdings.reduce((sum, h) => sum + Number(h.investedValue || 0), 0)
       const returns = invested > 0 ? ((aum - invested) / invested) * 100 : 0
@@ -153,7 +150,7 @@ export class AdvisorDashboardService {
         returns: Math.round(returns * 100) / 100,
         riskProfile: RISK_PROFILE_MAP[c.riskProfile] || 'Moderate',
         status: STATUS_MAP[c.status] || 'Active',
-        sipCount: sips.length,
+        sipCount: (c as any)._count?.sips || 0,
         lastActive: this.formatLastActive(c.lastActiveAt),
         createdAt: c.createdAt,
       }
@@ -186,6 +183,8 @@ export class AdvisorDashboardService {
     const clientsGrowth = await this.computeClientsGrowth(advisorId, clients.length)
     const sipsGrowth = await this.computeSipsGrowth(advisorId, activeSipsCount)
 
+    const pagination = { page, limit: take }
+
     return {
       totalAum: Math.round(totalAum * 100) / 100,
       totalClients: clients.length,
@@ -194,49 +193,58 @@ export class AdvisorDashboardService {
       avgReturns,
       monthlySipValue: Number(monthlySipValue._sum.amount || 0),
       recentClients,
-      pendingTransactions: pendingTransactions.map((t) => ({
-        id: t.id,
-        clientId: t.clientId,
-        clientName: t.client?.name || '',
-        fundName: t.fundName,
-        type: TYPE_MAP[t.type] || t.type,
-        amount: Number(t.amount),
-        status: TXN_STATUS_MAP[t.status] || t.status,
-        date: t.date.toISOString().split('T')[0],
-      })),
+      pendingTransactions: {
+        data: pendingTransactions.map((t) => ({
+          id: t.id,
+          clientId: t.clientId,
+          clientName: t.client?.name || '',
+          fundName: t.fundName,
+          type: TYPE_MAP[t.type] || t.type,
+          amount: Number(t.amount),
+          status: TXN_STATUS_MAP[t.status] || t.status,
+          date: t.date.toISOString().split('T')[0],
+        })),
+        pagination: { ...pagination, total: pendingTransactionsTotal },
+      },
       topPerformers,
-      upcomingSips: upcomingSips.map((s) => ({
-        id: s.id,
-        clientId: s.clientId,
-        clientName: s.client?.name || '',
-        schemeCode: Number(s.fundSchemeCode || 0),
-        fundName: s.fundName,
-        amount: Number(s.amount),
-        frequency: s.frequency,
-        sipDate: s.sipDate,
-        nextDate: s.nextSipDate.toISOString().split('T')[0],
-        status: s.status,
-        totalInvested: Number(s.totalInvested || 0),
-        totalUnits: 0,
-        installmentsPaid: s.completedInstallments || 0,
-        startDate: s.startDate?.toISOString().split('T')[0] || null,
-      })),
-      failedSips: failedSips.map((s) => ({
-        id: s.id,
-        clientId: s.clientId,
-        clientName: s.client?.name || '',
-        schemeCode: Number(s.fundSchemeCode || 0),
-        fundName: s.fundName,
-        amount: Number(s.amount),
-        frequency: s.frequency,
-        sipDate: s.sipDate,
-        nextDate: s.nextSipDate.toISOString().split('T')[0],
-        status: s.status,
-        totalInvested: Number(s.totalInvested || 0),
-        totalUnits: 0,
-        installmentsPaid: s.completedInstallments || 0,
-        startDate: s.startDate?.toISOString().split('T')[0] || null,
-      })),
+      upcomingSips: {
+        data: upcomingSips.map((s) => ({
+          id: s.id,
+          clientId: s.clientId,
+          clientName: s.client?.name || '',
+          schemeCode: Number(s.fundSchemeCode || 0),
+          fundName: s.fundName,
+          amount: Number(s.amount),
+          frequency: s.frequency,
+          sipDate: s.sipDate,
+          nextDate: s.nextSipDate.toISOString().split('T')[0],
+          status: s.status,
+          totalInvested: Number(s.totalInvested || 0),
+          totalUnits: 0,
+          installmentsPaid: s.completedInstallments || 0,
+          startDate: s.startDate?.toISOString().split('T')[0] || null,
+        })),
+        pagination: { ...pagination, total: upcomingSipsTotal },
+      },
+      failedSips: {
+        data: failedSips.map((s) => ({
+          id: s.id,
+          clientId: s.clientId,
+          clientName: s.client?.name || '',
+          schemeCode: Number(s.fundSchemeCode || 0),
+          fundName: s.fundName,
+          amount: Number(s.amount),
+          frequency: s.frequency,
+          sipDate: s.sipDate,
+          nextDate: s.nextSipDate.toISOString().split('T')[0],
+          status: s.status,
+          totalInvested: Number(s.totalInvested || 0),
+          totalUnits: 0,
+          installmentsPaid: s.completedInstallments || 0,
+          startDate: s.startDate?.toISOString().split('T')[0] || null,
+        })),
+        pagination: { ...pagination, total: failedSipsTotal },
+      },
       aumGrowth,
       clientsGrowth,
       sipsGrowth,
@@ -318,27 +326,30 @@ export class AdvisorDashboardService {
   }
 
   private async buildAumTrend(advisorId: string, months: number) {
-    const trend: { date: string; value: number }[] = []
     const now = new Date()
+    const dates = Array.from({ length: months + 1 }, (_, i) => {
+      return new Date(now.getFullYear(), now.getMonth() - (months - i), 1)
+    })
 
-    for (let i = months; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    // Single query: fetch all relevant snapshots ordered by date desc
+    const snapshots = await this.prisma.userPortfolioHistory.findMany({
+      where: {
+        client: { advisorId },
+        date: { lte: now },
+      },
+      orderBy: { date: 'desc' },
+      select: { date: true, totalValue: true },
+    })
 
-      const snap = await this.prisma.userPortfolioHistory.findFirst({
-        where: {
-          client: { advisorId },
-          date: { lte: date },
-        },
-        orderBy: { date: 'desc' },
+    // Map: for each target date, find the nearest prior snapshot
+    const trend = dates
+      .map(targetDate => {
+        const snap = snapshots.find(s => s.date <= targetDate)
+        return snap
+          ? { date: targetDate.toISOString().split('T')[0], value: Number(snap.totalValue) }
+          : null
       })
-
-      if (snap) {
-        trend.push({
-          date: date.toISOString().split('T')[0],
-          value: Number(snap.totalValue),
-        })
-      }
-    }
+      .filter((item): item is { date: string; value: number } => item !== null)
 
     // If no history exists, return current AUM as single point
     if (trend.length === 0) {

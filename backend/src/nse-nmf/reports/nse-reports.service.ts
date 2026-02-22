@@ -45,6 +45,18 @@ export class NseReportsService {
       'transaction-detail': NSE_ENDPOINTS.TRANSACTION_DETAIL,
       '2fa': NSE_ENDPOINTS.TWO_FA_REPORT,
       'scheme-master': NSE_ENDPOINTS.MASTER_DOWNLOAD,
+      'client-authorization': NSE_ENDPOINTS.CLIENT_AUTHORIZATION,
+      'aof-upload': NSE_ENDPOINTS.AOF_UPLOAD_REPORT,
+      'elog-upload': NSE_ENDPOINTS.ELOG_UPLOAD_REPORT,
+      'sip-topup': NSE_ENDPOINTS.SIP_TOPUP_REPORT,
+      'stepup-registration': NSE_ENDPOINTS.STEPUP_REG_REPORT,
+      'xsip-topup': NSE_ENDPOINTS.XSIP_TOPUP_REPORT,
+      'member-fund-allocation': NSE_ENDPOINTS.MEMBER_FUND_ALLOCATION,
+      'member-fund-agewise': NSE_ENDPOINTS.MEMBER_FUND_AGEWISE,
+      'redemption-payout': NSE_ENDPOINTS.REDEMPTION_PAYOUT,
+      'redemption-payout-nondemat': NSE_ENDPOINTS.REDEMPTION_PAYOUT_NON_DEMAT,
+      'stp-cancellation': NSE_ENDPOINTS.STP_CAN_REPORT,
+      'swp-cancellation': NSE_ENDPOINTS.SWP_CAN_REPORT,
     }
 
     const endpoint = endpointMap[reportType]

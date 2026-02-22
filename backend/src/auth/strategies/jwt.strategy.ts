@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface';
 
 export interface JwtPayload {
   sub: string;
@@ -29,7 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload) {
+  async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
@@ -38,15 +39,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException();
     }
 
-    const result: any = {
+    const result: AuthenticatedUser = {
       id: user.id,
       email: user.email,
       role: user.role,
     };
 
-    // Include staff-specific fields if present in JWT
-    if (payload.ownerId) result.ownerId = payload.ownerId;
-    if (payload.allowedPages) result.allowedPages = payload.allowedPages;
+    // For staff users, load fresh permissions from DB instead of trusting stale JWT
+    if (payload.ownerId) {
+      result.ownerId = payload.ownerId;
+      const staffMember = await this.prisma.fAStaffMember.findFirst({
+        where: { staffUserId: user.id, isActive: true },
+        select: { allowedPages: true },
+      });
+      result.allowedPages = (staffMember?.allowedPages as string[]) ?? [];
+    }
 
     return result;
   }

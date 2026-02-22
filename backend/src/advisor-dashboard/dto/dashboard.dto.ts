@@ -48,6 +48,22 @@ export class DashboardSipDto {
   status: string
 }
 
+export class PaginationMeta {
+  page: number
+  limit: number
+  total: number
+}
+
+export class PaginatedTransactions {
+  data: DashboardTransactionDto[]
+  pagination: PaginationMeta
+}
+
+export class PaginatedSips {
+  data: DashboardSipDto[]
+  pagination: PaginationMeta
+}
+
 export class AdvisorDashboardDto {
   totalAum: number
   totalClients: number
@@ -56,10 +72,10 @@ export class AdvisorDashboardDto {
   avgReturns: number
   monthlySipValue: number
   recentClients: DashboardClientDto[]
-  pendingTransactions: DashboardTransactionDto[]
+  pendingTransactions: PaginatedTransactions
   topPerformers: DashboardClientDto[]
-  upcomingSips: DashboardSipDto[]
-  failedSips: DashboardSipDto[]
+  upcomingSips: PaginatedSips
+  failedSips: PaginatedSips
   aumGrowth: KpiGrowthDto | null
   clientsGrowth: KpiGrowthDto | null
   sipsGrowth: KpiGrowthDto | null

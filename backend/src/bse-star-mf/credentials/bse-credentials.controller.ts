@@ -5,6 +5,7 @@ import { RolesGuard } from '../../common/guards/roles.guard'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseCredentialsService, SetCredentialsDto } from './bse-credentials.service'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('BSE Credentials')
 @ApiBearerAuth()
@@ -16,14 +17,14 @@ export class BseCredentialsController {
 
   @Get()
   @ApiOperation({ summary: 'Get BSE credential configuration status' })
-  async getStatus(@CurrentUser() user: any) {
+  async getStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.credentialsService.getStatus(user.id)
   }
 
   @Post()
   @ApiOperation({ summary: 'Set or update BSE partner credentials' })
   async setCredentials(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: SetCredentialsDto,
   ) {
     return this.credentialsService.setCredentials(user.id, dto)
@@ -31,7 +32,7 @@ export class BseCredentialsController {
 
   @Post('test')
   @ApiOperation({ summary: 'Test BSE connection with stored credentials' })
-  async testConnection(@CurrentUser() user: any) {
+  async testConnection(@CurrentUser() user: AuthenticatedUser) {
     return this.credentialsService.testConnection(user.id)
   }
 }

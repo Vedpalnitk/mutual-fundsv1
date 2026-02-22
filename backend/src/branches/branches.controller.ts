@@ -15,6 +15,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator'
 import { getEffectiveAdvisorId } from '../common/utils/effective-advisor'
 import { BranchesService } from './branches.service'
 import { CreateBranchDto, UpdateBranchDto } from './dto'
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('branches')
 @ApiBearerAuth()
@@ -31,35 +32,35 @@ export class BranchesController {
 
   @Get()
   @ApiOperation({ summary: 'List all branches' })
-  findAll(@CurrentUser() user: any) {
+  findAll(@CurrentUser() user: AuthenticatedUser) {
     this.ensureAdvisor(user)
     return this.branchesService.findAll(user.id)
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get branch details' })
-  findOne(@CurrentUser() user: any, @Param('id') id: string) {
+  findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     this.ensureAdvisor(user)
     return this.branchesService.findOne(id, user.id)
   }
 
   @Post()
   @ApiOperation({ summary: 'Create a new branch' })
-  create(@CurrentUser() user: any, @Body() dto: CreateBranchDto) {
+  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateBranchDto) {
     this.ensureAdvisor(user)
     return this.branchesService.create(user.id, user.id, dto)
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Update a branch' })
-  update(@CurrentUser() user: any, @Param('id') id: string, @Body() dto: UpdateBranchDto) {
+  update(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string, @Body() dto: UpdateBranchDto) {
     this.ensureAdvisor(user)
     return this.branchesService.update(id, user.id, user.id, dto)
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a branch' })
-  remove(@CurrentUser() user: any, @Param('id') id: string) {
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     this.ensureAdvisor(user)
     return this.branchesService.remove(id, user.id, user.id)
   }

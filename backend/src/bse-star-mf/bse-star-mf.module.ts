@@ -32,6 +32,7 @@ import { BseMandatesController } from './mandates/bse-mandates.controller'
 
 // Orders
 import { BseOrderService } from './orders/bse-order.service'
+import { BseOrderProcessor } from './orders/bse-order.processor'
 import { BseSwitchService } from './orders/bse-switch.service'
 import { BseSpreadService } from './orders/bse-spread.service'
 import { BseCobService } from './orders/bse-cob.service'
@@ -110,6 +111,7 @@ import { BseSchemeMasterSyncJob } from './jobs/bse-scheme-master-sync.job'
 
     // Orders
     BseOrderService,
+    BseOrderProcessor,
     BseSwitchService,
     BseSpreadService,
     BseCobService,

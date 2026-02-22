@@ -5,6 +5,7 @@ import { RolesGuard } from '../../common/guards/roles.guard'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseMastersService } from './bse-masters.service'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('BSE Masters')
 @ApiBearerAuth()
@@ -30,7 +31,7 @@ export class BseMastersController {
 
   @Post('scheme-master/sync')
   @ApiOperation({ summary: 'Trigger scheme master sync' })
-  async syncSchemeMaster(@CurrentUser() user: any) {
+  async syncSchemeMaster(@CurrentUser() user: AuthenticatedUser) {
     return this.mastersService.syncSchemeMaster(user.id)
   }
 

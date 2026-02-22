@@ -6,6 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseMandateService } from './bse-mandate.service'
 import { RegisterMandateDto, ShiftMandateDto } from './dto/register-mandate.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('BSE Mandates')
 @ApiBearerAuth()
@@ -20,7 +21,7 @@ export class BseMandatesController {
   @ApiQuery({ name: 'clientId', required: false, description: 'Filter by client ID' })
   @ApiQuery({ name: 'status', required: false, description: 'Filter by mandate status' })
   async listMandates(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('clientId') clientId?: string,
     @Query('status') status?: string,
   ) {
@@ -30,7 +31,7 @@ export class BseMandatesController {
   @Post()
   @ApiOperation({ summary: 'Register a new mandate with BSE' })
   async registerMandate(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: RegisterMandateDto,
   ) {
     return this.mandateService.register(user.id, dto)
@@ -39,7 +40,7 @@ export class BseMandatesController {
   @Get(':id')
   @ApiOperation({ summary: 'Get mandate detail and BSE status' })
   async getMandateDetail(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.mandateService.getStatus(id, user.id)
@@ -48,7 +49,7 @@ export class BseMandatesController {
   @Get(':id/auth-url')
   @ApiOperation({ summary: 'Get e-NACH authentication URL for mandate' })
   async getAuthUrl(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.mandateService.getAuthUrl(id, user.id)
@@ -57,7 +58,7 @@ export class BseMandatesController {
   @Post(':id/refresh-status')
   @ApiOperation({ summary: 'Poll BSE for latest mandate status and update DB' })
   async refreshStatus(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.mandateService.refreshStatus(id, user.id)
@@ -66,7 +67,7 @@ export class BseMandatesController {
   @Post(':id/shift')
   @ApiOperation({ summary: 'Shift SIPs from one mandate to another' })
   async shiftMandate(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: ShiftMandateDto,
   ) {

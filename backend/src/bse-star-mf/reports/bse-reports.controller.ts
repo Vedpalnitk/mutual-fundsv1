@@ -7,6 +7,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { BseReportsService } from './bse-reports.service'
 import { BseChildOrdersService } from './bse-child-orders.service'
 import { OrderStatusQueryDto, AllotmentQueryDto, RedemptionQueryDto } from './dto/report-query.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('BSE Reports')
 @ApiBearerAuth()
@@ -21,25 +22,25 @@ export class BseReportsController {
 
   @Post('order-status')
   @ApiOperation({ summary: 'Query order status report' })
-  async queryOrderStatus(@CurrentUser() user: any, @Body() dto: OrderStatusQueryDto) {
+  async queryOrderStatus(@CurrentUser() user: AuthenticatedUser, @Body() dto: OrderStatusQueryDto) {
     return this.reportsService.queryOrderStatus(user.id, dto)
   }
 
   @Post('allotment')
   @ApiOperation({ summary: 'Query allotment statement' })
-  async queryAllotment(@CurrentUser() user: any, @Body() dto: AllotmentQueryDto) {
+  async queryAllotment(@CurrentUser() user: AuthenticatedUser, @Body() dto: AllotmentQueryDto) {
     return this.reportsService.queryAllotmentStatement(user.id, dto)
   }
 
   @Post('redemption')
   @ApiOperation({ summary: 'Query redemption statement' })
-  async queryRedemption(@CurrentUser() user: any, @Body() dto: RedemptionQueryDto) {
+  async queryRedemption(@CurrentUser() user: AuthenticatedUser, @Body() dto: RedemptionQueryDto) {
     return this.reportsService.queryRedemptionStatement(user.id, dto)
   }
 
   @Get('child-orders/:regnNo')
   @ApiOperation({ summary: 'Get child order details for SIP/XSIP/STP/SWP' })
-  async getChildOrders(@CurrentUser() user: any, @Param('regnNo') regnNo: string) {
+  async getChildOrders(@CurrentUser() user: AuthenticatedUser, @Param('regnNo') regnNo: string) {
     return this.childOrdersService.getChildOrderDetails(user.id, regnNo)
   }
 }

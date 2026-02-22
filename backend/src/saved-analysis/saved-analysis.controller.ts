@@ -20,6 +20,7 @@ import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { SavedAnalysisService } from './saved-analysis.service';
 import { CreateAnalysisDto } from './dto/create-analysis.dto';
 import { CreateVersionDto } from './dto/create-version.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('saved-analysis')
 @ApiBearerAuth()
@@ -31,14 +32,14 @@ export class SavedAnalysisController {
 
   @Post()
   @ApiOperation({ summary: 'Save a deep analysis (creates parent + v1)' })
-  async create(@CurrentUser() user: any, @Body() dto: CreateAnalysisDto) {
+  async create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateAnalysisDto) {
     return this.service.create(getEffectiveAdvisorId(user), dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'List saved analyses' })
   async findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('clientId') clientId?: string,
   ) {
     return this.service.findAll(getEffectiveAdvisorId(user), clientId);
@@ -46,14 +47,14 @@ export class SavedAnalysisController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get analysis with version list' })
-  async findOne(@CurrentUser() user: any, @Param('id') id: string) {
+  async findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.service.findOne(id, getEffectiveAdvisorId(user));
   }
 
   @Get(':id/versions/:v')
   @ApiOperation({ summary: 'Get specific version data' })
   async getVersion(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Param('v', ParseIntPipe) v: number,
   ) {
@@ -63,7 +64,7 @@ export class SavedAnalysisController {
   @Post(':id/versions')
   @ApiOperation({ summary: 'Create new version with edited rebalancing' })
   async createVersion(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: CreateVersionDto,
   ) {
@@ -73,7 +74,7 @@ export class SavedAnalysisController {
   @Patch(':id')
   @ApiOperation({ summary: 'Update analysis metadata (title, status)' })
   async update(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() body: { title?: string; status?: string },
   ) {
@@ -82,14 +83,14 @@ export class SavedAnalysisController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete analysis and all versions' })
-  async remove(@CurrentUser() user: any, @Param('id') id: string) {
+  async remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.service.remove(id, getEffectiveAdvisorId(user));
   }
 
   @Get(':id/versions/:v/pdf')
   @ApiOperation({ summary: 'Download PDF for a specific version' })
   async downloadPdf(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Param('v', ParseIntPipe) v: number,
     @Res() res: express.Response,

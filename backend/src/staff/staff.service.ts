@@ -274,6 +274,48 @@ export class StaffService {
     return { reassignedCount: result.count, fromStaff: sourceStaff.displayName, toStaff: targetStaff.displayName };
   }
 
+  async getPerformance(staffId: string, ownerId: string) {
+    const staff = await this.prisma.fAStaffMember.findFirst({
+      where: { id: staffId, ownerId },
+    });
+    if (!staff) throw new NotFoundException('Staff member not found');
+
+    const [clients, transactions, commissionPayouts] = await Promise.all([
+      this.prisma.fAClient.findMany({
+        where: { advisorId: ownerId, assignedRmId: staffId },
+        include: { holdings: true },
+      }),
+      this.prisma.fATransaction.findMany({
+        where: {
+          client: { advisorId: ownerId, assignedRmId: staffId },
+          date: { gte: new Date(new Date().setDate(new Date().getDate() - 30)) },
+        },
+      }),
+      this.prisma.euinCommissionPayout.findMany({
+        where: { staffMemberId: staffId, advisorId: ownerId },
+      }),
+    ]);
+
+    const aum = clients.reduce(
+      (sum, c) => sum + c.holdings.reduce((s, h) => s + Number(h.currentValue || 0), 0),
+      0,
+    );
+
+    const commissionEarned = commissionPayouts
+      .filter((p) => p.status === 'PAID')
+      .reduce((s, p) => s + Number(p.payoutAmount), 0);
+
+    return {
+      staffId,
+      displayName: staff.displayName,
+      euin: staff.euin,
+      clientCount: clients.length,
+      aum,
+      transactionCount30d: transactions.length,
+      commissionEarned,
+    };
+  }
+
   async assignBranch(staffId: string, ownerId: string, branchId: string) {
     const staff = await this.prisma.fAStaffMember.findFirst({ where: { id: staffId, ownerId } });
     if (!staff) throw new NotFoundException('Staff member not found');

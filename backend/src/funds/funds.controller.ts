@@ -2,7 +2,7 @@ import { Controller, Get, Post, Query, Param, ParseIntPipe, BadRequestException,
 import { ApiTags, ApiOperation, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { Public } from '../common/decorators/public.decorator';
 import { FundSyncService } from './fund-sync.service';
-import { BackfillService } from './backfill.service';
+import { AmfiHistoricalService } from './amfi-historical.service';
 import { MetricsCalculatorService } from './metrics-calculator.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -34,6 +34,8 @@ interface FundResponse {
   fundManager: string | null;
   fundRating: number | null;
   crisilRating: string | null;
+  benchmark: string | null;
+  exitLoad: string | null;
 }
 
 @ApiTags('Funds')
@@ -41,7 +43,7 @@ interface FundResponse {
 export class FundsController {
   constructor(
     private readonly fundSyncService: FundSyncService,
-    private readonly backfillService: BackfillService,
+    private readonly amfiHistoricalService: AmfiHistoricalService,
     private readonly metricsCalculator: MetricsCalculatorService,
     private readonly prisma: PrismaService,
   ) {}
@@ -311,9 +313,9 @@ export class FundsController {
 
   @Public()
   @Post('sync/backfill')
-  @ApiOperation({ summary: 'Trigger historical NAV backfill from MFAPI.in (one-time)' })
+  @ApiOperation({ summary: 'Trigger 90-day NAV backfill from AMFI' })
   async backfillHistory() {
-    return this.backfillService.backfillAllHistory();
+    return this.amfiHistoricalService.backfillRecent(90);
   }
 
   @Public()
@@ -613,6 +615,18 @@ export class FundsController {
       orderBy: { name: 'asc' },
     });
 
+    // Pre-load BSE scheme master by ISIN for min amounts
+    const isins = schemePlans.map(p => p.isin).filter(Boolean);
+    const bseMasters = isins.length > 0
+      ? await this.prisma.bseSchemeMaster.findMany({
+          where: { isin: { in: isins } },
+          select: { isin: true, minPurchaseAmt: true, minSipAmt: true },
+        })
+      : [];
+    const bseByIsin = new Map(
+      bseMasters.filter(m => m.isin).map(m => [m.isin!, m]),
+    );
+
     let funds = schemePlans.map(plan => {
       const categoryName = plan.scheme.category.name.toLowerCase();
       const parentName = plan.scheme.category.parent?.name?.toLowerCase() || '';
@@ -631,6 +645,8 @@ export class FundsController {
       } else if (categoryName.includes('international') || categoryName.includes('global') || categoryName.includes('overseas')) {
         fundAssetClass = 'international';
       }
+
+      const bseMaster = bseByIsin.get(plan.isin);
 
       return {
         scheme_code: plan.mfapiSchemeCode || 0,
@@ -653,6 +669,10 @@ export class FundsController {
         expense_ratio: plan.metrics?.expenseRatio ? Number(plan.metrics.expenseRatio) : 0.5,
         aum: plan.metrics?.aum ? Number(plan.metrics.aum) : null,
         fund_manager: plan.scheme.fundManager || null,
+        benchmark: plan.scheme.benchmark || null,
+        exit_load: plan.scheme.exitLoad || null,
+        min_investment: bseMaster?.minPurchaseAmt ? Number(bseMaster.minPurchaseAmt) : null,
+        min_sip_amount: bseMaster?.minSipAmt ? Number(bseMaster.minSipAmt) : null,
         last_updated: plan.nav?.updatedAt || plan.updatedAt,
       };
     });
@@ -750,6 +770,8 @@ export class FundsController {
       fundManager: plan.scheme.fundManager || null,
       fundRating: plan.metrics?.fundRating || null,
       crisilRating: plan.metrics?.crisilRating || null,
+      benchmark: plan.scheme.benchmark || null,
+      exitLoad: plan.scheme.exitLoad || null,
     };
   }
 

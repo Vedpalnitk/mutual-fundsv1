@@ -165,6 +165,18 @@ export class BseUccService {
     }
   }
 
+  async batchRegistrationStatus(clientIds: string[], advisorId: string) {
+    const registrations = await this.prisma.bseUccRegistration.findMany({
+      where: { clientId: { in: clientIds }, advisorId },
+      select: { clientId: true, status: true, clientCode: true },
+    })
+    const statusMap: Record<string, { status: string; bseClientCode: string | null }> = {}
+    for (const reg of registrations) {
+      statusMap[reg.clientId] = { status: reg.status, bseClientCode: reg.clientCode }
+    }
+    return statusMap
+  }
+
   private async verifyClientAccess(clientId: string, advisorId: string) {
     const client = await this.prisma.fAClient.findUnique({
       where: { id: clientId },

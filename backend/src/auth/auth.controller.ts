@@ -10,6 +10,7 @@ import { LoginDto, RegisterDto, AuthResponseDto, UpdateProfileDto, ChangePasswor
 import { Public } from '../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('auth')
 @Controller('api/v1/auth')
@@ -42,7 +43,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({ status: 200, description: 'User profile with client details if linked' })
-  async getProfile(@CurrentUser() user: any) {
+  async getProfile(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getProfile(user.id);
   }
 
@@ -51,7 +52,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update current user profile' })
   @ApiResponse({ status: 200, description: 'Updated profile' })
-  async updateProfile(@CurrentUser() user: any, @Body() dto: UpdateProfileDto) {
+  async updateProfile(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateProfileDto) {
     return this.authService.updateProfile(user.id, dto);
   }
 
@@ -63,7 +64,7 @@ export class AuthController {
   @ApiResponse({ status: 201, description: 'Logo uploaded' })
   @UseInterceptors(FileInterceptor('file'))
   async uploadLogo(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file: { buffer: Buffer; originalname?: string; mimetype?: string; size?: number },
   ) {
     if (!file) {
@@ -79,7 +80,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Change current user password' })
   @ApiResponse({ status: 200, description: 'Password changed successfully' })
   @ApiResponse({ status: 401, description: 'Current password is incorrect' })
-  async changePassword(@CurrentUser() user: any, @Body() dto: ChangePasswordDto) {
+  async changePassword(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto) {
     return this.authService.changePassword(user.id, dto);
   }
 
@@ -88,7 +89,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user portfolio with family data' })
   @ApiResponse({ status: 200, description: 'Portfolio data with family members' })
-  async getPortfolio(@CurrentUser() user: any) {
+  async getPortfolio(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.getClientPortfolio(user.id);
   }
 
@@ -98,7 +99,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Get portfolio value history for charts' })
   @ApiResponse({ status: 200, description: 'Portfolio value history' })
   async getPortfolioHistory(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('days') days?: string,
   ) {
     const numDays = days ? parseInt(days, 10) : 30;
@@ -111,7 +112,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Get user dividend history' })
   @ApiResponse({ status: 200, description: 'Dividend payment history' })
   async getDividends(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('limit') limit?: string,
   ) {
     const numLimit = limit ? parseInt(limit, 10) : 20;

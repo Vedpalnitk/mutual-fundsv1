@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PointsService } from './points.service';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('points')
 @ApiBearerAuth()
@@ -14,7 +15,7 @@ export class PointsController {
   @Get()
   @ApiOperation({ summary: 'Get user points and tier information' })
   @ApiResponse({ status: 200, description: 'User points summary' })
-  async getPoints(@CurrentUser() user: any) {
+  async getPoints(@CurrentUser() user: AuthenticatedUser) {
     return this.pointsService.getUserPoints(user.id);
   }
 
@@ -22,7 +23,7 @@ export class PointsController {
   @ApiOperation({ summary: 'Get points transaction history' })
   @ApiResponse({ status: 200, description: 'Points transaction history' })
   async getTransactions(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {

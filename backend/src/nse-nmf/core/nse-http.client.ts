@@ -1,8 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, Inject, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { Queue, ConnectionOptions } from 'bullmq'
+import CircuitBreaker from 'opossum'
 import { PrismaService } from '../../prisma/prisma.service'
 import { NseAuthBuilder } from './nse-auth.builder'
 import { NSE_TIMEOUTS } from './constants/endpoints'
+import { withRetry } from '../../common/utils/retry'
+import { BULLMQ_CONNECTION } from '../../common/queue/queue.module'
+import { ApiLogJobData } from '../../common/queue/api-log.processor'
 
 export interface NseHttpResponse {
   statusCode: number
@@ -14,13 +19,55 @@ export interface NseHttpResponse {
 export class NseHttpClient {
   private readonly logger = new Logger(NseHttpClient.name)
   private readonly baseUrl: string
+  private readonly logQueue: Queue<ApiLogJobData>
+  private readonly breaker: CircuitBreaker
 
   constructor(
     private config: ConfigService,
     private prisma: PrismaService,
     private authBuilder: NseAuthBuilder,
+    @Inject(BULLMQ_CONNECTION) connection: any,
   ) {
     this.baseUrl = this.config.get<string>('nmf.baseUrl') || 'https://nseinvestuat.nseindia.com'
+    this.logQueue = new Queue('api-logs', { connection })
+
+    this.breaker = new CircuitBreaker(this._executeRequest.bind(this), {
+      timeout: 30000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 60000,
+      volumeThreshold: 5,
+    })
+    this.breaker.fallback(() => {
+      throw new ServiceUnavailableException('NSE NMF API temporarily unavailable — circuit breaker open')
+    })
+    this.breaker.on('open', () => this.logger.warn('NSE circuit breaker OPEN'))
+    this.breaker.on('halfOpen', () => this.logger.log('NSE circuit breaker HALF-OPEN'))
+    this.breaker.on('close', () => this.logger.log('NSE circuit breaker CLOSED'))
+  }
+
+  private async _executeRequest(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+    return withRetry(
+      () => {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), timeoutMs)
+        return fetch(url, {
+          ...options,
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout))
+      },
+      {
+        maxRetries: 2,
+        baseDelayMs: 500,
+        shouldRetry: (error) =>
+          error instanceof Error && (
+            error.message.includes('fetch failed') ||
+            error.name === 'AbortError' ||
+            error.message.includes('ECONNREFUSED') ||
+            error.message.includes('ECONNRESET') ||
+            error.message.includes('ETIMEDOUT')
+          ),
+      },
+    )
   }
 
   /**
@@ -46,17 +93,12 @@ export class NseHttpClient {
     try {
       const headers = this.authBuilder.buildHeaders(credentials)
 
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), timeoutMs)
-
-      const response = await fetch(url, {
+      const response = await this.breaker.fire(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
-        signal: controller.signal,
-      })
+      }, timeoutMs) as Response
 
-      clearTimeout(timeout)
       const responseBody = await response.text()
       const latencyMs = Date.now() - startTime
 
@@ -67,7 +109,8 @@ export class NseHttpClient {
         parsed = undefined
       }
 
-      await this.logApiCall(advisorId, apiName, url, 'POST', body, parsed || responseBody, response.status, latencyMs)
+      const responseCode = parsed?.status || parsed?.Status || parsed?.response_status || null
+      await this.logApiCall(advisorId, apiName, url, 'POST', body, parsed || responseBody, response.status, latencyMs, undefined, responseCode)
 
       return {
         statusCode: response.status,
@@ -92,12 +135,14 @@ export class NseHttpClient {
     statusCode: number,
     latencyMs: number,
     errorMessage?: string,
+    responseCode?: string | null,
   ) {
     try {
       const sanitizedRequest = this.sanitize(requestData)
       const sanitizedResponse = this.sanitize(responseData)
 
-      await this.prisma.nseApiLog.create({
+      await this.logQueue.add('nse-log', {
+        table: 'nseApiLog',
         data: {
           advisorId,
           apiName,
@@ -105,13 +150,18 @@ export class NseHttpClient {
           method,
           requestData: sanitizedRequest,
           responseData: sanitizedResponse,
+          responseCode: responseCode ? String(responseCode) : null,
           statusCode,
           latencyMs,
           errorMessage,
         },
+      }, {
+        priority: 10,
+        removeOnComplete: { age: 3600, count: 500 },
+        removeOnFail: { age: 86400, count: 1000 },
       })
     } catch (err) {
-      this.logger.warn('Failed to log NSE API call', err)
+      this.logger.warn('Failed to enqueue NSE API log', err)
     }
   }
 

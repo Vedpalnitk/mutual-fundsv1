@@ -8,6 +8,7 @@ import {
 import { UpdateClientDto, ClientStatus, KycStatus } from './dto/update-client.dto';
 import { ClientFilterDto, SortField, SortOrder } from './dto/client-filter.dto';
 import { PanCryptoService } from '../common/services/pan-crypto.service';
+import { TRANSACTION_TYPE_MAP, TRANSACTION_STATUS_MAP } from '../common/constants/status-maps';
 
 @Injectable()
 export class ClientsService {
@@ -54,14 +55,13 @@ export class ClientsService {
     const clients = await this.prisma.fAClient.findMany({
       where,
       include: {
-        holdings: true,
-        sips: {
-          where: { status: 'ACTIVE' },
-        },
-        bankAccounts: true,
-        goals: {
-          where: { status: { not: 'CANCELLED' } },
-          select: { id: true },
+        holdings: { select: { currentValue: true, investedValue: true } },
+        _count: {
+          select: {
+            sips: { where: { status: 'ACTIVE' } },
+            bankAccounts: true,
+            goals: { where: { status: { not: 'CANCELLED' } } },
+          },
         },
       },
       skip: (page - 1) * limit,
@@ -232,8 +232,7 @@ export class ClientsService {
 
   private transformClient(client: any) {
     const holdings = client.holdings || [];
-    const sips = client.sips || [];
-    const goals = client.goals || [];
+    const counts = client._count || {};
 
     // Calculate AUM from holdings
     const aum = holdings.reduce((sum: number, h: any) => sum + Number(h.currentValue || 0), 0);
@@ -274,8 +273,8 @@ export class ClientsService {
       returns: Math.round(returns * 100) / 100,
       riskProfile: riskProfileMap[client.riskProfile] || 'Moderate',
       lastActive: this.formatLastActive(client.lastActiveAt),
-      sipCount: sips.length,
-      goalsCount: goals.length,
+      sipCount: counts.sips ?? (client.sips?.length || 0),
+      goalsCount: counts.goals ?? (client.goals?.length || 0),
       joinedDate: client.createdAt.toISOString().split('T')[0],
       status: statusMap[client.status] || 'Active',
       kycStatus: kycStatusMap[client.kycStatus],
@@ -376,22 +375,6 @@ export class ClientsService {
     };
   }
 
-  private static readonly TYPE_MAP: Record<string, string> = {
-    BUY: 'Buy',
-    SELL: 'Sell',
-    SIP: 'SIP',
-    SWP: 'SWP',
-    SWITCH: 'Switch',
-    STP: 'STP',
-  };
-
-  private static readonly STATUS_MAP: Record<string, string> = {
-    COMPLETED: 'Completed',
-    PENDING: 'Pending',
-    PROCESSING: 'Processing',
-    FAILED: 'Failed',
-    CANCELLED: 'Cancelled',
-  };
 
   private transformTransactionForClient(t: any, clientName: string) {
     return {
@@ -401,11 +384,11 @@ export class ClientsService {
       fundName: t.fundName,
       fundSchemeCode: t.fundSchemeCode,
       fundCategory: t.fundCategory,
-      type: ClientsService.TYPE_MAP[t.type] || t.type,
+      type: TRANSACTION_TYPE_MAP[t.type] || t.type,
       amount: Number(t.amount),
       units: Number(t.units),
       nav: Number(t.nav),
-      status: ClientsService.STATUS_MAP[t.status] || t.status,
+      status: TRANSACTION_STATUS_MAP[t.status] || t.status,
       date: t.date.toISOString().split('T')[0],
       folioNumber: t.folioNumber,
       orderId: t.orderId,

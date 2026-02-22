@@ -19,6 +19,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { GoalsService } from './goals.service';
 import { CreateGoalDto, UpdateGoalDto, AddContributionDto, GoalResponseDto } from './dto/goal.dto';
 import { AddGoalAssetMappingDto, UpdateGoalAssetMappingDto } from './dto/goal-asset.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 /**
  * FA-specific goals controller
@@ -35,7 +36,7 @@ export class FAGoalsController {
   @ApiOperation({ summary: 'List all goals for a client' })
   @ApiResponse({ status: 200, type: [GoalResponseDto] })
   async findByClient(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
   ) {
     return this.goalsService.findAllByClient(clientId, user.id);
@@ -45,7 +46,7 @@ export class FAGoalsController {
   @ApiOperation({ summary: 'Get a specific goal for a client' })
   @ApiResponse({ status: 200, type: GoalResponseDto })
   async findOne(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') goalId: string,
   ) {
@@ -56,7 +57,7 @@ export class FAGoalsController {
   @ApiOperation({ summary: 'Create a goal for a client' })
   @ApiResponse({ status: 201, type: GoalResponseDto })
   async create(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Body() dto: CreateGoalDto,
   ) {
@@ -67,7 +68,7 @@ export class FAGoalsController {
   @ApiOperation({ summary: 'Update a goal for a client' })
   @ApiResponse({ status: 200, type: GoalResponseDto })
   async update(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') goalId: string,
     @Body() dto: UpdateGoalDto,
@@ -79,7 +80,7 @@ export class FAGoalsController {
   @ApiOperation({ summary: 'Delete a goal for a client' })
   @ApiResponse({ status: 200 })
   async delete(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') goalId: string,
   ) {
@@ -91,7 +92,7 @@ export class FAGoalsController {
   @ApiOperation({ summary: 'Add a contribution to a goal' })
   @ApiResponse({ status: 201, type: GoalResponseDto })
   async addContribution(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') goalId: string,
     @Body() dto: AddContributionDto,
@@ -102,7 +103,7 @@ export class FAGoalsController {
   @Get(':id/contributions')
   @ApiOperation({ summary: 'Get contributions for a goal' })
   async getContributions(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') goalId: string,
   ) {
@@ -116,7 +117,7 @@ export class FAGoalsController {
   @Get(':id/assets')
   @ApiOperation({ summary: 'List asset mappings for a goal' })
   async getAssetMappings(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') goalId: string,
   ) {
@@ -126,7 +127,7 @@ export class FAGoalsController {
   @Post(':id/assets')
   @ApiOperation({ summary: 'Add an asset mapping to a goal' })
   async addAssetMapping(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') goalId: string,
     @Body() dto: AddGoalAssetMappingDto,
@@ -137,7 +138,7 @@ export class FAGoalsController {
   @Put(':id/assets/:mappingId')
   @ApiOperation({ summary: 'Update an asset mapping' })
   async updateAssetMapping(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') goalId: string,
     @Param('mappingId') mappingId: string,
@@ -149,7 +150,7 @@ export class FAGoalsController {
   @Delete(':id/assets/:mappingId')
   @ApiOperation({ summary: 'Remove an asset mapping' })
   async removeAssetMapping(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') goalId: string,
     @Param('mappingId') mappingId: string,
@@ -160,7 +161,7 @@ export class FAGoalsController {
   @Get(':id/shortfall')
   @ApiOperation({ summary: 'Compute shortfall and year-by-year projection' })
   async getShortfall(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') goalId: string,
   ) {

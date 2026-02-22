@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
 @Injectable()
 export class BseCryptoService {
+  private readonly logger = new Logger(BseCryptoService.name)
   private readonly algorithm = 'aes-256-gcm'
   private readonly keyBuffer: Buffer
 
@@ -12,8 +13,10 @@ export class BseCryptoService {
     if (key) {
       this.keyBuffer = Buffer.from(key, 'base64')
     } else {
-      // Generate a temporary key for dev/mock mode
       this.keyBuffer = randomBytes(32)
+      this.logger.warn(
+        'BSE_ENCRYPTION_KEY not set — using ephemeral key. Encrypted BSE credentials will not survive restarts. Set it in production!',
+      )
     }
   }
 

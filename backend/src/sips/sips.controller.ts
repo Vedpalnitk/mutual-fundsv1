@@ -22,6 +22,7 @@ import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { SipsService } from './sips.service';
 import { CreateSIPDto, UpdateSIPDto } from './dto/create-sip.dto';
 import { SIPResponseDto, PaginatedSIPsResponseDto } from './dto/sip-response.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('sips')
 @ApiBearerAuth()
@@ -40,7 +41,7 @@ export class SipsController {
   @ApiQuery({ name: 'search', required: false })
   @ApiResponse({ status: 200, type: PaginatedSIPsResponseDto })
   async findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('status') status?: string,
@@ -60,7 +61,7 @@ export class SipsController {
   @ApiOperation({ summary: 'Get SIPs for a specific client' })
   @ApiResponse({ status: 200, type: [SIPResponseDto] })
   async findByClient(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
   ) {
     return this.sipsService.findByClient(clientId, getEffectiveAdvisorId(user));
@@ -70,7 +71,7 @@ export class SipsController {
   @ApiOperation({ summary: 'Get SIP details' })
   @ApiResponse({ status: 200, type: SIPResponseDto })
   async findOne(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.sipsService.findOne(id, getEffectiveAdvisorId(user));
@@ -80,7 +81,7 @@ export class SipsController {
   @ApiOperation({ summary: 'Create a new SIP' })
   @ApiResponse({ status: 201, type: SIPResponseDto })
   async create(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateSIPDto,
   ) {
     return this.sipsService.create(getEffectiveAdvisorId(user), dto);
@@ -90,7 +91,7 @@ export class SipsController {
   @ApiOperation({ summary: 'Update a SIP' })
   @ApiResponse({ status: 200, type: SIPResponseDto })
   async update(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateSIPDto,
   ) {
@@ -101,7 +102,7 @@ export class SipsController {
   @ApiOperation({ summary: 'Pause a SIP' })
   @ApiResponse({ status: 200, type: SIPResponseDto })
   async pause(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.sipsService.pause(id, getEffectiveAdvisorId(user));
@@ -111,7 +112,7 @@ export class SipsController {
   @ApiOperation({ summary: 'Resume a paused SIP' })
   @ApiResponse({ status: 200, type: SIPResponseDto })
   async resume(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.sipsService.resume(id, getEffectiveAdvisorId(user));
@@ -121,7 +122,7 @@ export class SipsController {
   @ApiOperation({ summary: 'Cancel a SIP' })
   @ApiResponse({ status: 200 })
   async cancel(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.sipsService.cancel(id, getEffectiveAdvisorId(user));
@@ -131,7 +132,7 @@ export class SipsController {
   @ApiOperation({ summary: 'Retry a failed SIP' })
   @ApiResponse({ status: 200, type: SIPResponseDto })
   async retry(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.sipsService.retry(id, getEffectiveAdvisorId(user));
@@ -141,7 +142,7 @@ export class SipsController {
   @ApiOperation({ summary: 'Monthly SIP collection report (expected vs actual)' })
   @ApiQuery({ name: 'months', required: false, type: Number })
   async getMonthlyCollectionReport(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('months') months?: string,
   ) {
     return this.sipsService.getMonthlyCollectionReport(
@@ -152,13 +153,13 @@ export class SipsController {
 
   @Get('report/book-growth')
   @ApiOperation({ summary: 'SIP book growth over last 12 months' })
-  async getBookGrowth(@CurrentUser() user: any) {
+  async getBookGrowth(@CurrentUser() user: AuthenticatedUser) {
     return this.sipsService.getBookGrowth(getEffectiveAdvisorId(user));
   }
 
   @Get('mandate-expiry-alerts')
   @ApiOperation({ summary: 'SIPs with mandates expiring before SIP end date' })
-  async getMandateExpiryAlerts(@CurrentUser() user: any) {
+  async getMandateExpiryAlerts(@CurrentUser() user: AuthenticatedUser) {
     return this.sipsService.getMandateExpiryAlerts(getEffectiveAdvisorId(user));
   }
 
@@ -166,7 +167,7 @@ export class SipsController {
   @ApiOperation({ summary: 'Register an active SIP with BSE StAR MF' })
   @ApiResponse({ status: 200, description: 'BSE SIP registration order created' })
   async registerWithBse(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.sipsService.registerWithBse(id, getEffectiveAdvisorId(user));

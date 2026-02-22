@@ -3,10 +3,12 @@ import { PrismaService } from '../../prisma/prisma.service'
 
 export interface AuditEntry {
   userId: string
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'EXECUTE' | 'CANCEL' | 'PAYMENT' | 'LOGIN' | 'REGISTER'
+  action: string
   entityType: string
-  entityId: string
+  entityId?: string
   details?: Record<string, any>
+  oldValue?: any
+  newValue?: any
   ipAddress?: string
   userAgent?: string
 }
@@ -26,6 +28,8 @@ export class AuditLogService {
           entityType: entry.entityType,
           entityId: entry.entityId,
           details: entry.details || undefined,
+          oldValue: entry.oldValue,
+          newValue: entry.newValue,
           ipAddress: entry.ipAddress,
           userAgent: entry.userAgent,
         },
@@ -52,6 +56,27 @@ export class AuditLogService {
     } catch (error) {
       this.logger.error(`Failed to write batch audit logs: ${error}`)
     }
+  }
+
+  async findByEntity(entityType: string, entityId: string) {
+    return this.prisma.auditLog.findMany({
+      where: { entityType, entityId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        user: {
+          select: { id: true, email: true, profile: { select: { name: true } } },
+        },
+      },
+    })
+  }
+
+  async findByUser(userId: string, limit = 50) {
+    return this.prisma.auditLog.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
   }
 
   async query(filters: {

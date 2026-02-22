@@ -6,6 +6,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { NseCredentialsService } from './nse-credentials.service'
 import { SetCredentialsDto } from '../dto/nmf.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('NSE NMF Credentials')
 @ApiBearerAuth()
@@ -17,14 +18,14 @@ export class NseCredentialsController {
 
   @Get()
   @ApiOperation({ summary: 'Get NSE credential configuration status' })
-  async getStatus(@CurrentUser() user: any) {
+  async getStatus(@CurrentUser() user: AuthenticatedUser) {
     return this.credentialsService.getStatus(user.id)
   }
 
   @Post()
   @ApiOperation({ summary: 'Set or update NSE partner credentials' })
   async setCredentials(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: SetCredentialsDto,
   ) {
     return this.credentialsService.setCredentials(user.id, dto)
@@ -32,7 +33,7 @@ export class NseCredentialsController {
 
   @Post('test')
   @ApiOperation({ summary: 'Test NSE connection with stored credentials' })
-  async testConnection(@CurrentUser() user: any) {
+  async testConnection(@CurrentUser() user: AuthenticatedUser) {
     return this.credentialsService.testConnection(user.id)
   }
 }

@@ -32,11 +32,10 @@ export class CallbackSignatureGuard implements CanActivate {
 
     const secret = this.configService.get<string>(configKey)
     if (!secret) {
-      // No secret configured — log warning but allow (fail-open for dev, should be set in prod)
-      this.logger.warn(
-        `No callback secret configured for ${configKey}. Skipping signature verification.`,
+      this.logger.error(
+        `Callback secret not configured for ${configKey}. Rejecting request.`,
       )
-      return true
+      throw new ForbiddenException('Callback secret not configured')
     }
 
     const request = context.switchToHttp().getRequest()

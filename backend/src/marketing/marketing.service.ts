@@ -27,8 +27,8 @@ export class MarketingService {
     return template.render(context)
   }
 
-  async generateImage(templateId: string, advisorId: string, customFields?: Record<string, string>): Promise<Buffer> {
-    const html = await this.renderPreview(templateId, advisorId, customFields)
+  async generateImage(templateId: string, advisorId: string, customFields?: Record<string, string>, rawHtml?: string): Promise<Buffer> {
+    const html = rawHtml || await this.renderPreview(templateId, advisorId, customFields)
 
     try {
       // Dynamic import for puppeteer-core (optional dependency)

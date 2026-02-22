@@ -11,6 +11,7 @@ export interface AmfiNavRecord {
   navDate: Date;
   fundHouse: string;
   schemeCategory: string;
+  schemeType: 'Open Ended Schemes' | 'Close Ended Schemes' | 'Interval Fund Schemes';
 }
 
 @Injectable()
@@ -49,6 +50,7 @@ export class AmfiService {
 
     let currentCategory = '';
     let currentFundHouse = '';
+    let currentSchemeType: AmfiNavRecord['schemeType'] = 'Open Ended Schemes';
 
     // Category header pattern: "Open Ended Schemes(Equity Scheme - Large Cap Fund)"
     const categoryHeaderRegex = /^(Open Ended Schemes|Close Ended Schemes|Interval Fund Schemes)\s*\((.+)\)\s*$/;
@@ -65,6 +67,7 @@ export class AmfiService {
       // Check for category header
       const categoryMatch = line.match(categoryHeaderRegex);
       if (categoryMatch) {
+        currentSchemeType = categoryMatch[1] as AmfiNavRecord['schemeType'];
         const fullCategory = categoryMatch[2]; // e.g. "Equity Scheme - Large Cap Fund"
         // Extract after the " - " if present
         const dashIdx = fullCategory.indexOf(' - ');
@@ -107,6 +110,7 @@ export class AmfiService {
           navDate,
           fundHouse: currentFundHouse,
           schemeCategory: currentCategory,
+          schemeType: currentSchemeType,
         });
       } else {
         // No semicolons or fewer than 5 parts — this is a fund house header
@@ -119,28 +123,6 @@ export class AmfiService {
 
     this.logger.log(`Parsed ${records.length} records from AMFI file`);
     return records;
-  }
-
-  /**
-   * Filter for Direct Growth funds with valid ISIN.
-   */
-  filterDirectGrowth(records: AmfiNavRecord[]): AmfiNavRecord[] {
-    return records.filter(r => {
-      const name = r.schemeName.toLowerCase();
-
-      // Must contain "direct"
-      if (!name.includes('direct')) return false;
-
-      // Must be growth-oriented (contains "growth" or doesn't contain dividend keywords)
-      const isDividend = name.includes('dividend') || name.includes('idcw') || name.includes('payout');
-      const isGrowth = name.includes('growth') || !isDividend;
-      if (!isGrowth) return false;
-
-      // Must have at least one valid ISIN
-      if (!r.isinGrowth && !r.isinReinvestment) return false;
-
-      return true;
-    });
   }
 
   /**

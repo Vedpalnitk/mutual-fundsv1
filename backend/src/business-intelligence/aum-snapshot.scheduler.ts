@@ -1,12 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { BatchJobsTracker } from '../common/batch-jobs.tracker';
 
 @Injectable()
 export class AumSnapshotScheduler {
   private readonly logger = new Logger(AumSnapshotScheduler.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private tracker: BatchJobsTracker,
+  ) {}
 
   /**
    * Daily cron at 11 PM IST (5:30 PM UTC).
@@ -16,7 +20,7 @@ export class AumSnapshotScheduler {
   async captureDaily() {
     this.logger.log('Starting daily AUM snapshot capture...');
 
-    try {
+    await this.tracker.trackRun('aum_snapshot', async () => {
       // Get all advisors who have clients
       const advisors = await this.prisma.fAClient.groupBy({
         by: ['advisorId'],
@@ -25,18 +29,23 @@ export class AumSnapshotScheduler {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      let synced = 0;
+      let failed = 0;
       for (const { advisorId } of advisors) {
         try {
           await this.captureForAdvisor(advisorId, today);
+          synced++;
         } catch (err) {
+          failed++;
           this.logger.warn(`Failed snapshot for advisor ${advisorId}: ${err}`);
         }
       }
 
       this.logger.log(`Completed AUM snapshots for ${advisors.length} advisors`);
-    } catch (err) {
+      return { total: advisors.length, synced, failed };
+    }).catch(err => {
       this.logger.error('AUM snapshot cron failed', err);
-    }
+    });
   }
 
   async captureForAdvisor(advisorId: string, date: Date) {

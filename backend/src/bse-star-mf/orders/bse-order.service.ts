@@ -1,6 +1,7 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException, BadRequestException, ServiceUnavailableException, Inject } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { XMLParser } from 'fast-xml-parser'
+import { Queue, ConnectionOptions } from 'bullmq'
 import { PrismaService } from '../../prisma/prisma.service'
 import { BseHttpClient } from '../core/bse-http.client'
 import { BseSoapBuilder } from '../core/bse-soap.builder'
@@ -13,6 +14,9 @@ import { BSE_ENDPOINTS, BSE_SOAP_ACTIONS } from '../core/bse-config'
 import { BseOrderType, BseOrderStatus } from '@prisma/client'
 import { PlaceOrderDto, BseBuySell, BseBuySellType } from './dto/place-order.dto'
 import { AuditLogService } from '../../common/services/audit-log.service'
+import { BULLMQ_CONNECTION } from '../../common/queue/queue.module'
+import { withTimeout } from '../../common/utils/timeout'
+import { BseOrderJobData } from './bse-order.processor'
 
 interface OrderFilters {
   clientId?: string
@@ -28,6 +32,8 @@ export class BseOrderService {
   private readonly xmlParser = new XMLParser()
   private readonly isMockMode: boolean
 
+  private readonly orderQueue: Queue<BseOrderJobData>
+
   constructor(
     private prisma: PrismaService,
     private httpClient: BseHttpClient,
@@ -39,8 +45,10 @@ export class BseOrderService {
     private mockService: BseMockService,
     private config: ConfigService,
     private auditLogService: AuditLogService,
+    @Inject(BULLMQ_CONNECTION) connection: any,
   ) {
     this.isMockMode = this.config.get<boolean>('bse.mockMode') === true
+    this.orderQueue = new Queue('bse-orders', { connection })
   }
 
   /**
@@ -279,112 +287,48 @@ export class BseOrderService {
         dpTxnMode: dto.dpTxnMode || 'P',
         folioNumber: dto.folioNumber || null,
         referenceNumber,
+        euin: dto.euin || null,
+        arnNumber: dto.arnNumber || null,
       },
     })
 
+    // Enqueue for async processing via BullMQ
     try {
-      if (this.isMockMode) {
-        const mockResult = await this.handleMockOrderResponse(order.id, transCode)
-
-        this.auditLogService.log({
-          userId: advisorId,
-          action: 'CREATE',
-          entityType: 'BseOrder',
-          entityId: order.id,
-          details: { orderType, schemeCode: dto.schemeCode, amount: dto.amount, clientId: dto.clientId },
-        })
-
-        return mockResult
-      }
-
-      const token = await this.authService.getOrderEntryToken(advisorId)
-
-      // Build pipe-separated order params per BSE specification
-      const pipeParams = this.soapBuilder.buildPipeParams([
-        transCode,                          // TransCode (NEW)
-        referenceNumber,                    // UniqueRefNo
-        order.bseOrderNumber || '',         // OrderId (empty for new)
-        credentials.memberId,               // MemberId
-        dto.clientId,                       // ClientCode
-        dto.schemeCode,                     // SchemeCode
-        dto.buySell,                        // BuySell (P/R)
-        dto.buySellType || '',              // BuySellType (FRESH/ADDITIONAL)
-        dto.dpTxnMode || 'P',              // DPTxn
-        dto.amount?.toString() || '',       // OrderVal
-        dto.units?.toString() || '',        // Qty
-        '',                                 // AllRedeem
-        dto.folioNumber || '',              // FolioNo
-        dto.remarks || '',                  // Remarks
-        '',                                 // KYCStatus
-        '',                                 // RefNo
-        '',                                 // SubBrCode
-        credentials.euin || '',             // EUIN
-        credentials.euin ? 'Y' : 'N',      // EUINVal
-        '',                                 // MinRedeem
-        '',                                 // DPC
-        '',                                 // IPAdd
-        token,                              // Password
-        '',                                 // Param1
-        '',                                 // Param2
-        '',                                 // Param3
-      ])
-
-      const soapBody = this.soapBuilder.buildOrderEntryBody(transCode, pipeParams)
-
-      const response = await this.httpClient.soapRequest(
-        BSE_ENDPOINTS.ORDER_ENTRY,
-        BSE_SOAP_ACTIONS.ORDER_ENTRY,
-        soapBody,
-        advisorId,
-        `OrderEntry_${transCode}_${dto.buySell}`,
+      await withTimeout(
+        this.orderQueue.add(
+          'place-order',
+          { orderId: order.id, advisorId },
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 2000 },
+            removeOnComplete: { age: 86400, count: 1000 },
+            removeOnFail: { age: 604800, count: 5000 },
+          },
+        ),
+        5000,
+        'Redis enqueue timeout',
       )
-
-      const responseValue = this.parseOrderEntryResponse(response.body)
-      const result = this.errorMapper.parsePipeResponse(responseValue)
-
-      // Update order with BSE response
-      const bseOrderNumber = result.data?.[0] || null
-      const newStatus = result.success ? BseOrderStatus.SUBMITTED : BseOrderStatus.REJECTED
-
-      const updated = await this.prisma.bseOrder.update({
+    } catch (err) {
+      await this.prisma.bseOrder.update({
         where: { id: order.id },
-        data: {
-          status: newStatus,
-          bseOrderNumber,
-          bseResponseCode: result.code,
-          bseResponseMsg: result.message,
-          submittedAt: result.success ? new Date() : null,
-        },
+        data: { status: BseOrderStatus.FAILED, bseResponseMsg: 'Failed to enqueue order: Redis unavailable' },
       })
+      throw new ServiceUnavailableException('Order processing temporarily unavailable')
+    }
 
-      this.errorMapper.throwIfError(result)
+    this.auditLogService.log({
+      userId: advisorId,
+      action: 'CREATE',
+      entityType: 'BseOrder',
+      entityId: order.id,
+      details: { orderType, schemeCode: dto.schemeCode, amount: dto.amount, clientId: dto.clientId },
+    })
 
-      this.auditLogService.log({
-        userId: advisorId,
-        action: 'CREATE',
-        entityType: 'BseOrder',
-        entityId: order.id,
-        details: { orderType, schemeCode: dto.schemeCode, amount: dto.amount, clientId: dto.clientId },
-      })
-
-      return {
-        id: updated.id,
-        bseOrderNumber: updated.bseOrderNumber,
-        referenceNumber: updated.referenceNumber,
-        status: updated.status,
-        responseCode: result.code,
-        message: result.message,
-      }
-    } catch (error) {
-      // Update order status to FAILED if not already updated
-      await this.prisma.bseOrder.updateMany({
-        where: { id: order.id, status: BseOrderStatus.CREATED },
-        data: {
-          status: BseOrderStatus.FAILED,
-          bseResponseMsg: error instanceof Error ? error.message : 'Unknown error',
-        },
-      })
-      throw error
+    return {
+      id: order.id,
+      referenceNumber: order.referenceNumber,
+      status: 'QUEUED',
+      message: 'Order queued for processing',
     }
   }
 

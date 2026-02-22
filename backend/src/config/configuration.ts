@@ -1,12 +1,15 @@
 export default () => ({
   port: parseInt(process.env.PORT ?? '3501', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
+  databasePoolSize: parseInt(process.env.DATABASE_POOL_SIZE || '25', 10),
   database: {
     url: process.env.DATABASE_URL,
   },
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+    cacheHost: process.env.REDIS_CACHE_HOST || process.env.REDIS_HOST || 'localhost',
+    cachePort: parseInt(process.env.REDIS_CACHE_PORT ?? process.env.REDIS_PORT ?? '6379', 10),
   },
   minio: {
     endpoint: process.env.MINIO_ENDPOINT || 'localhost',

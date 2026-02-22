@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuditService } from '../audit/audit.service';
+import { AuditLogService } from '../common/services/audit-log.service';
 import { CreateComplianceDto, UpdateComplianceDto, ComplianceFilterDto } from './dto';
 
 @Injectable()
 export class ComplianceService {
   constructor(
     private prisma: PrismaService,
-    private audit: AuditService,
+    private audit: AuditLogService,
   ) {}
 
   async listRecords(advisorId: string, filters: ComplianceFilterDto) {

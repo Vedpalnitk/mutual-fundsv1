@@ -11,7 +11,7 @@ export class GoalsService {
     const targetDate = new Date(goal.targetDate);
     const now = new Date();
     const daysRemaining = Math.max(0, Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-    const progress = goal.targetAmount > 0
+    const progress = Number(goal.targetAmount) > 0
       ? Math.min(100, (Number(goal.currentAmount) / Number(goal.targetAmount)) * 100)
       : 0;
 

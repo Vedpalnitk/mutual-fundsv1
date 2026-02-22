@@ -29,6 +29,7 @@ import { InsuranceService } from './insurance.service';
 import { CreateInsurancePolicyDto } from './dto/create-insurance-policy.dto';
 import { UpdateInsurancePolicyDto } from './dto/update-insurance-policy.dto';
 import { RecordPremiumPaymentDto } from './dto/record-premium-payment.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('insurance')
 @ApiBearerAuth()
@@ -42,7 +43,7 @@ export class InsuranceController {
   @ApiOperation({ summary: 'List all insurance policies for a client' })
   @ApiResponse({ status: 200, description: 'List of insurance policies' })
   async findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
   ) {
     return this.insuranceService.findAll(clientId, getEffectiveAdvisorId(user));
@@ -52,7 +53,7 @@ export class InsuranceController {
   @ApiOperation({ summary: 'Add an insurance policy for a client' })
   @ApiResponse({ status: 201, description: 'Policy created' })
   async create(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Body() dto: CreateInsurancePolicyDto,
   ) {
@@ -63,7 +64,7 @@ export class InsuranceController {
   @ApiOperation({ summary: 'Update an insurance policy' })
   @ApiResponse({ status: 200, description: 'Policy updated' })
   async update(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') id: string,
     @Body() dto: UpdateInsurancePolicyDto,
@@ -75,7 +76,7 @@ export class InsuranceController {
   @ApiOperation({ summary: 'Delete an insurance policy' })
   @ApiResponse({ status: 200, description: 'Policy deleted' })
   async remove(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('id') id: string,
   ) {
@@ -89,7 +90,7 @@ export class InsuranceController {
   @ApiQuery({ name: 'age', required: false, type: Number })
   @ApiQuery({ name: 'familySize', required: false, type: Number })
   async gapAnalysis(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Query('annualIncome') annualIncome?: string,
     @Query('age') age?: string,
@@ -109,7 +110,7 @@ export class InsuranceController {
   @ApiResponse({ status: 200, description: 'List of policies with upcoming premiums' })
   @ApiQuery({ name: 'days', required: false, type: Number })
   async upcomingPremiums(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Query('days') days?: string,
   ) {
@@ -124,7 +125,7 @@ export class InsuranceController {
   @ApiOperation({ summary: 'Record a premium payment for a policy' })
   @ApiResponse({ status: 201, description: 'Payment recorded' })
   async recordPayment(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('policyId') policyId: string,
     @Body() dto: RecordPremiumPaymentDto,
@@ -141,7 +142,7 @@ export class InsuranceController {
   @ApiOperation({ summary: 'Get payment history for a policy' })
   @ApiResponse({ status: 200, description: 'List of premium payments' })
   async getPaymentHistory(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('policyId') policyId: string,
   ) {
@@ -160,7 +161,7 @@ export class InsuranceController {
   @ApiResponse({ status: 201, description: 'Document uploaded' })
   @UseInterceptors(FileInterceptor('file'))
   async uploadDocument(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('policyId') policyId: string,
     @UploadedFile() file: { buffer: Buffer; originalname?: string; mimetype?: string; size?: number },
@@ -180,7 +181,7 @@ export class InsuranceController {
   @ApiOperation({ summary: 'List documents for a policy' })
   @ApiResponse({ status: 200, description: 'List of policy documents' })
   async listDocuments(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('policyId') policyId: string,
   ) {
@@ -195,7 +196,7 @@ export class InsuranceController {
   @ApiOperation({ summary: 'Get a signed download URL for a document' })
   @ApiResponse({ status: 200, description: 'Signed URL for document download' })
   async getDocumentDownloadUrl(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('policyId') policyId: string,
     @Param('docId') docId: string,
@@ -212,7 +213,7 @@ export class InsuranceController {
   @ApiOperation({ summary: 'Delete a policy document' })
   @ApiResponse({ status: 200, description: 'Document deleted' })
   async deleteDocument(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Param('policyId') policyId: string,
     @Param('docId') docId: string,

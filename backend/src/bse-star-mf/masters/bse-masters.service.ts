@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { BseMockService } from '../mocks/bse-mock.service'
 import { ConfigService } from '@nestjs/config'
 import { Prisma } from '@prisma/client'
+import { CacheService } from '../../common/services/cache.service'
 
 @Injectable()
 export class BseMastersService {
@@ -13,11 +14,17 @@ export class BseMastersService {
     private prisma: PrismaService,
     private mockService: BseMockService,
     private config: ConfigService,
+    private cacheService: CacheService,
   ) {
     this.isMockMode = this.config.get<boolean>('bse.mockMode') === true
   }
 
   async searchSchemes(query: string, page = 1, limit = 20) {
+    const cacheKey = `schemes:bse:${query}:${page}:${limit}`
+    return this.cacheService.wrap(cacheKey, () => this._searchSchemes(query, page, limit), 3600 * 1000)
+  }
+
+  private async _searchSchemes(query: string, page = 1, limit = 20) {
     const where: Prisma.BseSchemeMasterWhereInput = query
       ? {
           OR: [

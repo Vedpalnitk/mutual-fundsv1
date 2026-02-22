@@ -13,6 +13,7 @@ import {
   PaymentCallbackDto,
   NsePassthroughPipe,
 } from '../dto/nmf.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('NSE NMF Payments')
 @Controller('api/v1/nmf/payments')
@@ -26,7 +27,7 @@ export class NsePaymentsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('advisor', 'admin', 'fa_staff')
   @ApiOperation({ summary: 'Check UPI payment status' })
-  async checkUpiStatus(@CurrentUser() user: any, @Body() data: CheckUpiStatusDto) {
+  async checkUpiStatus(@CurrentUser() user: AuthenticatedUser, @Body() data: CheckUpiStatusDto) {
     return this.paymentService.checkUpiStatus(user.id, data)
   }
 
@@ -48,7 +49,7 @@ export class NsePaymentsController {
   @ApiOperation({ summary: 'Initiate payment for order' })
   async initiate(
     @Param('orderId') orderId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() data: InitiatePaymentDto,
   ) {
     return this.paymentService.initiatePayment(orderId, user.id, data)
@@ -61,7 +62,7 @@ export class NsePaymentsController {
   @ApiOperation({ summary: 'Get payment status' })
   async getStatus(
     @Param('orderId') orderId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.paymentService.getPaymentStatus(orderId, user.id)
   }

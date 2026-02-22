@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { AuditService } from '../audit/audit.service'
+import { AuditLogService } from '../common/services/audit-log.service'
 import { CreateBranchDto, UpdateBranchDto } from './dto'
 
 @Injectable()
 export class BranchesService {
   constructor(
     private prisma: PrismaService,
-    private audit: AuditService,
+    private audit: AuditLogService,
   ) {}
 
   async findAll(advisorId: string) {

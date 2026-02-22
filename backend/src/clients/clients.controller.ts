@@ -28,6 +28,7 @@ import {
   ClientWithPortfolioDto,
   PaginatedClientsResponseDto,
 } from './dto/client-response.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 
 @ApiTags('clients')
 @ApiBearerAuth()
@@ -41,17 +42,23 @@ export class ClientsController {
   @ApiOperation({ summary: 'List all clients for the advisor' })
   @ApiResponse({ status: 200, type: PaginatedClientsResponseDto })
   async findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query() filters: ClientFilterDto,
   ) {
     return this.clientsService.findAll(getEffectiveAdvisorId(user), filters);
+  }
+
+  @Get('dormant')
+  @ApiOperation({ summary: 'Get dormant clients (no txn in 12+ months)' })
+  async getDormantClients(@CurrentUser() user: AuthenticatedUser) {
+    return this.clientsService.getDormantClients(getEffectiveAdvisorId(user));
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get client details with portfolio summary' })
   @ApiResponse({ status: 200, type: ClientWithPortfolioDto })
   async findOne(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.clientsService.findOne(id, getEffectiveAdvisorId(user));
@@ -61,7 +68,7 @@ export class ClientsController {
   @ApiOperation({ summary: 'Create a new client' })
   @ApiResponse({ status: 201, type: ClientResponseDto })
   async create(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateClientDto,
   ) {
     return this.clientsService.create(getEffectiveAdvisorId(user), dto);
@@ -71,7 +78,7 @@ export class ClientsController {
   @ApiOperation({ summary: 'Update a client' })
   @ApiResponse({ status: 200, type: ClientResponseDto })
   async update(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateClientDto,
   ) {
@@ -82,7 +89,7 @@ export class ClientsController {
   @ApiOperation({ summary: 'Deactivate a client' })
   @ApiResponse({ status: 200 })
   async deactivate(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.clientsService.deactivate(id, getEffectiveAdvisorId(user));
@@ -91,7 +98,7 @@ export class ClientsController {
   @Put(':id/assign-rm')
   @ApiOperation({ summary: 'Assign/reassign RM to client' })
   async assignRm(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() body: { assignedRmId: string | null },
   ) {
@@ -101,16 +108,10 @@ export class ClientsController {
   @Put(':id/tags')
   @ApiOperation({ summary: 'Update client tags' })
   async updateTags(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() body: { tags: string[] },
   ) {
     return this.clientsService.updateTags(id, getEffectiveAdvisorId(user), body.tags);
-  }
-
-  @Get('dormant')
-  @ApiOperation({ summary: 'Get dormant clients (no txn in 12+ months)' })
-  async getDormantClients(@CurrentUser() user: any) {
-    return this.clientsService.getDormantClients(getEffectiveAdvisorId(user));
   }
 }

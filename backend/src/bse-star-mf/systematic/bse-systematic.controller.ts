@@ -10,6 +10,7 @@ import { BseStpService } from './bse-stp.service'
 import { BseSwpService } from './bse-swp.service'
 import { RegisterSipDto, RegisterXsipDto, RegisterStpDto, RegisterSwpDto } from './dto/register-sip.dto'
 import { PrismaService } from '../../prisma/prisma.service'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('BSE Systematic Plans')
 @ApiBearerAuth()
@@ -27,37 +28,37 @@ export class BseSystematicController {
 
   @Post('sip')
   @ApiOperation({ summary: 'Register SIP' })
-  async registerSip(@CurrentUser() user: any, @Body() dto: RegisterSipDto) {
+  async registerSip(@CurrentUser() user: AuthenticatedUser, @Body() dto: RegisterSipDto) {
     return this.sipService.registerSip(user.id, dto)
   }
 
   @Post('xsip')
   @ApiOperation({ summary: 'Register XSIP/ISIP' })
-  async registerXsip(@CurrentUser() user: any, @Body() dto: RegisterXsipDto) {
+  async registerXsip(@CurrentUser() user: AuthenticatedUser, @Body() dto: RegisterXsipDto) {
     return this.xsipService.registerXsip(user.id, dto)
   }
 
   @Post('stp')
   @ApiOperation({ summary: 'Register STP' })
-  async registerStp(@CurrentUser() user: any, @Body() dto: RegisterStpDto) {
+  async registerStp(@CurrentUser() user: AuthenticatedUser, @Body() dto: RegisterStpDto) {
     return this.stpService.registerStp(user.id, dto)
   }
 
   @Post('swp')
   @ApiOperation({ summary: 'Register SWP' })
-  async registerSwp(@CurrentUser() user: any, @Body() dto: RegisterSwpDto) {
+  async registerSwp(@CurrentUser() user: AuthenticatedUser, @Body() dto: RegisterSwpDto) {
     return this.swpService.registerSwp(user.id, dto)
   }
 
   @Post(':id/cancel')
   @ApiOperation({ summary: 'Cancel any systematic plan' })
-  async cancelSystematic(@CurrentUser() user: any, @Param('id') id: string) {
+  async cancelSystematic(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.swpService.cancelSystematic(user.id, id)
   }
 
   @Get(':id/child-orders')
   @ApiOperation({ summary: 'Get installment history' })
-  async getChildOrders(@CurrentUser() user: any, @Param('id') id: string) {
+  async getChildOrders(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     const order = await this.prisma.bseOrder.findUnique({
       where: { id },
       include: { childOrders: { orderBy: { installmentNo: 'asc' } } },

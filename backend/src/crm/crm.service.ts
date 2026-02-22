@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
-import { AuditService } from '../audit/audit.service'
+import { AuditLogService } from '../common/services/audit-log.service'
 import { Prisma } from '@prisma/client'
 import {
   CreateTaskDto, UpdateTaskDto, TaskFilterDto,
@@ -11,7 +11,7 @@ import {
 export class CRMService {
   constructor(
     private prisma: PrismaService,
-    private audit: AuditService,
+    private audit: AuditLogService,
   ) {}
 
   // ============= TASKS =============

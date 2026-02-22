@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config'
 import { BSE_ENDPOINTS, BSE_SOAP_ACTIONS } from '../core/bse-config'
 import { RegisterSwpDto, CancelSystematicDto } from './dto/register-sip.dto'
 import { BseOrderType, BseOrderStatus } from '@prisma/client'
+import { XMLParser } from 'fast-xml-parser'
 
 @Injectable()
 export class BseSwpService {
@@ -161,9 +162,16 @@ export class BseSwpService {
     }
 
     const credentials = await this.credentialsService.getDecryptedCredentials(advisorId)
+
+    // SIP/XSIP cancel via Order Entry endpoint with TransCode CXL
+    // STP/SWP cancel via Additional Services flag 10
+    if (order.orderType === BseOrderType.SIP || order.orderType === BseOrderType.XSIP) {
+      return this.cancelSipXsip(order, credentials, advisorId)
+    }
+
+    // STP/SWP: cancel via Additional Services
     const token = await this.authService.getAdditionalServicesToken(advisorId)
 
-    // Cancel via Additional Services (flag 10 for SWP, CXL transCode for SIP/XSIP)
     const cancelParams = this.soapBuilder.buildPipeParams([
       order.bseRegistrationNo,
       'CXL',
@@ -190,6 +198,58 @@ export class BseSwpService {
     if (result.success) {
       await this.prisma.bseOrder.update({
         where: { id: orderId },
+        data: { status: BseOrderStatus.CANCELLED },
+      })
+    }
+
+    return { success: result.success, message: result.message }
+  }
+
+  private async cancelSipXsip(order: any, credentials: any, advisorId: string) {
+    const token = await this.authService.getOrderEntryToken(advisorId)
+
+    const ucc = await this.prisma.bseUccRegistration.findFirst({
+      where: { clientId: order.clientId },
+    })
+
+    const cancelParams = this.soapBuilder.buildPipeParams([
+      order.referenceNumber || '',       // TransNo
+      ucc?.clientCode || '',             // ClientCode
+      order.schemeCode || '',            // SchemeCode
+      'CXL',                            // TransCode (cancel)
+      credentials.memberId,             // MemberCode
+      order.bseRegistrationNo,          // InternalRefNo / SIPRegNo
+    ])
+
+    const isSip = order.orderType === BseOrderType.SIP
+    const soapBody = isSip
+      ? this.soapBuilder.buildSipOrderEntryBody(token, cancelParams)
+      : this.soapBuilder.buildXsipOrderEntryBody(token, cancelParams)
+    const soapAction = isSip
+      ? BSE_SOAP_ACTIONS.SIP_ORDER
+      : BSE_SOAP_ACTIONS.XSIP_ORDER
+
+    const response = await this.httpClient.soapRequest(
+      BSE_ENDPOINTS.ORDER_ENTRY,
+      soapAction,
+      soapBody,
+      advisorId,
+      `${order.orderType}_Cancel`,
+    )
+
+    const xmlParser = new XMLParser()
+    const parsedXml = xmlParser.parse(response.body)
+    const resultField = isSip ? 'sipOrderEntryParamResult' : 'xsipOrderEntryParamResult'
+    const envelope = parsedXml['soap:Envelope'] || parsedXml['s:Envelope'] || parsedXml
+    const body = envelope?.['soap:Body'] || envelope?.['s:Body'] || envelope
+    const resp = Object.values(body || {}).find((v: any) => typeof v === 'object') as any
+    const resultStr = resp?.[resultField] || resp?.Result || ''
+
+    const result = this.errorMapper.parsePipeResponse(resultStr)
+
+    if (result.success) {
+      await this.prisma.bseOrder.update({
+        where: { id: order.id },
         data: { status: BseOrderStatus.CANCELLED },
       })
     }

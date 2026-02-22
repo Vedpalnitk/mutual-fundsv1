@@ -19,6 +19,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ActionsService } from './actions.service';
 import { CreateActionDto, UpdateActionDto } from './dto/action.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('actions')
 @ApiBearerAuth()
@@ -35,7 +36,7 @@ export class ActionsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'offset', required: false, type: Number })
   async getActions(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('includeCompleted') includeCompleted?: string,
     @Query('includeDismissed') includeDismissed?: string,
     @Query('limit') limit?: string,
@@ -53,14 +54,14 @@ export class ActionsController {
   @Get(':id')
   @ApiOperation({ summary: 'Get action by ID' })
   @ApiResponse({ status: 200, description: 'Action details' })
-  async getAction(@CurrentUser() user: any, @Param('id') id: string) {
+  async getAction(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.actionsService.getActionById(user.id, id);
   }
 
   @Post()
   @ApiOperation({ summary: 'Create a new action/reminder' })
   @ApiResponse({ status: 201, description: 'Action created' })
-  async createAction(@CurrentUser() user: any, @Body() dto: CreateActionDto) {
+  async createAction(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateActionDto) {
     return this.actionsService.createAction(user.id, dto);
   }
 
@@ -68,7 +69,7 @@ export class ActionsController {
   @ApiOperation({ summary: 'Update action status' })
   @ApiResponse({ status: 200, description: 'Action updated' })
   async updateAction(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateActionDto,
   ) {
@@ -78,28 +79,28 @@ export class ActionsController {
   @Put(':id/read')
   @ApiOperation({ summary: 'Mark action as read' })
   @ApiResponse({ status: 200, description: 'Action marked as read' })
-  async markAsRead(@CurrentUser() user: any, @Param('id') id: string) {
+  async markAsRead(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.actionsService.markAsRead(user.id, id);
   }
 
   @Put('read-all')
   @ApiOperation({ summary: 'Mark all actions as read' })
   @ApiResponse({ status: 200, description: 'All actions marked as read' })
-  async markAllAsRead(@CurrentUser() user: any) {
+  async markAllAsRead(@CurrentUser() user: AuthenticatedUser) {
     return this.actionsService.markAllAsRead(user.id);
   }
 
   @Put(':id/dismiss')
   @ApiOperation({ summary: 'Dismiss an action' })
   @ApiResponse({ status: 200, description: 'Action dismissed' })
-  async dismissAction(@CurrentUser() user: any, @Param('id') id: string) {
+  async dismissAction(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.actionsService.dismissAction(user.id, id);
   }
 
   @Put(':id/complete')
   @ApiOperation({ summary: 'Mark action as completed' })
   @ApiResponse({ status: 200, description: 'Action completed' })
-  async completeAction(@CurrentUser() user: any, @Param('id') id: string) {
+  async completeAction(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.actionsService.completeAction(user.id, id);
   }
 }

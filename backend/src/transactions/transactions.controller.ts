@@ -25,6 +25,7 @@ import {
   TransactionResponseDto,
   PaginatedTransactionsResponseDto,
 } from './dto/transaction-response.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('transactions')
 @ApiBearerAuth()
@@ -38,7 +39,7 @@ export class TransactionsController {
   @ApiOperation({ summary: 'List all transactions' })
   @ApiResponse({ status: 200, type: PaginatedTransactionsResponseDto })
   async findAll(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query() filters: TransactionFilterDto,
   ) {
     return this.transactionsService.findAll(getEffectiveAdvisorId(user), filters);
@@ -48,7 +49,7 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Get transactions for a specific client' })
   @ApiResponse({ status: 200, type: [TransactionResponseDto] })
   async findByClient(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
   ) {
     return this.transactionsService.findByClient(clientId, getEffectiveAdvisorId(user));
@@ -58,7 +59,7 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Get transaction details' })
   @ApiResponse({ status: 200, type: TransactionResponseDto })
   async findOne(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.transactionsService.findOne(id, getEffectiveAdvisorId(user));
@@ -68,7 +69,7 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Create a lumpsum purchase transaction' })
   @ApiResponse({ status: 201, type: TransactionResponseDto })
   async createLumpsum(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateTransactionDto,
   ) {
     return this.transactionsService.createLumpsum(getEffectiveAdvisorId(user), dto);
@@ -78,7 +79,7 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Create a redemption transaction' })
   @ApiResponse({ status: 201, type: TransactionResponseDto })
   async createRedemption(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateTransactionDto,
   ) {
     return this.transactionsService.createRedemption(getEffectiveAdvisorId(user), dto);
@@ -88,7 +89,7 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Update transaction status' })
   @ApiResponse({ status: 200, type: TransactionResponseDto })
   async updateStatus(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateTransactionStatusDto,
   ) {
@@ -99,7 +100,7 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Cancel a pending transaction' })
   @ApiResponse({ status: 200, type: TransactionResponseDto })
   async cancelTransaction(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.transactionsService.cancelTransaction(id, getEffectiveAdvisorId(user));
@@ -109,7 +110,7 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Execute a pending transaction via BSE StAR MF' })
   @ApiResponse({ status: 200, description: 'BSE order created for the transaction' })
   async executeViaBse(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
   ) {
     return this.transactionsService.executeViaBse(id, getEffectiveAdvisorId(user));
@@ -123,7 +124,7 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Submit a trade request to advisor (for managed clients)' })
   @ApiResponse({ status: 201, description: 'Trade request submitted successfully' })
   async createTradeRequest(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateTradeRequestDto,
   ) {
     return this.transactionsService.createTradeRequest(user.id, dto);
@@ -132,7 +133,7 @@ export class TransactionsController {
   @Get('my-requests')
   @ApiOperation({ summary: 'Get my trade requests (for managed clients)' })
   @ApiResponse({ status: 200, type: [TransactionResponseDto] })
-  async getMyTradeRequests(@CurrentUser() user: any) {
+  async getMyTradeRequests(@CurrentUser() user: AuthenticatedUser) {
     return this.transactionsService.getMyTradeRequests(user.id);
   }
 }

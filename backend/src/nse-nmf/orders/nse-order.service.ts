@@ -1,5 +1,7 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { Injectable, Logger, NotFoundException, ServiceUnavailableException, Inject } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { Prisma } from '@prisma/client'
+import { Queue, ConnectionOptions } from 'bullmq'
 import { PrismaService } from '../../prisma/prisma.service'
 import { NseHttpClient } from '../core/nse-http.client'
 import { NseErrorMapper } from '../core/nse-error.mapper'
@@ -9,10 +11,15 @@ import { NSE_ENDPOINTS } from '../core/constants/endpoints'
 import { NSE_TRANSACTION_TYPES } from '../core/nse-config'
 import { PanCryptoService } from '../../common/services/pan-crypto.service'
 import { AuditLogService } from '../../common/services/audit-log.service'
+import { CacheService } from '../../common/services/cache.service'
+import { BULLMQ_CONNECTION } from '../../common/queue/queue.module'
+import { withTimeout } from '../../common/utils/timeout'
+import { NseOrderJobData } from './nse-order.processor'
 
 @Injectable()
 export class NseOrderService {
   private readonly logger = new Logger(NseOrderService.name)
+  private readonly orderQueue: Queue<NseOrderJobData>
 
   constructor(
     private prisma: PrismaService,
@@ -23,7 +30,11 @@ export class NseOrderService {
     private config: ConfigService,
     private panCrypto: PanCryptoService,
     private auditLogService: AuditLogService,
-  ) {}
+    private cacheService: CacheService,
+    @Inject(BULLMQ_CONNECTION) connection: any,
+  ) {
+    this.orderQueue = new Queue('nse-orders', { connection })
+  }
 
   async listOrders(advisorId: string, params?: {
     clientId?: string; status?: string; orderType?: string; page?: number; limit?: number
@@ -110,13 +121,13 @@ export class NseOrderService {
       where: { clientId: data.clientId },
     })
 
-    // Create DB record
+    // Create DB record in QUEUED status
     const order = await this.prisma.nseOrder.create({
       data: {
         clientId: data.clientId,
         advisorId,
         orderType,
-        status: 'SUBMITTED',
+        status: 'QUEUED',
         schemeCode: data.schemeCode,
         schemeName: data.schemeName,
         amount: data.amount,
@@ -125,69 +136,34 @@ export class NseOrderService {
         dematPhysical: data.dematPhysical || 'P',
         mandateId: data.mandateId,
         transactionId: data.transactionId,
-        submittedAt: new Date(),
+        euin: data.euin || null,
+        arnNumber: data.arnNumber || null,
       },
     })
 
-    const isMockMode = this.config.get<boolean>('nmf.mockMode')
-
-    if (isMockMode) {
-      const mockResponse = this.mockService.mockOrderResponse(trxnType)
+    // Enqueue for async processing via BullMQ (requestBody built at processing time to avoid PAN in Redis)
+    try {
+      await withTimeout(
+        this.orderQueue.add(
+          'place-order',
+          { orderId: order.id, advisorId, orderType },
+          {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 2000 },
+            removeOnComplete: { age: 86400, count: 1000 },
+            removeOnFail: { age: 604800, count: 5000 },
+          },
+        ),
+        5000,
+        'Redis enqueue timeout',
+      )
+    } catch (err) {
       await this.prisma.nseOrder.update({
         where: { id: order.id },
-        data: {
-          nseOrderId: mockResponse.trxn_order_id,
-          nseResponseCode: mockResponse.trxn_status,
-          nseResponseMsg: mockResponse.trxn_remark,
-        },
+        data: { status: 'FAILED', nseResponseMsg: 'Failed to enqueue order: Redis unavailable' },
       })
-      this.auditLogService.log({
-        userId: advisorId,
-        action: 'CREATE',
-        entityType: 'NseOrder',
-        entityId: order.id,
-        details: { orderType, schemeCode: data.schemeCode, amount: data.amount, clientId: data.clientId },
-      })
-
-      return { success: true, orderId: order.id, ...mockResponse }
+      throw new ServiceUnavailableException('Order processing temporarily unavailable')
     }
-
-    const credentials = await this.credentialsService.getDecryptedCredentials(advisorId)
-
-    const requestBody = {
-      trxn_type: trxnType,
-      client_code: nseUcc?.clientCode || client.pan,
-      scheme_code: data.schemeCode,
-      order_amount: data.amount?.toString(),
-      order_units: data.units?.toString(),
-      folio_no: data.folioNumber || '',
-      demat_physical: data.dematPhysical || 'P',
-      kyc_flag: 'Y',
-      euin_number: '',
-      euin_declaration: 'Y',
-    }
-
-    const response = await this.httpClient.jsonRequest(
-      NSE_ENDPOINTS.NORMAL_ORDER,
-      requestBody,
-      credentials,
-      advisorId,
-      `ORDER_${orderType}`,
-    )
-
-    const result = this.errorMapper.parseResponse(response.parsed)
-
-    await this.prisma.nseOrder.update({
-      where: { id: order.id },
-      data: {
-        nseOrderId: result.data?.trxn_order_id || null,
-        status: result.success ? 'SUBMITTED' : 'FAILED',
-        nseResponseCode: result.status,
-        nseResponseMsg: result.message,
-      },
-    })
-
-    this.errorMapper.throwIfError(result)
 
     this.auditLogService.log({
       userId: advisorId,
@@ -197,7 +173,42 @@ export class NseOrderService {
       details: { orderType, schemeCode: data.schemeCode, amount: data.amount, clientId: data.clientId },
     })
 
-    return { ...result, success: true, orderId: order.id }
+    return { success: true, orderId: order.id, status: 'QUEUED', message: 'Order queued for processing' }
+  }
+
+  async searchSchemes(query: string, page = 1, limit = 20) {
+    const cacheKey = `schemes:nse:${query}:${page}:${limit}`
+    return this.cacheService.wrap(cacheKey, () => this._searchSchemes(query, page, limit), 3600 * 1000)
+  }
+
+  private async _searchSchemes(query: string, page = 1, limit = 20) {
+    const where: Prisma.NseSchemeMasterWhereInput = query
+      ? {
+          OR: [
+            { schemeName: { contains: query, mode: 'insensitive' } },
+            { schemeCode: { contains: query, mode: 'insensitive' } },
+            { isin: { contains: query, mode: 'insensitive' } },
+          ],
+        }
+      : {}
+
+    const [total, schemes] = await Promise.all([
+      this.prisma.nseSchemeMaster.count({ where }),
+      this.prisma.nseSchemeMaster.findMany({
+        where,
+        orderBy: { schemeName: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    ])
+
+    return {
+      data: schemes,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    }
   }
 
   async cancelOrder(id: string, advisorId: string) {

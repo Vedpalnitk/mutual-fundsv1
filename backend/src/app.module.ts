@@ -1,7 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import * as Joi from 'joi';
+import { ClsModule } from 'nestjs-cls';
+import { LoggerModule } from 'nestjs-pino';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
 import { PrismaModule } from './prisma/prisma.module';
@@ -34,6 +38,7 @@ import { StorageModule } from './storage/storage.module';
 import { AuditModule } from './audit/audit.module';
 import { BranchesModule } from './branches/branches.module';
 import { CRMModule } from './crm/crm.module';
+import { ProspectModule } from './prospect/prospect.module';
 import { CommissionsModule } from './commissions/commissions.module';
 import { BusinessIntelligenceModule } from './business-intelligence/business-intelligence.module';
 import { ComplianceModule } from './compliance/compliance.module';
@@ -41,25 +46,93 @@ import { BseStarMfModule } from './bse-star-mf/bse-star-mf.module';
 import { NseNmfModule } from './nse-nmf/nse-nmf.module';
 import { CasImportModule } from './cas-import/cas-import.module';
 import { MarketingModule } from './marketing/marketing.module';
+import { BatchJobsModule } from './batch-jobs/batch-jobs.module';
+import { AdminModule } from './admin/admin.module';
+import { OrganizationModule } from './organization/organization.module';
+import { EuinCommissionModule } from './euin-commission/euin-commission.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { CommonModule } from './common/common.module';
+import { QueueModule } from './common/queue/queue.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
+      validationSchema: Joi.object({
+        NODE_ENV: Joi.string()
+          .valid('development', 'production', 'test')
+          .default('development'),
+        DATABASE_URL: Joi.string().required(),
+        JWT_SECRET: Joi.string().required(),
+        BSE_ENCRYPTION_KEY: Joi.when('NODE_ENV', {
+          is: 'production',
+          then: Joi.string().min(44).required(),
+          otherwise: Joi.string().optional().allow(''),
+        }),
+        NMF_ENCRYPTION_KEY: Joi.when('NODE_ENV', {
+          is: 'production',
+          then: Joi.string().min(44).required(),
+          otherwise: Joi.string().optional().allow(''),
+        }),
+        PAN_ENCRYPTION_KEY: Joi.when('NODE_ENV', {
+          is: 'production',
+          then: Joi.string().min(44).required(),
+          otherwise: Joi.string().optional().allow(''),
+        }),
+        BSE_CALLBACK_SECRET: Joi.when('NODE_ENV', {
+          is: 'production',
+          then: Joi.string().min(32).required(),
+          otherwise: Joi.string().optional().allow(''),
+        }),
+        NMF_CALLBACK_SECRET: Joi.when('NODE_ENV', {
+          is: 'production',
+          then: Joi.string().min(32).required(),
+          otherwise: Joi.string().optional().allow(''),
+        }),
+      }),
+      validationOptions: {
+        allowUnknown: true,
+        abortEarly: false,
+      },
+    }),
+    LoggerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        pinoHttp: {
+          level: config.get('nodeEnv') === 'production' ? 'info' : 'debug',
+          transport: config.get('nodeEnv') !== 'production'
+            ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
+            : undefined,
+          autoLogging: config.get('nodeEnv') === 'production',
+          quietReqLogger: true,
+        },
+      }),
     }),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => [{
-        ttl: 60000,
-        limit: config.get('nodeEnv') === 'production' ? 100 : 1000,
-      }],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [{
+          ttl: 60000,
+          limit: config.get('nodeEnv') === 'production' ? 100 : 1000,
+        }],
+        storage: new ThrottlerStorageRedisService(
+          `redis://${config.get('redis.host') || 'localhost'}:${config.get('redis.port') || 6379}`,
+        ),
+      }),
+    }),
+    ClsModule.forRoot({
+      global: true,
+      middleware: { mount: true },
     }),
     ScheduleModule.forRoot(),
     CommonModule,
+    QueueModule,
+    HealthModule,
     PrismaModule,
     AuthModule,
     PersonasModule,
@@ -105,6 +178,7 @@ import { CommonModule } from './common/common.module';
     BranchesModule,
     // Business Management - CRM
     CRMModule,
+    ProspectModule,
     // Business Management - Commission Tracking
     CommissionsModule,
     // Business Management - BI & Revenue Analytics
@@ -119,6 +193,14 @@ import { CommonModule } from './common/common.module';
     CasImportModule,
     // Marketing (branded image generation)
     MarketingModule,
+    // Admin Batch Jobs Monitoring
+    BatchJobsModule,
+    // Admin Portal — Oversight, Analytics, Export
+    AdminModule,
+    // Organization — Multi-ARN Support
+    OrganizationModule,
+    // EUIN Commission — Split Sharing & Payouts
+    EuinCommissionModule,
   ],
   controllers: [],
   providers: [
@@ -135,4 +217,8 @@ import { CommonModule } from './common/common.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+  }
+}

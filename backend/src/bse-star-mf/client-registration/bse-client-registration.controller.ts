@@ -8,6 +8,8 @@ import { BseUccService } from './bse-ucc.service'
 import { BseFatcaService } from './bse-fatca.service'
 import { BseCkycService } from './bse-ckyc.service'
 import { RegisterUccDto, UploadFatcaDto, UploadCkycDto } from './dto/register-ucc.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
+import { getEffectiveAdvisorId } from '../../common/utils/effective-advisor'
 
 @ApiTags('BSE Client Registration')
 @ApiBearerAuth()
@@ -21,10 +23,20 @@ export class BseClientRegistrationController {
     private ckycService: BseCkycService,
   ) {}
 
+  @Post('batch-status')
+  @ApiOperation({ summary: 'Get BSE registration status for multiple clients' })
+  async batchRegistrationStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: { clientIds: string[] },
+  ) {
+    const advisorId = getEffectiveAdvisorId(user)
+    return this.uccService.batchRegistrationStatus(body.clientIds, advisorId)
+  }
+
   @Get(':clientId')
   @ApiOperation({ summary: 'Get BSE registration status for a client' })
   async getRegistrationStatus(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
   ) {
     return this.uccService.getRegistrationStatus(clientId, user.id)
@@ -33,7 +45,7 @@ export class BseClientRegistrationController {
   @Post(':clientId/register')
   @ApiOperation({ summary: 'Submit UCC registration to BSE' })
   async registerClient(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Body() dto: RegisterUccDto,
   ) {
@@ -43,7 +55,7 @@ export class BseClientRegistrationController {
   @Put(':clientId')
   @ApiOperation({ summary: 'Modify existing UCC registration' })
   async modifyRegistration(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Body() dto: RegisterUccDto,
   ) {
@@ -54,7 +66,7 @@ export class BseClientRegistrationController {
   @Post(':clientId/fatca')
   @ApiOperation({ summary: 'Upload FATCA declaration for client' })
   async uploadFatca(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Body() dto: UploadFatcaDto,
   ) {
@@ -64,7 +76,7 @@ export class BseClientRegistrationController {
   @Post(':clientId/ckyc')
   @ApiOperation({ summary: 'Upload CKYC for client' })
   async uploadCkyc(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
     @Body() dto: UploadCkycDto,
   ) {

@@ -21,6 +21,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { CasImportService } from './cas-import.service';
 import { CASImportResponseDto } from './dto/import-cas.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('cas-import')
 @ApiBearerAuth()
@@ -35,7 +36,7 @@ export class CasImportController {
   @ApiResponse({ status: 201, type: CASImportResponseDto })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
   async importCas(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file: { buffer: Buffer; originalname?: string; mimetype?: string; size?: number },
     @Body() body: { password: string; clientId?: string },
   ) {
@@ -51,7 +52,7 @@ export class CasImportController {
   @Get('imports')
   @ApiOperation({ summary: 'List CAS imports for the logged-in user' })
   @ApiResponse({ status: 200, type: [CASImportResponseDto] })
-  async getImports(@CurrentUser() user: any) {
+  async getImports(@CurrentUser() user: AuthenticatedUser) {
     const advisorId = getEffectiveAdvisorId(user);
     return this.casImportService.getImports(advisorId);
   }
@@ -60,7 +61,7 @@ export class CasImportController {
   @ApiOperation({ summary: 'List CAS imports for a specific FA client' })
   @ApiResponse({ status: 200, type: [CASImportResponseDto] })
   async getClientImports(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('clientId') clientId: string,
   ) {
     const advisorId = getEffectiveAdvisorId(user);

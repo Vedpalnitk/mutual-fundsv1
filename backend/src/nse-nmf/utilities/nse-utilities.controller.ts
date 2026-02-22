@@ -12,6 +12,7 @@ import {
   KycCheckDto,
   ResendCommDto,
 } from '../dto/nmf.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('NSE NMF Utilities')
 @ApiBearerAuth()
@@ -23,31 +24,31 @@ export class NseUtilitiesController {
 
   @Post('utr-update')
   @ApiOperation({ summary: 'Link UTR to order' })
-  async utrUpdate(@CurrentUser() user: any, @Body() data: UtrUpdateDto) {
+  async utrUpdate(@CurrentUser() user: AuthenticatedUser, @Body() data: UtrUpdateDto) {
     return this.utilitiesService.updateUtr(user.id, data)
   }
 
   @Post('sip-umrn')
   @ApiOperation({ summary: 'Map SIP to XSIP mandate (UMRN)' })
-  async sipUmrn(@CurrentUser() user: any, @Body() data: SipUmrnDto) {
+  async sipUmrn(@CurrentUser() user: AuthenticatedUser, @Body() data: SipUmrnDto) {
     return this.utilitiesService.mapSipUmrn(user.id, data)
   }
 
   @Post('short-url')
   @ApiOperation({ summary: 'Get auth/payment short URL' })
-  async shortUrl(@CurrentUser() user: any, @Body() data: ShortUrlDto) {
+  async shortUrl(@CurrentUser() user: AuthenticatedUser, @Body() data: ShortUrlDto) {
     return this.utilitiesService.getShortUrl(user.id, data)
   }
 
   @Post('kyc-check')
   @ApiOperation({ summary: 'Check KYC by PAN' })
-  async kycCheck(@CurrentUser() user: any, @Body() data: KycCheckDto) {
+  async kycCheck(@CurrentUser() user: AuthenticatedUser, @Body() data: KycCheckDto) {
     return this.utilitiesService.checkKyc(user.id, data)
   }
 
   @Post('resend-comm')
   @ApiOperation({ summary: 'Resend auth email' })
-  async resendComm(@CurrentUser() user: any, @Body() data: ResendCommDto) {
+  async resendComm(@CurrentUser() user: AuthenticatedUser, @Body() data: ResendCommDto) {
     return this.utilitiesService.resendCommunication(user.id, data)
   }
 }

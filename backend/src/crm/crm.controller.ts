@@ -11,6 +11,7 @@ import {
   CreateTaskDto, UpdateTaskDto, TaskFilterDto,
   CreateActivityDto, ActivityFilterDto,
 } from './dto'
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('crm')
 @ApiBearerAuth()
@@ -24,41 +25,41 @@ export class CRMController {
 
   @Get('tasks')
   @ApiOperation({ summary: 'List CRM tasks' })
-  listTasks(@CurrentUser() user: any, @Query() filters: TaskFilterDto) {
+  listTasks(@CurrentUser() user: AuthenticatedUser, @Query() filters: TaskFilterDto) {
     return this.crmService.listTasks(getEffectiveAdvisorId(user), filters)
   }
 
   @Post('tasks')
   @ApiOperation({ summary: 'Create a CRM task' })
-  createTask(@CurrentUser() user: any, @Body() dto: CreateTaskDto) {
-    return this.crmService.createTask(getEffectiveAdvisorId(user), user.sub || user.id, dto)
+  createTask(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateTaskDto) {
+    return this.crmService.createTask(getEffectiveAdvisorId(user), user.id, dto)
   }
 
   @Put('tasks/:id')
   @ApiOperation({ summary: 'Update a CRM task' })
   updateTask(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: UpdateTaskDto,
   ) {
-    return this.crmService.updateTask(id, getEffectiveAdvisorId(user), user.sub || user.id, dto)
+    return this.crmService.updateTask(id, getEffectiveAdvisorId(user), user.id, dto)
   }
 
   @Put('tasks/:id/complete')
   @ApiOperation({ summary: 'Mark task as completed' })
-  completeTask(@CurrentUser() user: any, @Param('id') id: string) {
-    return this.crmService.completeTask(id, getEffectiveAdvisorId(user), user.sub || user.id)
+  completeTask(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.crmService.completeTask(id, getEffectiveAdvisorId(user), user.id)
   }
 
   @Get('tasks/overdue')
   @ApiOperation({ summary: 'Get overdue tasks' })
-  getOverdueTasks(@CurrentUser() user: any) {
+  getOverdueTasks(@CurrentUser() user: AuthenticatedUser) {
     return this.crmService.getOverdueTasks(getEffectiveAdvisorId(user))
   }
 
   @Get('tasks/summary')
   @ApiOperation({ summary: 'Get task summary stats' })
-  getTaskSummary(@CurrentUser() user: any) {
+  getTaskSummary(@CurrentUser() user: AuthenticatedUser) {
     return this.crmService.getTaskSummary(getEffectiveAdvisorId(user))
   }
 
@@ -66,14 +67,14 @@ export class CRMController {
 
   @Get('activities')
   @ApiOperation({ summary: 'List activity log' })
-  listActivities(@CurrentUser() user: any, @Query() filters: ActivityFilterDto) {
+  listActivities(@CurrentUser() user: AuthenticatedUser, @Query() filters: ActivityFilterDto) {
     return this.crmService.listActivities(getEffectiveAdvisorId(user), filters)
   }
 
   @Post('activities')
   @ApiOperation({ summary: 'Log an activity' })
-  createActivity(@CurrentUser() user: any, @Body() dto: CreateActivityDto) {
+  createActivity(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateActivityDto) {
     const staffId = user.role === 'fa_staff' ? user.staffProfileId : undefined
-    return this.crmService.createActivity(getEffectiveAdvisorId(user), user.sub || user.id, dto, staffId)
+    return this.crmService.createActivity(getEffectiveAdvisorId(user), user.id, dto, staffId)
   }
 }

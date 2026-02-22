@@ -8,6 +8,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Public } from '../../common/decorators/public.decorator'
 import { BsePaymentService } from './bse-payment.service'
 import { InitiatePaymentDto } from './dto/initiate-payment.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('BSE Payments')
 @Controller('api/v1/bse/payments')
@@ -20,7 +21,7 @@ export class BsePaymentsController {
   @Roles('advisor', 'admin', 'fa_staff')
   @ApiOperation({ summary: 'Initiate payment for an order' })
   async initiatePayment(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('orderId') orderId: string,
     @Body() dto: InitiatePaymentDto,
   ) {
@@ -33,7 +34,7 @@ export class BsePaymentsController {
   @Roles('advisor', 'admin', 'fa_staff')
   @ApiOperation({ summary: 'Check payment status for an order' })
   async getPaymentStatus(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('orderId') orderId: string,
   ) {
     return this.paymentService.getPaymentStatus(orderId, user.id)

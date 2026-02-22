@@ -1,8 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, Inject, ServiceUnavailableException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { Queue, ConnectionOptions } from 'bullmq'
+import CircuitBreaker from 'opossum'
 import { PrismaService } from '../../prisma/prisma.service'
 import { BseSoapBuilder } from './bse-soap.builder'
 import { BSE_TIMEOUTS } from './bse-config'
+import { withRetry } from '../../common/utils/retry'
+import { BULLMQ_CONNECTION } from '../../common/queue/queue.module'
+import { ApiLogJobData } from '../../common/queue/api-log.processor'
 
 export interface BseHttpResponse {
   statusCode: number
@@ -14,13 +19,55 @@ export interface BseHttpResponse {
 export class BseHttpClient {
   private readonly logger = new Logger(BseHttpClient.name)
   private readonly baseUrl: string
+  private readonly logQueue: Queue<ApiLogJobData>
+  private readonly breaker: CircuitBreaker
 
   constructor(
     private config: ConfigService,
     private prisma: PrismaService,
     private soapBuilder: BseSoapBuilder,
+    @Inject(BULLMQ_CONNECTION) connection: any,
   ) {
     this.baseUrl = this.config.get<string>('bse.baseUrl') || 'https://bsestarmfdemo.bseindia.com'
+    this.logQueue = new Queue('api-logs', { connection })
+
+    this.breaker = new CircuitBreaker(this._executeRequest.bind(this), {
+      timeout: 30000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 60000,
+      volumeThreshold: 5,
+    })
+    this.breaker.fallback(() => {
+      throw new ServiceUnavailableException('BSE API temporarily unavailable — circuit breaker open')
+    })
+    this.breaker.on('open', () => this.logger.warn('BSE circuit breaker OPEN'))
+    this.breaker.on('halfOpen', () => this.logger.log('BSE circuit breaker HALF-OPEN'))
+    this.breaker.on('close', () => this.logger.log('BSE circuit breaker CLOSED'))
+  }
+
+  private async _executeRequest(url: string, options: RequestInit, timeoutMs: number): Promise<Response> {
+    return withRetry(
+      () => {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), timeoutMs)
+        return fetch(url, {
+          ...options,
+          signal: controller.signal,
+        }).finally(() => clearTimeout(timeout))
+      },
+      {
+        maxRetries: 2,
+        baseDelayMs: 500,
+        shouldRetry: (error) =>
+          error instanceof Error && (
+            error.message.includes('fetch failed') ||
+            error.name === 'AbortError' ||
+            error.message.includes('ECONNREFUSED') ||
+            error.message.includes('ECONNRESET') ||
+            error.message.includes('ETIMEDOUT')
+          ),
+      },
+    )
   }
 
   async soapRequest(
@@ -36,20 +83,15 @@ export class BseHttpClient {
     const startTime = Date.now()
 
     try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), timeoutMs)
-
-      const response = await fetch(url, {
+      const response = await this.breaker.fire(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/soap+xml; charset=utf-8',
           SOAPAction: soapAction,
         },
         body: envelope,
-        signal: controller.signal,
-      })
+      }, timeoutMs) as Response
 
-      clearTimeout(timeout)
       const responseBody = await response.text()
       const latencyMs = Date.now() - startTime
 
@@ -80,20 +122,15 @@ export class BseHttpClient {
     const startTime = Date.now()
 
     try {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), timeoutMs)
-
-      const response = await fetch(url, {
+      const response = await this.breaker.fire(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
           ...headers,
         },
         body: method === 'POST' ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      })
+      }, timeoutMs) as Response
 
-      clearTimeout(timeout)
       const responseBody = await response.text()
       const latencyMs = Date.now() - startTime
 
@@ -131,11 +168,11 @@ export class BseHttpClient {
     errorMessage?: string,
   ) {
     try {
-      // Sanitize request data - remove passwords, tokens, PAN
       const sanitizedRequest = this.sanitize(requestData)
       const sanitizedResponse = this.sanitize(responseData)
 
-      await this.prisma.bseApiLog.create({
+      await this.logQueue.add('bse-log', {
+        table: 'bseApiLog',
         data: {
           advisorId,
           apiName,
@@ -147,9 +184,13 @@ export class BseHttpClient {
           latencyMs,
           errorMessage,
         },
+      }, {
+        priority: 10,
+        removeOnComplete: { age: 3600, count: 500 },
+        removeOnFail: { age: 86400, count: 1000 },
       })
     } catch (err) {
-      this.logger.warn('Failed to log BSE API call', err)
+      this.logger.warn('Failed to enqueue BSE API log', err)
     }
   }
 

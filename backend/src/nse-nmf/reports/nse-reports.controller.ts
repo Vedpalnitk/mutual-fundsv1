@@ -6,6 +6,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { NseReportsService } from './nse-reports.service'
 import { ReportQueryDto, NsePassthroughPipe } from '../dto/nmf.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('NSE NMF Reports')
 @ApiBearerAuth()
@@ -17,43 +18,43 @@ export class NseReportsController {
 
   @Post('order-status')
   @ApiOperation({ summary: 'Order status report' })
-  async orderStatus(@CurrentUser() user: any, @Body(NsePassthroughPipe) data: ReportQueryDto) {
+  async orderStatus(@CurrentUser() user: AuthenticatedUser, @Body(NsePassthroughPipe) data: ReportQueryDto) {
     return this.reportsService.getReport(user.id, 'order-status', data)
   }
 
   @Post('allotment')
   @ApiOperation({ summary: 'Allotment statement' })
-  async allotment(@CurrentUser() user: any, @Body(NsePassthroughPipe) data: ReportQueryDto) {
+  async allotment(@CurrentUser() user: AuthenticatedUser, @Body(NsePassthroughPipe) data: ReportQueryDto) {
     return this.reportsService.getReport(user.id, 'allotment', data)
   }
 
   @Post('order-lifecycle')
   @ApiOperation({ summary: 'Full order lifecycle' })
-  async orderLifecycle(@CurrentUser() user: any, @Body(NsePassthroughPipe) data: ReportQueryDto) {
+  async orderLifecycle(@CurrentUser() user: AuthenticatedUser, @Body(NsePassthroughPipe) data: ReportQueryDto) {
     return this.reportsService.getReport(user.id, 'order-lifecycle', data)
   }
 
   @Post('mandate-status')
   @ApiOperation({ summary: 'Mandate status report' })
-  async mandateStatus(@CurrentUser() user: any, @Body(NsePassthroughPipe) data: ReportQueryDto) {
+  async mandateStatus(@CurrentUser() user: AuthenticatedUser, @Body(NsePassthroughPipe) data: ReportQueryDto) {
     return this.reportsService.getReport(user.id, 'mandate-status', data)
   }
 
   @Post('sip-registration')
   @ApiOperation({ summary: 'SIP registration report' })
-  async sipRegistration(@CurrentUser() user: any, @Body(NsePassthroughPipe) data: ReportQueryDto) {
+  async sipRegistration(@CurrentUser() user: AuthenticatedUser, @Body(NsePassthroughPipe) data: ReportQueryDto) {
     return this.reportsService.getReport(user.id, 'sip-registration', data)
   }
 
   @Post('xsip-registration')
   @ApiOperation({ summary: 'XSIP registration report' })
-  async xsipRegistration(@CurrentUser() user: any, @Body(NsePassthroughPipe) data: ReportQueryDto) {
+  async xsipRegistration(@CurrentUser() user: AuthenticatedUser, @Body(NsePassthroughPipe) data: ReportQueryDto) {
     return this.reportsService.getReport(user.id, 'xsip-registration', data)
   }
 
   @Post('scheme-master')
   @ApiOperation({ summary: 'Scheme master download' })
-  async schemeMaster(@CurrentUser() user: any, @Body(NsePassthroughPipe) data: ReportQueryDto) {
+  async schemeMaster(@CurrentUser() user: AuthenticatedUser, @Body(NsePassthroughPipe) data: ReportQueryDto) {
     return this.reportsService.getReport(user.id, 'scheme-master', data)
   }
 
@@ -61,7 +62,7 @@ export class NseReportsController {
   @ApiOperation({ summary: 'Generic report endpoint' })
   async genericReport(
     @Param('reportType') reportType: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body(NsePassthroughPipe) data: ReportQueryDto,
   ) {
     return this.reportsService.getReport(user.id, reportType, data)

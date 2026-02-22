@@ -83,16 +83,42 @@ export class CommissionFilterDto {
   @IsEnum(['EXPECTED', 'RECEIVED', 'DISCREPANCY', 'RECONCILED'])
   @IsOptional()
   status?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  arnNumber?: string;
 }
 
 export class CalculateExpectedDto {
   @ApiProperty({ description: 'Period like 2026-01' })
   @IsString()
   period: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  arnNumber?: string;
 }
 
 export class ReconcileDto {
   @ApiProperty({ description: 'Period like 2026-01' })
   @IsString()
   period: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  arnNumber?: string;
+}
+
+export class ReconcileAndComputeDto {
+  @ApiProperty({ description: 'Period like 2026-01' })
+  @IsString()
+  period: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  arnNumber?: string;
 }

@@ -15,6 +15,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { getEffectiveAdvisorId } from '../common/utils/effective-advisor';
 import { GoalsService } from './goals.service';
 import { GoalResponseDto } from './dto/goal.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 /**
  * Advisor-wide goals controller
@@ -31,7 +32,7 @@ export class AdvisorGoalsController {
   @Get()
   @ApiOperation({ summary: 'List all goals across all clients (for advisor dashboard)' })
   @ApiResponse({ status: 200, type: [GoalResponseDto] })
-  async findAll(@CurrentUser() user: any) {
+  async findAll(@CurrentUser() user: AuthenticatedUser) {
     return this.goalsService.findAllByAdvisor(getEffectiveAdvisorId(user));
   }
 }

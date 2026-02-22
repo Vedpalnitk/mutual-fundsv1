@@ -6,6 +6,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
 import { NseMandateService } from './nse-mandate.service'
 import { RegisterMandateDto } from '../dto/nmf.dto'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('NSE NMF Mandates')
 @ApiBearerAuth()
@@ -18,7 +19,7 @@ export class NseMandatesController {
   @Get()
   @ApiOperation({ summary: 'List NSE mandates' })
   async list(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('clientId') clientId?: string,
     @Query('status') status?: string,
   ) {
@@ -28,7 +29,7 @@ export class NseMandatesController {
   @Post()
   @ApiOperation({ summary: 'Register mandate (supports batch up to 50)' })
   async register(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() data: RegisterMandateDto,
   ) {
     return this.mandateService.registerMandate(user.id, data)
@@ -38,7 +39,7 @@ export class NseMandatesController {
   @ApiOperation({ summary: 'Get mandate detail' })
   async getOne(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.mandateService.getMandate(id, user.id)
   }
@@ -47,7 +48,7 @@ export class NseMandatesController {
   @ApiOperation({ summary: 'Poll NSE for mandate status' })
   async refreshStatus(
     @Param('id') id: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.mandateService.refreshMandateStatus(id, user.id)
   }

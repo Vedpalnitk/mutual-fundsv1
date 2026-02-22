@@ -3,6 +3,9 @@ import { Cron, CronExpression } from '@nestjs/schedule'
 import { BseMastersService } from '../masters/bse-masters.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ConfigService } from '@nestjs/config'
+import { BatchJobsTracker } from '../../common/batch-jobs.tracker'
+import { withRetry } from '../../common/utils/retry'
+import { DistributedLockService } from '../../common/services/distributed-lock.service'
 
 @Injectable()
 export class BseSchemeMasterSyncJob {
@@ -13,6 +16,8 @@ export class BseSchemeMasterSyncJob {
     private mastersService: BseMastersService,
     private prisma: PrismaService,
     private config: ConfigService,
+    private tracker: BatchJobsTracker,
+    private lock: DistributedLockService,
   ) {
     this.isMockMode = this.config.get<boolean>('bse.mockMode') === true
   }
@@ -21,25 +26,35 @@ export class BseSchemeMasterSyncJob {
   @Cron('0 2 * * 0')
   async syncSchemeMaster() {
     if (this.isMockMode) return
+    if (!await this.lock.acquire('bse-scheme-master', 300)) return
+    try {
 
     this.logger.log('Starting weekly BSE scheme master sync')
 
-    const activeAdvisors = await this.prisma.bsePartnerCredential.findMany({
-      where: { isActive: true },
-      select: { userId: true },
-      take: 1, // Only need one credential for scheme master
+    await this.tracker.trackRun('bse_scheme_master', async () => {
+      const activeAdvisors = await this.prisma.bsePartnerCredential.findMany({
+        where: { isActive: true },
+        select: { userId: true },
+        take: 1,
+      })
+
+      if (activeAdvisors.length === 0) {
+        this.logger.warn('No active BSE credentials found, skipping scheme master sync')
+        return { total: 0, synced: 0, failed: 0 }
+      }
+
+      const result = await withRetry(
+        () => this.mastersService.syncSchemeMaster(activeAdvisors[0].userId),
+        { maxRetries: 2, baseDelayMs: 2000 },
+      )
+      this.logger.log(`Scheme master sync complete: ${result.synced} schemes synced`)
+      return { total: result.synced, synced: result.synced, failed: 0 }
+    }).catch(err => {
+      this.logger.error('BSE scheme master sync job failed', err)
     })
 
-    if (activeAdvisors.length === 0) {
-      this.logger.warn('No active BSE credentials found, skipping scheme master sync')
-      return
-    }
-
-    try {
-      const result = await this.mastersService.syncSchemeMaster(activeAdvisors[0].userId)
-      this.logger.log(`Scheme master sync complete: ${result.synced} schemes synced`)
-    } catch (error) {
-      this.logger.error('Scheme master sync failed', error)
+    } finally {
+      await this.lock.release('bse-scheme-master')
     }
   }
 }

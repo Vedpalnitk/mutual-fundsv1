@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AdvisorsService } from './advisors.service';
 import { CreateReviewDto, AdvisorFilterDto } from './dto/advisor.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('advisors')
 @ApiBearerAuth()
@@ -98,7 +99,7 @@ export class AdvisorsController {
   @ApiOperation({ summary: 'Create a review for an advisor' })
   @ApiResponse({ status: 201, description: 'Review created' })
   async createReview(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: CreateReviewDto,
   ) {

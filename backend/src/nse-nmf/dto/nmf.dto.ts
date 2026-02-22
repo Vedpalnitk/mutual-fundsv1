@@ -266,6 +266,100 @@ export class SubmitFatcaDto {
   // NOTE: FATCA may include additional NSE fields. Use NsePassthroughPipe.
 }
 
+// ─── FATCA Corporate ────────────────────────────────────────────────────────
+
+export class SubmitFatcaCorporateDto {
+  @ApiPropertyOptional({ description: 'Entity name' })
+  @IsString()
+  @IsOptional()
+  entity_name?: string
+
+  @ApiPropertyOptional({ description: 'Entity type (corporate/partnership/trust/etc.)' })
+  @IsString()
+  @IsOptional()
+  entity_type?: string
+
+  @ApiPropertyOptional({ description: 'Country of incorporation' })
+  @IsString()
+  @IsOptional()
+  incorporation_country?: string
+
+  @ApiPropertyOptional({ description: 'Country of tax residency' })
+  @IsString()
+  @IsOptional()
+  tax_country?: string
+
+  @ApiPropertyOptional({ description: 'Tax identification number' })
+  @IsString()
+  @IsOptional()
+  tax_id_number?: string
+
+  @ApiPropertyOptional({ description: 'GIIN (for FATCA reporting)' })
+  @IsString()
+  @IsOptional()
+  giin?: string
+
+  @ApiPropertyOptional({ description: 'Source of wealth (01=Business Income, etc.)' })
+  @IsString()
+  @IsOptional()
+  source_of_wealth?: string
+
+  @ApiPropertyOptional({ description: 'Net worth amount' })
+  @IsString()
+  @IsOptional()
+  net_worth?: string
+
+  @ApiPropertyOptional({ description: 'Net worth date (DD/MM/YYYY)' })
+  @IsString()
+  @IsOptional()
+  net_worth_date?: string
+
+  // NOTE: FATCA Corporate may include additional NSE fields. Use NsePassthroughPipe.
+}
+
+// ─── Client Bank Detail ─────────────────────────────────────────────────────
+
+export class AddBankDetailDto {
+  @ApiProperty({ description: 'Bank account number' })
+  @IsString()
+  @IsNotEmpty()
+  account_no: string
+
+  @ApiProperty({ description: 'Bank IFSC code' })
+  @IsString()
+  @IsNotEmpty()
+  ifsc_code: string
+
+  @ApiPropertyOptional({ description: 'Bank name' })
+  @IsString()
+  @IsOptional()
+  bank_name?: string
+
+  @ApiPropertyOptional({ description: 'Account type (SB/CA/CC/NRE/NRO)' })
+  @IsString()
+  @IsOptional()
+  account_type?: string
+
+  @ApiPropertyOptional({ description: 'Set as default bank (Y/N)' })
+  @IsString()
+  @IsOptional()
+  default_flag?: string
+
+  // NOTE: Bank detail may include additional NSE fields. Use NsePassthroughPipe.
+}
+
+export class DeleteBankDetailDto {
+  @ApiProperty({ description: 'Bank account number to delete' })
+  @IsString()
+  @IsNotEmpty()
+  account_no: string
+
+  @ApiProperty({ description: 'Bank IFSC code' })
+  @IsString()
+  @IsNotEmpty()
+  ifsc_code: string
+}
+
 // ─── eKYC ───────────────────────────────────────────────────────────────────
 
 export class InitiateEkycDto {
@@ -792,6 +886,60 @@ export class RegisterSwpDto {
   @IsString()
   @IsOptional()
   sipId?: string
+}
+
+// ─── SIP Topup ─────────────────────────────────────────────────────────
+
+export class RegisterSipTopupDto {
+  @ApiProperty({ description: 'Client ID (FAClient)' })
+  @IsString()
+  @IsNotEmpty()
+  clientId: string
+
+  @ApiProperty({ description: 'Existing SIP registration ID to top up' })
+  @IsString()
+  @IsNotEmpty()
+  sipRegId: string
+
+  @ApiProperty({ description: 'NSE scheme code' })
+  @IsString()
+  @IsNotEmpty()
+  schemeCode: string
+
+  @ApiPropertyOptional({ description: 'Scheme name for display' })
+  @IsString()
+  @IsOptional()
+  schemeName?: string
+
+  @ApiProperty({ description: 'Topup amount', example: 2000 })
+  @IsNumber()
+  @Min(100)
+  amount: number
+
+  @ApiProperty({ description: 'Frequency type (MONTHLY/QUARTERLY/WEEKLY/DAILY)' })
+  @IsString()
+  @IsNotEmpty()
+  frequencyType: string
+
+  @ApiProperty({ description: 'Topup start date (YYYY-MM-DD)' })
+  @IsDateString()
+  startDate: string
+
+  @ApiPropertyOptional({ description: 'Topup end date (YYYY-MM-DD)' })
+  @IsDateString()
+  @IsOptional()
+  endDate?: string
+
+  @ApiPropertyOptional({ description: 'Number of installments' })
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  installments?: number
+
+  @ApiPropertyOptional({ description: 'Existing folio number' })
+  @IsString()
+  @IsOptional()
+  folioNumber?: string
 }
 
 // ─── Reports ────────────────────────────────────────────────────────────────

@@ -23,6 +23,7 @@ import {
   HoldingAnalysisDto,
   StatusConfigDto,
 } from './dto/portfolio-analysis.dto';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface'
 
 @ApiTags('portfolio-analysis')
 @Controller('api/v1/portfolio-analysis')
@@ -58,7 +59,7 @@ The analysis considers:
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 503, description: 'Analysis service unavailable' })
   async analyzePortfolio(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: AnalyzePortfolioDto,
   ): Promise<PortfolioAnalysisResponseDto> {
     return this.analysisService.analyzePortfolio(dto);
@@ -79,7 +80,7 @@ The analysis considers:
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async analyzeHolding(
-    @CurrentUser() user: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body() dto: AnalyzeHoldingDto,
   ): Promise<HoldingAnalysisDto> {
     return this.analysisService.analyzeHolding(dto);
